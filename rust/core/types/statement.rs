@@ -41,7 +41,7 @@ pub enum StatementKind {
 
     // Keyword statements
     Tempo(f32),
-    // Bank(BankType),
+    Bank,
 
     // At (@) statements
     Include(String),

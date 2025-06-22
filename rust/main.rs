@@ -49,6 +49,10 @@ pub fn run_statements(module: &Module) {
                 let resolved = resolve_statement(stmt, module);
                 println!("✅ Resolved Statement: {:?}", resolved);
             }
+            StatementKind::Bank { .. } => {
+                let resolved = resolve_statement(stmt, module);
+                println!("✅ Resolved Bank Statement: {:?}", resolved);
+            }
             _ => {}
         }
     }

@@ -1,5 +1,5 @@
 use crate::core::{
-    parser::{ variable::parse_let_statement, Parser },
+    parser::{ bank::parse_bank, variable::parse_let_statement, Parser },
     types::{
         statement::{ Statement, StatementKind },
         store::GlobalStore,
@@ -23,6 +23,10 @@ pub fn parse_identifier(
         "let" => {
             parser.next(); // consomme "let"
             return parse_let_statement(parser); // consomme le reste
+        }
+        "bank" => {
+            parser.next(); // consomme "bank"
+            return parse_bank(parser, global_store);
         }
         _ => {
             parser.next(); // consomme l'identifiant

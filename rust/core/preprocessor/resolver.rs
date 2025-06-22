@@ -68,6 +68,7 @@ pub fn resolve_statement(stmt: &Statement, module: &Module) -> Statement {
                                 .unwrap_or(VariableValue::Text(format!("Unresolved: {}", name))),
                         _ => val.clone(),
                     };
+
                     resolved_params.insert(key.clone(), resolved_val);
                 }
 
@@ -101,6 +102,33 @@ pub fn resolve_statement(stmt: &Statement, module: &Module) -> Statement {
                 }
             } else {
                 eprintln!("⚠️ Unexpected value type in trigger: {:?}", stmt.value);
+                stmt.clone()
+            }
+        }
+        StatementKind::Bank { .. } => {
+            if let VariableValue::Number(n) = &stmt.value {
+                Statement {
+                    kind: StatementKind::Bank,
+                    value: VariableValue::Number(*n),
+                    indent: stmt.indent,
+                    line: stmt.line,
+                    column: stmt.column,
+                }
+            } else if let VariableValue::Text(name) = &stmt.value {
+                if let Some(imported_value) = module.import_table.imports.get(name) {
+                    Statement {
+                        kind: StatementKind::Bank,
+                        value: imported_value.clone(),
+                        indent: stmt.indent,
+                        line: stmt.line,
+                        column: stmt.column,
+                    }
+                } else {
+                    eprintln!("⚠️ Unresolved variable '{}'", name);
+                    stmt.clone()
+                }
+            } else {
+                eprintln!("⚠️ Unexpected value type in bank: {:?}", stmt.value);
                 stmt.clone()
             }
         }

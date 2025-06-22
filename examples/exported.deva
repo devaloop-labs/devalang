@@ -1,3 +1,4 @@
 let x = auto
+let y = 808
 
-@export { x }
+@export { x, y }

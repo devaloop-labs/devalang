@@ -2,9 +2,10 @@ pub mod identifer;
 pub mod variable;
 pub mod at;
 pub mod dot;
+pub mod bank;
 
 use crate::core::{
-    parser::{ at::parse_at, dot::parse_dot, identifer::parse_identifier },
+    parser::{ at::parse_at, bank::parse_bank, dot::parse_dot, identifer::parse_identifier },
     types::{
         module::Module,
         parser::Parser,
@@ -123,6 +124,13 @@ pub fn parse_without_resolving(
                 match parse_identifier(&mut parser, global_store) {
                     Ok(statement) => statements.push(statement),
                     Err(e) => eprintln!("Error parsing identifier: {}", e),
+                }
+            }
+
+            Some(TokenKind::Bank) => {
+                match parse_bank(&mut parser, global_store) {
+                    Ok(statement) => statements.push(statement),
+                    Err(e) => eprintln!("Error parsing bank statement: {}", e),
                 }
             }
 

@@ -54,6 +54,9 @@ pub fn load_module_into_global_store(
     let content = std::fs::read_to_string(path).map_err(|_| format!("Cannot read file: {}", path))?;
 
     let tokens = lex(content);
+
+    println!("🔄 Tokens: {:?}", tokens);
+
     let mut parser = Parser::new(tokens.clone());
 
     // 🔄 Mettre à jour le contexte du module courant
