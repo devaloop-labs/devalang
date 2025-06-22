@@ -1,21 +1,26 @@
 pub mod module;
 pub mod dependencies;
 
-use std::{ collections::{ HashSet, VecDeque }, fs };
-use crate::core::{
-    preprocessor::module::load_module_into_global_store,
-    types::{ store::GlobalStore, token::Token },
+use std::{
+    collections::{HashSet, VecDeque},
+    fs,
 };
 
-/// Analyse un fichier .deva + ses imports directs
+use crate::core::{
+    preprocessor::module::load_module_into_global_store,
+    types::{store::GlobalStore, token::Token},
+};
+
+/// 🔁 Fonction principale de prétraitement :
+/// Charge tous les fichiers à partir d’un fichier d’entrée, en suivant les @import
 pub fn preprocess(entry_file: &str) -> GlobalStore {
-    let mut store = GlobalStore::default();
+    println!("📦 Collecting dependencies for: {}", entry_file);
+
     let files = collect_dependencies_recursively(entry_file);
+    let mut store = GlobalStore::default();
 
-    println!("Collecting dependencies for: {}", entry_file);
-
-    for file in files {
-        if let Err(e) = load_module_into_global_store(&file, &mut store) {
+    for file in &files {
+        if let Err(e) = load_module_into_global_store(file, &mut store) {
             eprintln!("❌ Error while loading {}: {}", file, e);
         }
     }
@@ -23,7 +28,7 @@ pub fn preprocess(entry_file: &str) -> GlobalStore {
     store
 }
 
-/// Résout récursivement les dépendances `@import` d'un fichier
+/// 🔍 Résout récursivement les fichiers @import depuis un fichier d’entrée
 pub fn collect_dependencies_recursively(entry_file: &str) -> Vec<String> {
     let mut queue = VecDeque::new();
     let mut loaded = HashSet::new();
@@ -35,9 +40,9 @@ pub fn collect_dependencies_recursively(entry_file: &str) -> Vec<String> {
             continue;
         }
 
-        println!("Processing file: {}", file_ref);
+        println!("📄 Processing file: {}", file_ref);
 
-        let deps = get_direct_dependencies(entry_file);
+        let deps = get_direct_dependencies(&file_ref); // ✅ fix ici
         for dep in deps {
             queue.push_back(dep.clone());
         }
@@ -48,6 +53,8 @@ pub fn collect_dependencies_recursively(entry_file: &str) -> Vec<String> {
     loaded.into_iter().collect()
 }
 
+/// 🔎 Analyse un fichier pour en extraire les chemins depuis les lignes `@import { ... } from "..."`
+/// Ne parse pas, lit juste les lignes en brut
 fn get_direct_dependencies(file: &str) -> Vec<String> {
     let content = match fs::read_to_string(file) {
         Ok(c) => c,
@@ -62,11 +69,9 @@ fn get_direct_dependencies(file: &str) -> Vec<String> {
     for line in content.lines() {
         let line = line.trim();
 
-        // On garde les lignes qui commencent par @import
         if line.starts_with("@import") {
-            // On cherche "from"
             if let Some(from_index) = line.find("from") {
-                let after_from = line[from_index + 4..].trim(); // +4 pour sauter "from"
+                let after_from = line[from_index + 4..].trim();
                 if after_from.starts_with('"') || after_from.starts_with('\'') {
                     let delimiter = after_from.chars().next().unwrap();
                     if let Some(end_quote) = after_from[1..].find(delimiter) {
@@ -78,7 +83,6 @@ fn get_direct_dependencies(file: &str) -> Vec<String> {
         }
     }
 
-    println!("Direct dependencies for {}: {:?}", file, deps);
-
+    println!("🔗 Direct dependencies for {}: {:?}", file, deps);
     deps
 }

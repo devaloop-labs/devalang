@@ -1,9 +1,16 @@
-use crate::core::{ parser::variable, types::token::TokenKind };
+use std::collections::HashMap;
+
+use crate::core::{
+    parser::variable,
+    types::{ statement::Statement, token::TokenKind, variable::VariableValue },
+};
 
 pub fn parse_dot(
-    parser: &mut crate::core::parser::Parser
+    parser: &mut crate::core::parser::Parser,
+    global_store: &mut crate::core::types::store::GlobalStore
 ) -> Result<crate::core::types::statement::Statement, String> {
     let token = parser.peek().ok_or("Unexpected EOF")?.clone();
+    let mut trigger_value: String = String::from("Unknown Trigger");
 
     // Ne consomme rien ici : on vérifie seulement
     if token.kind != crate::core::types::token::TokenKind::Dot {
@@ -22,42 +29,48 @@ pub fn parse_dot(
 
     // Récupère la durée
     let duration_token = parser.peek().ok_or("Expected duration after identifier")?.clone();
-    // if duration_token.kind != crate::core::types::token::TokenKind::Number {
-    //     return Err(format!("Expected Number after Identifier, found {:?}", duration_token.kind));
-    // }
-
     if duration_token.kind == TokenKind::Identifier {
-        // Chercher dans la table des variables
-        // let variable_value = parser.import_table
-        //     .get_import(&duration_token.lexeme)
-        //     .ok_or(format!("Variable '{}' not found", duration_token.lexeme))?;
+        // let var_name = &duration_token.lexeme;
 
-        // println!("Variable found: {:?}", variable_value);
+        // println!("🔍 Resolving variable '{}'", var_name);
+        // println!("🔍 Current module: '{}'", parser.current_module);
+        // println!("🔍 Available modules : '{:?}'", global_store.modules);
+        // println!("🔍 Current module variables: '{:?}'", global_store.modules.get(&parser.current_module));
 
-        // TODO parse variable
+        // let variable_value = global_store.modules
+        //     .get(&parser.current_module)
+        //     .and_then(|module| module.export_table.exports.get(var_name))
+        //     .ok_or(format!("❌ Variable '{}' not found in local or imported scope", var_name))?;
 
-        let var_name = &duration_token.lexeme;
+        // trigger_value = match variable_value {
+        //     VariableValue::Text(text) => text.clone(),
+        //     VariableValue::Number(num) => num.to_string(),
+        //     VariableValue::Unknown => {
+        //         return Err(format!("❌ Variable '{}' is unknown", var_name));
+        //     }
+        //     _ => {
+        //         return Err(format!("❌ Unsupported variable type for '{}'", var_name));
+        //     }
+        // };
 
-        let variable_value = parser.variable_table.variables
-            .get(var_name)
-            .or_else(|| parser.import_table.imports.get(var_name))
-            .ok_or(format!("❌ Variable '{}' not found in local or imported scope", var_name))?;
+        // // println!("✅ Resolved {:?}", parser.variable_table);
+        // // println!("✅ Resolved {:?}", parser.export_table);
+        // // println!("✅ Resolved {:?}", parser.import_table);
+        // println!("✅ Resolved {:?}", variable_value);
 
-        // println!("✅ Resolved {:?}", parser.variable_table);
-        // println!("✅ Resolved {:?}", parser.export_table);
-        // println!("✅ Resolved {:?}", parser.import_table);
-        println!("✅ Resolved {:?}", variable_value);
+        // NOTE : Attendre la prochaine itération pour parser la variable
+        return Err(format!("Expected duration after identifier, found variable '{:?}'", duration_token));
     }
 
     parser.next(); // consomme la durée
 
     // TODO parser la valeur de la variable
-    
-    Ok(crate::core::types::statement::Statement {
+
+    Ok(Statement {
         kind: crate::core::types::statement::StatementKind::Trigger {
             entity: next_token.lexeme.clone(),
         },
-        value: crate::core::types::variable::VariableValue::Text(next_token.lexeme.clone()),
+        value: VariableValue::Text(trigger_value),
         indent: token.indent,
         line: token.line,
         column: token.column,

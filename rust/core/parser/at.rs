@@ -1,5 +1,3 @@
-use rodio::source;
-
 use crate::core::types::{
     parser::Parser,
     statement::{ Statement, StatementKind },
@@ -99,23 +97,24 @@ pub fn parse_at(parser: &mut Parser, global_store: &mut GlobalStore) -> Result<S
 
         importable_tokens.iter().for_each(|t| {
             let variable_value = parse_variable_value(t.lexeme.clone(), parser, global_store);
-
             parser.import_table.imports.insert(t.lexeme.clone(), variable_value.clone());
         });
 
-        return Ok(Statement {
+        let statement = Statement {
             kind: StatementKind::Import {
                 names: importable_tokens
                     .iter()
                     .map(|t| t.lexeme.clone())
                     .collect(),
-                source: source_lexeme,
+                source: source_token.lexeme.clone(),
             },
             value: VariableValue::Array(importable_tokens),
             indent: token.indent,
             line: token.line,
             column: token.column,
-        });
+        };
+
+        return Ok(statement);
     } else {
         // Si l'identifiant n'est ni "export" ni "import", on le consomme normalement
         parser.next(); // Consomme l'identifiant
@@ -141,6 +140,9 @@ fn parse_variable_value(
     parser: &mut Parser,
     global_store: &mut GlobalStore
 ) -> VariableValue {
+    // println!("Parsing variable value for lexeme: {:?}", parser.variable_table.variables);
+    // println!("Parsing variable value for lexeme: {:?}", parser.variable_table.get(&lexeme.clone()).is_some());
+
     if lexeme.contains('\"') || lexeme.contains('\'') {
         // If the lexeme contains quotes, treat it as a string
         return VariableValue::Text(lexeme);
@@ -158,17 +160,11 @@ fn parse_variable_value(
     } else if lexeme.starts_with('{') && lexeme.ends_with('}') {
         // If the lexeme starts with '{' and ends with '}', treat it as an object
         return VariableValue::Map(vec![].into_iter().collect()); // TODO
-    } else if parser.import_table.get_import(&lexeme).is_some() {
-        return parser.import_table
-            .get_import(&lexeme)
-            .map(|value| value.clone())
-            .unwrap_or_else(|| {
-                // If the lexeme is not found in the variable table or import table, return a default value
-                VariableValue::Text(format!("Unknown variable: {}", lexeme))
-            });
+    } else if parser.variable_table.get(&lexeme.clone()).is_some() {
+        let var_value = parser.variable_table.get(&lexeme.clone()).unwrap().clone();
+        return var_value;
     } else {
-        println!("Modules : {:?}", global_store.modules);
-
-        return VariableValue::Text(format!("Unknown type : {}", lexeme)); // Default case for unknown types
+        // TODO: Handle unknown variable types
+        return VariableValue::Text(format!("Unknown variable type : {}", lexeme));
     }
 }

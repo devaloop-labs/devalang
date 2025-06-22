@@ -1,10 +1,30 @@
 use std::collections::HashMap;
 
-use crate::core::types::{module::Module, variable::VariableValue};
+use crate::core::types::{ module::Module, variable::VariableValue };
 
 #[derive(Debug, Default)]
 pub struct GlobalStore {
     pub modules: HashMap<String, Module>,
+}
+
+impl GlobalStore {
+    pub fn new() -> Self {
+        GlobalStore {
+            modules: HashMap::new(),
+        }
+    }
+
+    pub fn set_module(&mut self, path: String, module: Module) {
+        self.modules.insert(path, module);
+    }
+
+    pub fn get_module(&self, path: &str) -> Option<&Module> {
+        self.modules.get(path)
+    }
+
+    pub fn remove_module(&mut self, path: &str) -> Option<Module> {
+        self.modules.remove(path)
+    }
 }
 
 #[derive(Debug, Default, Clone)]

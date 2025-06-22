@@ -3,7 +3,6 @@ pub mod core;
 use std::fs;
 use crate::core::{
     lexer::lex,
-    parser::parse,
     preprocessor::{ collect_dependencies_recursively, module::load_all_modules, preprocess },
     types::{
         module::Module,
@@ -18,8 +17,10 @@ use crate::core::{
 fn main() {
     let entry_file = "./examples/index.deva";
 
-    let global_store = load_all_modules(entry_file); // ← tout est géré là
+    // 📦 Charge tous les modules + résout les imports
+    let global_store = load_all_modules(entry_file);
 
+    // ✅ Affichage des modules et de leur contenu
     println!("\n✅ Résumé des modules chargés :\n");
     for (path, module) in &global_store.modules {
         println!("📁 {}", path);
@@ -28,65 +29,119 @@ fn main() {
         println!("  🔸 Exports  : {:?}", module.export_table.exports);
         println!("  🔸 Imports  : {:?}", module.import_table.imports);
         println!();
+
+        for stmt in &module.statements {
+            println!("    → {:?}", stmt);
+        }
+        println!("\n-----------------------------\n");
+    }
+
+    if let Some(module) = global_store.modules.get("./examples/index.deva") {
+        run_statements(module);
     }
 }
 
-pub fn resolve_exports(statements: &[Statement], variable_table: &VariableTable) -> ExportTable {
-    let mut table = ExportTable::default();
+pub fn resolve_exports(statements: &[Statement], parser: &Parser) -> ExportTable {
+    let mut export_table = parser.export_table.clone();
 
     for stmt in statements {
         if let StatementKind::Export = &stmt.kind {
             if let VariableValue::Array(tokens) = &stmt.value {
                 for token in tokens {
                     let var_name = &token.lexeme;
-                    if let Some(value) = variable_table.variables.get(var_name) {
-                        table.exports.insert(var_name.clone(), value.clone());
+                    if let Some(value) = parser.variable_table.variables.get(var_name) {
+                        export_table.add_export(var_name.clone(), value.clone());
                     } else {
                         eprintln!("⚠️ Variable '{}' not found in scope, export skipped", var_name);
                     }
                 }
+            } else {
+                eprintln!("⚠️ Unexpected value type in export: {:?}", stmt.value);
             }
         }
     }
 
-    table
+    export_table
 }
 
-fn resolve_imports(module: &Module, global_store: &mut GlobalStore) -> ImportTable {
-    let mut import_table = module.import_table.clone();
-    let mut variable_table = module.variable_table.clone();
-
-    println!("{:?}", global_store.modules.keys());
-
+pub fn resolve_imports(module: &mut Module, global_store: &GlobalStore) -> ImportTable {
     println!("Resolving imports for module '{}'", module.path);
     for stmt in &module.statements {
         if let StatementKind::Import { names, source } = &stmt.kind {
             println!("  ↳ trying to import {:?} from {}", names, source);
-            if !global_store.modules.contains_key(source) {
-                println!("  ❌ source module '{}' NOT FOUND", source);
-            } else {
-                println!("  ✅ source module '{}' found", source);
-                if let Some(from_module) = global_store.modules.get(source) {
-                    for name in names {
-                        if let Some(value) = from_module.export_table.exports.get(name) {
-                            import_table.imports.insert(name.clone(), value.clone());
-                            variable_table.variables.insert(name.clone(), value.clone());
-                            println!(
-                                "🔍 EXPORTS from {}: {:?}",
-                                source,
-                                from_module.export_table.exports
-                            );
-                            println!("  ↳ Imported '{}' from '{}'", name, source);
-                        } else {
-                            eprintln!("⚠️ Variable '{}' not found in module '{}'", name, source);
-                        }
+            if let Some(from_module) = global_store.modules.get(source) {
+                for name in names {
+                    if let Some(value) = from_module.export_table.exports.get(name) {
+                        module.import_table.add_import(name.clone(), value.clone());
+                        module.variable_table.variables.insert(name.clone(), value.clone());
+                        println!("  ↳ Imported '{}' from '{}': {:?}", name, source, value);
+                    } else {
+                        eprintln!("⚠️ Variable '{}' not found in module '{}'", name, source);
                     }
-                } else {
-                    eprintln!("⚠️ Module '{}' not found", source);
                 }
+            } else {
+                eprintln!("  ❌ source module '{}' NOT FOUND", source);
             }
         }
     }
 
-    import_table
+    println!("Imports resolved for module '{}': {:?}", module.path, module.import_table.imports);
+    module.import_table.clone()
+}
+
+/// Exécute tous les statements d'un module avec résolution des variables
+pub fn run_statements(module: &crate::core::types::module::Module) {
+    println!("▶️ Execution for module: {}", module.path);
+
+    for stmt in &module.statements {
+        // match &stmt.kind {
+        //     crate::core::types::statement::StatementKind::Trigger { entity } => {
+        //         // On attend une valeur de type Text contenant le nom de variable
+        //         // if let crate::core::types::variable::VariableValue::Text(var_name) = &stmt.value {
+        //         //     let value = module.import_table.imports
+        //         //         .get(var_name)
+        //         //         .or_else(|| module.variable_table.variables.get(var_name));
+
+        //         //     match value {
+        //         //         Some(v) => println!("▶️ .{}[{}: {:?}]", entity, var_name, v),
+        //         //         None => println!("❌ .{}[{}: not found]", entity, var_name),
+        //         //     }
+        //         // } else {
+        //         //     println!("⚠️ .{}[raw value: {:?}]", entity, stmt.value);
+        //         // }
+        //         if let VariableValue::Text(var_name) = &stmt.value {
+        //             let value = module.variable_table.variables.get(var_name);
+
+        //             match value {
+        //                 Some(v) => println!("▶️ .{}[{}: {:?}]", entity, var_name, v),
+        //                 None => println!("❌ .{}[{}: not found]", entity, var_name),
+        //             }
+        //         } else {
+        //             println!("⚠️ .{}[raw value: {:?}]", entity, stmt.value);
+        //         }
+        //     }
+
+        //     _ => {
+        //         // Tu peux gérer d'autres StatementKind ici si besoin
+        //         println!("▶️ Executing statement: {:?} ({:?})", stmt.kind, stmt.value);
+        //     }
+        // }
+
+        match &stmt.value {
+            crate::core::types::variable::VariableValue::Text(text) => {
+                println!("  ↳ Text value: {}", text);
+            }
+            crate::core::types::variable::VariableValue::Number(num) => {
+                println!("  ↳ Number value: {}", num);
+            }
+            crate::core::types::variable::VariableValue::Array(tokens) => {
+                println!("  ↳ Array value: {:?}", tokens);
+            }
+            _ => {
+                println!("  ↳ Other value type: {:?}", stmt.value);
+            }
+        }
+    }
+
+    println!("Final module : {:?}", module);
 }

@@ -10,6 +10,7 @@ pub struct Parser {
     pub variable_table: VariableTable,
     pub export_table: ExportTable,
     pub import_table: ImportTable,
+    pub current_module: String,
 }
 
 impl Parser {
@@ -20,7 +21,13 @@ impl Parser {
             variable_table: VariableTable::new(),
             export_table: ExportTable::new(),
             import_table: ImportTable::new(),
+            current_module: String::new(),
         }
+    }
+
+    pub fn set_tokens(&mut self, tokens: Vec<Token>) {
+        self.tokens = tokens;
+        self.token_index = 0;
     }
 
     pub fn peek(&self) -> Option<&Token> {
