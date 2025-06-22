@@ -39,3 +39,24 @@ pub enum TokenKind {
     EOF,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub enum TokenDuration {
+    Number(f32),
+    Identifier(String),
+    Auto,
+    Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct TokenParam {
+    pub name: String,
+    pub value: TokenParamValue,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub enum TokenParamValue {
+    Number(f32),
+    String(String),
+    Boolean(bool),
+    Identifier(String),
+}

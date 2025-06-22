@@ -2,7 +2,7 @@ pub mod core;
 
 use std::fs;
 use crate::core::{
-    preprocessor::{ module::load_all_modules },
+    preprocessor::{ module::load_all_modules, resolver::resolve_statement },
     types::{
         module::Module,
         parser::Parser,
@@ -40,54 +40,16 @@ fn main() {
 }
 
 /// Exécute tous les statements d'un module avec résolution des variables
-pub fn run_statements(module: &crate::core::types::module::Module) {
+pub fn run_statements(module: &Module) {
+    println!("▶️ Executing statements for module: {}", module.path);
+
     for stmt in &module.statements {
-        // match &stmt.kind {
-        //     crate::core::types::statement::StatementKind::Trigger { entity } => {
-        //         // On attend une valeur de type Text contenant le nom de variable
-        //         // if let crate::core::types::variable::VariableValue::Text(var_name) = &stmt.value {
-        //         //     let value = module.import_table.imports
-        //         //         .get(var_name)
-        //         //         .or_else(|| module.variable_table.variables.get(var_name));
-
-        //         //     match value {
-        //         //         Some(v) => println!("▶️ .{}[{}: {:?}]", entity, var_name, v),
-        //         //         None => println!("❌ .{}[{}: not found]", entity, var_name),
-        //         //     }
-        //         // } else {
-        //         //     println!("⚠️ .{}[raw value: {:?}]", entity, stmt.value);
-        //         // }
-        //         if let VariableValue::Text(var_name) = &stmt.value {
-        //             let value = module.variable_table.variables.get(var_name);
-
-        //             match value {
-        //                 Some(v) => println!("▶️ .{}[{}: {:?}]", entity, var_name, v),
-        //                 None => println!("❌ .{}[{}: not found]", entity, var_name),
-        //             }
-        //         } else {
-        //             println!("⚠️ .{}[raw value: {:?}]", entity, stmt.value);
-        //         }
-        //     }
-
-        //     _ => {
-        //         // Tu peux gérer d'autres StatementKind ici si besoin
-        //         println!("▶️ Executing statement: {:?} ({:?})", stmt.kind, stmt.value);
-        //     }
-        // }
-
-        match &stmt.value {
-            crate::core::types::variable::VariableValue::Text(text) => {
-                println!("  ↳ Text value: {}", text);
+        match &stmt.kind {
+            StatementKind::Trigger { .. } => {
+                let resolved = resolve_statement(stmt, module);
+                println!("✅ Resolved Statement: {:?}", resolved);
             }
-            crate::core::types::variable::VariableValue::Number(num) => {
-                println!("  ↳ Number value: {}", num);
-            }
-            crate::core::types::variable::VariableValue::Array(tokens) => {
-                println!("  ↳ Array value: {:?}", tokens);
-            }
-            _ => {
-                println!("  ↳ Other value type: {:?}", stmt.value);
-            }
+            _ => {}
         }
     }
 }

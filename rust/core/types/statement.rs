@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use crate::core::types::{token::Token, variable::VariableValue};
+use crate::core::types::{token::{Token, TokenDuration, TokenParam}, variable::VariableValue};
 
 #[derive(Debug, Clone)]
 pub struct Statement {
@@ -17,7 +17,7 @@ pub enum StatementKind {
     // Trigger statements
     Trigger {
         entity: String,
-        // duration: TriggerDuration,
+        // duration: TokenDuration,
         // params: Vec<TokenParam>,
     },
 

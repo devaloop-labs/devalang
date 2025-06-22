@@ -18,10 +18,55 @@ use crate::core::{
 pub fn parse_with_resolving(
     tokens: Vec<Token>,
     mut parser: &mut Parser,
+    mut module: &mut Module,
     global_store: &mut GlobalStore
 ) -> Vec<Statement> {
     // Réinitialisation du parser
     // parser.set_tokens(tokens.clone());
+
+    // println!("🔄 Parsing with resolving... {:?}", module);
+
+    // // Résolution des exports
+    // let export_table = parser.export_table.clone();
+    // let import_table = parser.import_table.clone();
+
+    // for (name, value) in export_table.exports.iter() {
+    //     println!("🔄 Resolving export: {} -> {:?}", name, value);
+    //     // On ajoute chaque export à la table des variables du parser
+    //     parser.variable_table.variables.insert(name.clone(), value.clone());
+    //     parser.export_table.exports.insert(name.clone(), value.clone());
+
+    //     module.export_table.exports.insert(name.clone(), value.clone());
+    // }
+
+    // for (name, value) in import_table.imports.iter() {
+    //     println!("🔄 Resolving import: {} -> {:?}", name, value);
+    //     // On ajoute chaque import à la table des variables du parser
+    //     parser.import_table.imports.insert(name.clone(), value.clone());
+
+    //     // On parse la valeur de la variable importée
+    //     let parsed_variable_value = parse_variable_value(value.clone(), &mut parser, global_store);
+    //     parser.variable_table.variables.insert(name.clone(), parsed_variable_value.clone());
+
+    //     module.import_table.imports.insert(name.clone(), parsed_variable_value.clone());
+    //     module.variable_table.variables.insert(name.clone(), parsed_variable_value.clone());
+    // }
+
+    // // NOTE Debugging VariableTable
+    // println!("Local variable table : {:?}", parser.variable_table);
+
+    // // NOTE Debugging ExportTable
+    // println!("Local export table : {:?}", parser.export_table);
+
+    // // NOTE Debugging ExportTable
+    // println!("Local import table : {:?}", parser.import_table);
+
+    // module.statements.clone()
+
+
+    let mut statements = Vec::new();
+
+    statements.extend(parse_without_resolving(tokens, &mut parser, global_store));
 
     // Résolution des exports
     let export_table = parser.export_table.clone();
@@ -32,6 +77,8 @@ pub fn parse_with_resolving(
         // On ajoute chaque export à la table des variables du parser
         parser.variable_table.variables.insert(name.clone(), value.clone());
         parser.export_table.exports.insert(name.clone(), value.clone());
+
+        module.export_table.exports.insert(name.clone(), value.clone());
     }
 
     for (name, value) in import_table.imports.iter() {
@@ -41,28 +88,32 @@ pub fn parse_with_resolving(
 
         // On parse la valeur de la variable importée
         let parsed_variable_value = parse_variable_value(value.clone(), &mut parser, global_store);
-        parser.variable_table.variables.insert(name.clone(), parsed_variable_value);
+        parser.variable_table.variables.insert(name.clone(), parsed_variable_value.clone());
+
+        module.import_table.imports.insert(name.clone(), parsed_variable_value.clone());
+        module.variable_table.variables.insert(name.clone(), parsed_variable_value.clone());
     }
 
     // NOTE Debugging VariableTable
     println!("Local variable table : {:?}", parser.variable_table);
-
     // NOTE Debugging ExportTable
     println!("Local export table : {:?}", parser.export_table);
-
-    // NOTE Debugging ExportTable
+    // NOTE Debugging ImportTable
     println!("Local import table : {:?}", parser.import_table);
+    // NOTE Debugging Module
+    println!("Module after parsing: {:?}", module);
 
-    // Parser une seconde fois, cette fois avec le imports/exports résolus dans le parser + global_store
-    let statements = parse_without_resolving(tokens, &mut parser, global_store);
+    // On met à jour les déclarations du module
+    module.statements = statements.clone();
 
+    // On retourne les déclarations
     statements
 }
 
 pub fn parse_without_resolving(
     tokens: Vec<Token>,
     mut parser: &mut Parser,
-    global_store: &mut GlobalStore
+    global_store: &mut GlobalStore,
 ) -> Vec<Statement> {
     let mut statements = Vec::new();
 

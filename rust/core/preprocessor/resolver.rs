@@ -51,3 +51,59 @@ pub fn resolve_imports(module: &mut Module, global_store: &GlobalStore) -> Impor
 
     import_table
 }
+
+pub fn resolve_statement(stmt: &Statement, module: &Module) -> Statement {
+    match &stmt.kind {
+        StatementKind::Trigger { entity } => {
+            if let VariableValue::Map(params) = &stmt.value {
+                let mut resolved_params = std::collections::HashMap::new();
+
+                for (key, val) in params {
+                    let resolved_val = match val {
+                        VariableValue::Text(name) =>
+                            module.import_table.imports
+                                .get(name)
+                                .or_else(|| module.variable_table.variables.get(name))
+                                .cloned()
+                                .unwrap_or(VariableValue::Text(format!("Unresolved: {}", name))),
+                        _ => val.clone(),
+                    };
+                    resolved_params.insert(key.clone(), resolved_val);
+                }
+
+                Statement {
+                    kind: StatementKind::Trigger { entity: entity.clone() },
+                    value: VariableValue::Map(resolved_params),
+                    indent: stmt.indent,
+                    line: stmt.line,
+                    column: stmt.column,
+                }
+            } else if let VariableValue::Text(name) = &stmt.value {
+                if
+                    let Some(imported_value) = module.import_table.imports
+                        .get(name)
+                        .or_else(|| module.variable_table.variables.get(name))
+                {
+                    Statement {
+                        kind: StatementKind::Trigger { entity: entity.clone() },
+                        value: VariableValue::Map(
+                            std::collections::HashMap::from([
+                                (name.clone(), imported_value.clone()),
+                            ])
+                        ),
+                        indent: stmt.indent,
+                        line: stmt.line,
+                        column: stmt.column,
+                    }
+                } else {
+                    eprintln!("⚠️ Unresolved variable '{}'", name);
+                    stmt.clone()
+                }
+            } else {
+                eprintln!("⚠️ Unexpected value type in trigger: {:?}", stmt.value);
+                stmt.clone()
+            }
+        }
+        _ => stmt.clone(),
+    }
+}

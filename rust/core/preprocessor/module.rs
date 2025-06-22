@@ -77,12 +77,6 @@ pub fn load_module_into_global_store(
 
     // On met à jour le module dans le store global
     global_store.insert_module(path.to_string(), module.clone());
-    
-    // let new_statements = parse_with_resolving(tokens, &mut parser, global_store);
-    // // On met à jour les déclarations du module avec les nouvelles déclarations résolues
-    // module.statements = new_statements;
-
-    // global_store.update_module(path.to_string(), module);
 
     Ok(())
 }

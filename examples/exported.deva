@@ -1,3 +1,3 @@
-let x = 0
+let x = auto
 
 @export { x }
