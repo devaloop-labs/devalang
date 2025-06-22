@@ -6,10 +6,12 @@ pub mod dot;
 use crate::core::{
     parser::{ at::parse_at, dot::parse_dot, identifer::parse_identifier },
     types::{
+        module::Module,
         parser::Parser,
         statement::Statement,
         store::{ GlobalStore, VariableTable },
         token::{ Token, TokenKind },
+        variable::VariableValue,
     },
 };
 
@@ -36,7 +38,10 @@ pub fn parse_with_resolving(
         println!("🔄 Resolving import: {} -> {:?}", name, value);
         // On ajoute chaque import à la table des variables du parser
         parser.import_table.imports.insert(name.clone(), value.clone());
-        parser.variable_table.variables.insert(name.clone(), value.clone());
+
+        // On parse la valeur de la variable importée
+        let parsed_variable_value = parse_variable_value(value.clone(), &mut parser, global_store);
+        parser.variable_table.variables.insert(name.clone(), parsed_variable_value);
     }
 
     // NOTE Debugging VariableTable
@@ -71,7 +76,7 @@ pub fn parse_without_resolving(
             }
 
             Some(TokenKind::At) => {
-                match parse_at(&mut parser, global_store) {
+                match parse_at(&mut parser) {
                     Ok(statement) => statements.push(statement),
                     Err(e) => eprintln!("Error parsing @ statement: {}", e),
                 }
@@ -106,9 +111,30 @@ pub fn parse_without_resolving(
         }
     }
 
-    println!("Parsed statements: {:?}", statements);
-
     statements
+}
+
+fn parse_variable_value(
+    value: VariableValue,
+    parser: &mut Parser,
+    global_store: &mut GlobalStore
+) -> VariableValue {
+    // TODO : fetch variable value from global store if it exists
+
+    println!("Parsing variable value (var) : {:?}", parser.variable_table.variables);
+    println!("Parsing variable value (export) : {:?}", parser.export_table.exports);
+
+    println!("Parsing variable value (module) : {:?}", global_store.modules);
+
+    match value {
+        VariableValue::Text(text) => VariableValue::Text(text),
+        VariableValue::Number(num) => VariableValue::Number(num),
+        VariableValue::Array(tokens) => VariableValue::Array(tokens),
+        _ => {
+            eprintln!("⚠️ Unsupported variable value type: {:?}", value);
+            VariableValue::Text("Unsupported type".to_string())
+        }
+    }
 }
 
 // pub fn parse(

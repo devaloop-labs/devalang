@@ -14,7 +14,20 @@ impl GlobalStore {
         }
     }
 
-    pub fn set_module(&mut self, path: String, module: Module) {
+    pub fn insert_module(&mut self, path: String, module: Module) {
+        self.modules.insert(path, module);
+    }
+
+    pub fn update_module(&mut self, path: String, module: Module) {
+        if !self.modules.contains_key(&path) {
+            eprintln!("❌ Module {} not found in global store for update", path);
+            return;
+        }
+        
+        // Remove the existing module if it exists
+        self.modules.remove(&path);
+
+        // Insert the updated module
         self.modules.insert(path, module);
     }
 

@@ -1,4 +1,5 @@
 use crate::core::types::{
+    module::Module,
     parser::Parser,
     statement::{ Statement, StatementKind },
     store::GlobalStore,
@@ -6,7 +7,7 @@ use crate::core::types::{
     variable::VariableValue,
 };
 
-pub fn parse_at(parser: &mut Parser, global_store: &mut GlobalStore) -> Result<Statement, String> {
+pub fn parse_at(parser: &mut Parser) -> Result<Statement, String> {
     let token = parser.peek().ok_or("Unexpected EOF")?.clone();
 
     // Vérifie que le token est bien un '@'
@@ -39,10 +40,14 @@ pub fn parse_at(parser: &mut Parser, global_store: &mut GlobalStore) -> Result<S
 
         // NOTE: Insert exportable tokens into the export table
         exportable_tokens.iter().for_each(|t| {
-            println!("Exporting token: {:?}", t);
-            let variable_value = parse_variable_value(t.lexeme.clone(), parser, global_store);
+            // let variable_value = parse_variable_value(t.lexeme.clone(), parser, global_store);
 
-            parser.export_table.exports.insert(t.lexeme.clone(), variable_value.clone());
+            let variable_value = parser.variable_table
+                .get(&t.lexeme)
+                .cloned()
+                .unwrap_or_else(|| VariableValue::Text(t.lexeme.clone()));
+
+            parser.export_table.exports.insert(t.lexeme.clone(), variable_value);
         });
 
         return Ok(Statement {
@@ -88,16 +93,17 @@ pub fn parse_at(parser: &mut Parser, global_store: &mut GlobalStore) -> Result<S
         // Collecte le contenu de la source jusqu'au DbQuote de fermeture
         let mut source_lexeme = source_token.lexeme.clone();
 
-        // NOTE: Insert importable tokens into the import table
-        // parser.import_table.imports.extend(
-        //     importable_tokens
-        //         .iter()
-        //         .map(|t| { (t.lexeme.clone(), parse_variable_kind(t.lexeme.clone(), &mut parser)) })
-        // );
-
+        // Insert importable tokens into the import table
         importable_tokens.iter().for_each(|t| {
-            let variable_value = parse_variable_value(t.lexeme.clone(), parser, global_store);
-            parser.import_table.imports.insert(t.lexeme.clone(), variable_value.clone());
+            // let variable_value = parser.variable_table
+            //     .get(&t.lexeme)
+            //     .cloned()
+            //     .unwrap_or_else(|| VariableValue::Text(t.lexeme.clone()));
+
+            // TODO: Replace variable text with true variable value
+            // println!("Importing token: {:?}", t);
+
+            // parser.import_table.imports.insert(t.lexeme.clone(), variable_value);
         });
 
         let statement = Statement {
@@ -135,36 +141,37 @@ pub fn parse_at(parser: &mut Parser, global_store: &mut GlobalStore) -> Result<S
     })
 }
 
-fn parse_variable_value(
-    lexeme: String,
-    parser: &mut Parser,
-    global_store: &mut GlobalStore
-) -> VariableValue {
-    // println!("Parsing variable value for lexeme: {:?}", parser.variable_table.variables);
-    // println!("Parsing variable value for lexeme: {:?}", parser.variable_table.get(&lexeme.clone()).is_some());
+// fn parse_variable_value(
+//     lexeme: String,
+//     parser: &mut Parser,
+//     global_store: &mut GlobalStore
+// ) -> VariableValue {
+//     // println!("Parsing variable value for lexeme: {:?}", parser.variable_table.variables);
+//     // println!("Parsing variable value for lexeme: {:?}", parser.variable_table.get(&lexeme.clone()).is_some());
 
-    if lexeme.contains('\"') || lexeme.contains('\'') {
-        // If the lexeme contains quotes, treat it as a string
-        return VariableValue::Text(lexeme);
-    } else if lexeme.parse::<f32>().is_ok() {
-        // If the lexeme can be parsed as a number, treat it as a number
-        return VariableValue::Number(
-            lexeme.parse::<f32>().unwrap_or(0.0) // Placeholder value
-        );
-    } else if lexeme == "true" || lexeme == "false" {
-        // If the lexeme is "true" or "false", treat it as a boolean
-        return VariableValue::Boolean(lexeme.parse::<bool>().unwrap_or(false));
-    } else if lexeme.starts_with('[') && lexeme.ends_with(']') {
-        // If the lexeme starts with '[' and ends with ']', treat it as an array
-        return VariableValue::Array(vec![]); // TODO
-    } else if lexeme.starts_with('{') && lexeme.ends_with('}') {
-        // If the lexeme starts with '{' and ends with '}', treat it as an object
-        return VariableValue::Map(vec![].into_iter().collect()); // TODO
-    } else if parser.variable_table.get(&lexeme.clone()).is_some() {
-        let var_value = parser.variable_table.get(&lexeme.clone()).unwrap().clone();
-        return var_value;
-    } else {
-        // TODO: Handle unknown variable types
-        return VariableValue::Text(format!("Unknown variable type : {}", lexeme));
-    }
-}
+//     if lexeme.contains('\"') || lexeme.contains('\'') {
+//         // If the lexeme contains quotes, treat it as a string
+//         return VariableValue::Text(lexeme);
+//     } else if lexeme.parse::<f32>().is_ok() {
+//         // If the lexeme can be parsed as a number, treat it as a number
+//         return VariableValue::Number(
+//             lexeme.parse::<f32>().unwrap_or(0.0) // Placeholder value
+//         );
+//     } else if lexeme == "true" || lexeme == "false" {
+//         // If the lexeme is "true" or "false", treat it as a boolean
+//         return VariableValue::Boolean(lexeme.parse::<bool>().unwrap_or(false));
+//     } else if lexeme.starts_with('[') && lexeme.ends_with(']') {
+//         // If the lexeme starts with '[' and ends with ']', treat it as an array
+//         return VariableValue::Array(vec![]); // TODO
+//     } else if lexeme.starts_with('{') && lexeme.ends_with('}') {
+//         // If the lexeme starts with '{' and ends with '}', treat it as an object
+//         return VariableValue::Map(vec![].into_iter().collect()); // TODO
+//     } else if parser.variable_table.get(&lexeme.clone()).is_some() {
+//         let var_value = parser.variable_table.get(&lexeme.clone()).unwrap().clone();
+//         return var_value;
+//     } else {
+//         // TODO: Handle unknown variable types
+//         println!("Module found : {:?}", global_store.modules);
+//         return VariableValue::Text(format!("Unknown variable type : {}", lexeme));
+//     }
+// }
