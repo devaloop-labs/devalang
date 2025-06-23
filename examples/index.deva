@@ -1,8 +1,8 @@
-@import { x, y, z, loopCount } from "./examples/exported.deva"
+@import { x, y, z, loopCount, tempo } from "./examples/exported.deva"
+
+bpm tempo
 
 bank y
 
 loop loopCount:
     .kick x z
-
-.kick auto

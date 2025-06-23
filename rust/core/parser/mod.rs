@@ -4,9 +4,16 @@ pub mod at;
 pub mod dot;
 pub mod bank;
 pub mod loop_;
+pub mod tempo;
 
 use crate::core::{
-    parser::{ at::parse_at, bank::parse_bank, dot::parse_dot, identifer::parse_identifier, loop_::parse_loop },
+    parser::{
+        at::parse_at,
+        bank::parse_bank,
+        dot::parse_dot,
+        identifer::parse_identifier,
+        loop_::parse_loop, tempo::parse_tempo,
+    },
     types::{
         module::Module,
         parser::Parser,
@@ -58,6 +65,13 @@ pub fn parse_without_resolving(
                 match parse_loop(&mut parser, global_store) {
                     Ok(statement) => statements.push(statement),
                     Err(e) => eprintln!("Error parsing loop statement: {}", e),
+                }
+            }
+
+            Some(TokenKind::Tempo) => {
+                match parse_tempo(&mut parser, global_store) {
+                    Ok(statement) => statements.push(statement),
+                    Err(e) => eprintln!("Error parsing tempo statement: {}", e),
                 }
             }
 

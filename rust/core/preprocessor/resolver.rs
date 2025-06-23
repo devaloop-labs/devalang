@@ -161,9 +161,7 @@ pub fn resolve_statement(stmt: &Statement, module: &Module) -> Statement {
                     }
                 }
                 VariableValue::Map(map) => { stmt.clone() }
-                VariableValue::Null => {
-                    stmt.clone()
-                }
+                VariableValue::Null => { stmt.clone() }
                 // TODO Parse other parameters
                 _ => {
                     eprintln!("⚠️ Invalid value type for Trigger statement: {:?}", stmt.value);
@@ -194,6 +192,50 @@ pub fn resolve_statement(stmt: &Statement, module: &Module) -> Statement {
                     }
                 }
                 _ => stmt.clone(),
+            }
+        }
+
+        StatementKind::Tempo => {
+            match &stmt.value {
+                VariableValue::Number(num) => {
+                    if *num > 0.0 {
+                        Statement {
+                            kind: StatementKind::Tempo,
+                            value: VariableValue::Number(*num),
+                            indent: stmt.indent,
+                            line: stmt.line,
+                            column: stmt.column,
+                        }
+                    } else {
+                        eprintln!("⚠️ Invalid tempo value: {}", num);
+                        stmt.clone()
+                    }
+                }
+                VariableValue::Text(text) => {
+                    // Check if the text is a valid variable in the module
+                    if let Some(value) = module.variable_table.variables.get(text) {
+                        Statement {
+                            kind: StatementKind::Tempo,
+                            value: value.clone(),
+                            indent: stmt.indent,
+                            line: stmt.line,
+                            column: stmt.column,
+                        }
+                    } else {
+                        eprintln!("⚠️ Tempo variable '{}' not found", text);
+                        Statement {
+                            kind: StatementKind::Tempo,
+                            value: VariableValue::Text(text.clone()),
+                            indent: stmt.indent,
+                            line: stmt.line,
+                            column: stmt.column,
+                        }
+                    }
+                }
+                _ => {
+                    eprintln!("⚠️ Invalid value type for Tempo statement: {:?}", stmt.value);
+                    stmt.clone()
+                }
             }
         }
 

@@ -60,7 +60,7 @@ pub enum StatementKind {
     // },
 
     // Keyword statements
-    Tempo(f32),
+    Tempo,
     Bank,
 
     // At (@) statements

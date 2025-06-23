@@ -2,5 +2,6 @@ let x = auto
 let y = 808
 let z = {decay:10, delay:30}
 let loopCount = 15
+let tempo = 155
 
-@export { x, y, z, loopCount }
+@export { x, y, z, loopCount, tempo }

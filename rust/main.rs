@@ -45,9 +45,13 @@ pub fn run_statements(module: &Module) {
 
     for stmt in &module.statements {
         match &stmt.kind {
+            StatementKind::Tempo { .. } => {
+                let resolved = resolve_statement(stmt, module);
+                println!("✅ Resolved Tempo Statement: {:?}", resolved);
+            }
             StatementKind::Trigger { .. } => {
                 let resolved = resolve_statement(stmt, module);
-                println!("✅ Resolved Statement: {:?}", resolved);
+                println!("✅ Resolved Trigger Statement: {:?}", resolved);
             }
             StatementKind::Bank { .. } => {
                 let resolved = resolve_statement(stmt, module);
