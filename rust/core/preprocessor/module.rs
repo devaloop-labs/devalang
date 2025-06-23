@@ -1,6 +1,6 @@
 use crate::core::{
     lexer::lex,
-    parser::{ parse_with_resolving, parse_without_resolving },
+    parser::{ parse_without_resolving },
     preprocessor::{
         collect_dependencies_recursively,
         resolver::{ resolve_exports, resolve_imports },

@@ -1,5 +1,8 @@
-@import { x, y, z } from "./examples/exported.deva"
+@import { x, y, z, loopCount } from "./examples/exported.deva"
 
 bank y
 
-.kick x z
+loop loopCount:
+    .kick x z
+
+.kick auto

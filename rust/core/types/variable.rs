@@ -12,6 +12,7 @@ pub enum VariableValue {
     Text(String),
     Boolean(bool),
     Unknown,
+    Null,
 }
 pub struct Variable {
     pub value: VariableValue,

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use serde::Serialize;
 
-use crate::core::types::{token::{Token, TokenDuration, TokenParam}, variable::VariableValue};
+use crate::core::types::{ token::{ Token, TokenDuration, TokenParam }, variable::VariableValue };
 
 #[derive(Debug, Clone)]
 pub struct Statement {
@@ -18,6 +18,15 @@ pub enum StatementValue {
     Boolean(bool),
     Number(f32),
     String(String),
+    Array(Vec<Token>),
+    Map(HashMap<String, VariableValue>),
+    Unknown,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub enum StatementIterator {
+    Identifier(String),
+    Number(f32),
     Array(Vec<Token>),
     Map(HashMap<String, VariableValue>),
     Unknown,
@@ -39,10 +48,9 @@ pub enum StatementKind {
     },
 
     // Loop statements
-    // Loop {
-    //     iterator: Vec<Token>,
-    //     body: Vec<Statement>,
-    // },
+    Loop {
+        iterator: StatementIterator,
+    },
 
     // Conditional statements
     // If {

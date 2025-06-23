@@ -3,9 +3,10 @@ pub mod variable;
 pub mod at;
 pub mod dot;
 pub mod bank;
+pub mod loop_;
 
 use crate::core::{
-    parser::{ at::parse_at, bank::parse_bank, dot::parse_dot, identifer::parse_identifier },
+    parser::{ at::parse_at, bank::parse_bank, dot::parse_dot, identifer::parse_identifier, loop_::parse_loop },
     types::{
         module::Module,
         parser::Parser,
@@ -15,100 +16,6 @@ use crate::core::{
         variable::VariableValue,
     },
 };
-
-pub fn parse_with_resolving(
-    tokens: Vec<Token>,
-    mut parser: &mut Parser,
-    mut module: &mut Module,
-    global_store: &mut GlobalStore
-) -> Vec<Statement> {
-    // Réinitialisation du parser
-    // parser.set_tokens(tokens.clone());
-
-    // println!("🔄 Parsing with resolving... {:?}", module);
-
-    // // Résolution des exports
-    // let export_table = parser.export_table.clone();
-    // let import_table = parser.import_table.clone();
-
-    // for (name, value) in export_table.exports.iter() {
-    //     println!("🔄 Resolving export: {} -> {:?}", name, value);
-    //     // On ajoute chaque export à la table des variables du parser
-    //     parser.variable_table.variables.insert(name.clone(), value.clone());
-    //     parser.export_table.exports.insert(name.clone(), value.clone());
-
-    //     module.export_table.exports.insert(name.clone(), value.clone());
-    // }
-
-    // for (name, value) in import_table.imports.iter() {
-    //     println!("🔄 Resolving import: {} -> {:?}", name, value);
-    //     // On ajoute chaque import à la table des variables du parser
-    //     parser.import_table.imports.insert(name.clone(), value.clone());
-
-    //     // On parse la valeur de la variable importée
-    //     let parsed_variable_value = parse_variable_value(value.clone(), &mut parser, global_store);
-    //     parser.variable_table.variables.insert(name.clone(), parsed_variable_value.clone());
-
-    //     module.import_table.imports.insert(name.clone(), parsed_variable_value.clone());
-    //     module.variable_table.variables.insert(name.clone(), parsed_variable_value.clone());
-    // }
-
-    // // NOTE Debugging VariableTable
-    // println!("Local variable table : {:?}", parser.variable_table);
-
-    // // NOTE Debugging ExportTable
-    // println!("Local export table : {:?}", parser.export_table);
-
-    // // NOTE Debugging ExportTable
-    // println!("Local import table : {:?}", parser.import_table);
-
-    // module.statements.clone()
-
-    let mut statements = Vec::new();
-
-    statements.extend(parse_without_resolving(tokens, &mut parser, global_store));
-
-    // Résolution des exports
-    let export_table = parser.export_table.clone();
-    let import_table = parser.import_table.clone();
-
-    for (name, value) in export_table.exports.iter() {
-        println!("🔄 Resolving export: {} -> {:?}", name, value);
-        // On ajoute chaque export à la table des variables du parser
-        parser.variable_table.variables.insert(name.clone(), value.clone());
-        parser.export_table.exports.insert(name.clone(), value.clone());
-
-        module.export_table.exports.insert(name.clone(), value.clone());
-    }
-
-    for (name, value) in import_table.imports.iter() {
-        println!("🔄 Resolving import: {} -> {:?}", name, value);
-        // On ajoute chaque import à la table des variables du parser
-        parser.import_table.imports.insert(name.clone(), value.clone());
-
-        // On parse la valeur de la variable importée
-        let parsed_variable_value = parse_variable_value(value.clone(), &mut parser, global_store);
-        parser.variable_table.variables.insert(name.clone(), parsed_variable_value.clone());
-
-        module.import_table.imports.insert(name.clone(), parsed_variable_value.clone());
-        module.variable_table.variables.insert(name.clone(), parsed_variable_value.clone());
-    }
-
-    // NOTE Debugging VariableTable
-    println!("Local variable table : {:?}", parser.variable_table);
-    // NOTE Debugging ExportTable
-    println!("Local export table : {:?}", parser.export_table);
-    // NOTE Debugging ImportTable
-    println!("Local import table : {:?}", parser.import_table);
-    // NOTE Debugging Module
-    println!("Module after parsing: {:?}", module);
-
-    // On met à jour les déclarations du module
-    module.statements = statements.clone();
-
-    // On retourne les déclarations
-    statements
-}
 
 pub fn parse_without_resolving(
     tokens: Vec<Token>,
@@ -147,6 +54,13 @@ pub fn parse_without_resolving(
                 }
             }
 
+            Some(TokenKind::Loop) => {
+                match parse_loop(&mut parser, global_store) {
+                    Ok(statement) => statements.push(statement),
+                    Err(e) => eprintln!("Error parsing loop statement: {}", e),
+                }
+            }
+
             | Some(TokenKind::LBrace)
             | Some(TokenKind::RBrace)
             | Some(TokenKind::LBracket)
@@ -177,13 +91,6 @@ fn parse_variable_value(
     parser: &mut Parser,
     global_store: &mut GlobalStore
 ) -> VariableValue {
-    // TODO : fetch variable value from global store if it exists
-
-    println!("Parsing variable value (var) : {:?}", parser.variable_table.variables);
-    println!("Parsing variable value (export) : {:?}", parser.export_table.exports);
-
-    println!("Parsing variable value (module) : {:?}", global_store.modules);
-
     match value {
         VariableValue::Text(text) => VariableValue::Text(text),
         VariableValue::Number(num) => VariableValue::Number(num),
@@ -194,64 +101,3 @@ fn parse_variable_value(
         }
     }
 }
-
-// pub fn parse(
-//     tokens: Vec<Token>,
-//     mut parser: &mut Parser,
-//     global_store: &mut GlobalStore
-// ) -> Vec<Statement> {
-//     let mut statements = Vec::new();
-
-//     while !parser.is_eof() {
-//         match parser.peek().map(|t| t.kind.clone()) {
-//             Some(TokenKind::Identifier) => {
-//                 match parse_identifier(&mut parser, global_store) {
-//                     Ok(statement) => statements.push(statement),
-//                     Err(e) => eprintln!("Error parsing identifier: {}", e),
-//                 }
-//             }
-
-//             Some(TokenKind::At) => {
-//                 match parse_at(&mut parser, global_store) {
-//                     Ok(statement) => statements.push(statement),
-//                     Err(e) => eprintln!("Error parsing @ statement: {}", e),
-//                 }
-//             }
-
-//             Some(TokenKind::Dot) => {
-//                 match parse_dot(&mut parser, global_store) {
-//                     Ok(statement) => statements.push(statement),
-//                     Err(e) => eprintln!("Error parsing dot statement: {}", e),
-//                 }
-//             }
-
-//             | Some(TokenKind::LBrace)
-//             | Some(TokenKind::RBrace)
-//             | Some(TokenKind::LBracket)
-//             | Some(TokenKind::RBracket)
-//             | Some(TokenKind::DbQuote)
-//             | Some(TokenKind::Quote)
-//             | Some(TokenKind::Number)
-//             | Some(TokenKind::String)
-//             | Some(TokenKind::Newline)
-//             | Some(TokenKind::Indent)
-//             | Some(TokenKind::Dedent) => {
-//                 parser.next(); // juste consommer pour le moment
-//             }
-//             Some(_) => {
-//                 parser.next(); // fallback : avance
-//             }
-//             None => {
-//                 break;
-//             }
-//         }
-//     }
-
-//     // NOTE Debugging VariableTable
-//     println!("Local variable table : {:?}", parser.variable_table);
-
-//     // NOTE Debugging ExportTable
-//     println!("Local export table : {:?}", parser.export_table);
-
-//     statements
-// }

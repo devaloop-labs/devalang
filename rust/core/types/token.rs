@@ -39,6 +39,7 @@ pub enum TokenKind {
     Indent,
     Dedent,
     Comment(String),
+    Unknown,
     Error(String),
     EOF,
 }

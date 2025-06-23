@@ -52,6 +52,13 @@ impl Parser {
     pub fn collect_until<F>(&mut self, condition: F) -> Vec<Token> where F: Fn(&Token) -> bool {
         let mut collected = Vec::new();
         while let Some(token) = self.peek() {
+            if token.kind == TokenKind::Newline || token.kind == TokenKind::Indent {
+                self.next(); // Skip newlines and indents
+                continue;
+            }
+            if token.kind == TokenKind::EOF {
+                break;
+            }
             if condition(token) {
                 break;
             }

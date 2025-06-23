@@ -5,7 +5,7 @@ use toml::value::Array;
 use crate::core::types::{
     module::Module,
     parser::Parser,
-    statement::{ Statement, StatementKind },
+    statement::{ Statement, StatementIterator, StatementKind },
     store::{ ExportTable, GlobalStore, ImportTable },
     token::{ Token, TokenDuration, TokenKind, TokenParam, TokenParamValue },
     variable::VariableValue,
@@ -59,6 +59,50 @@ pub fn resolve_imports(module: &mut Module, global_store: &GlobalStore) -> Impor
 
 pub fn resolve_statement(stmt: &Statement, module: &Module) -> Statement {
     match &stmt.kind {
+        StatementKind::Loop { iterator } => {
+            let mut resolved_iterator = StatementIterator::Unknown;
+
+            match iterator.clone() {
+                StatementIterator::Identifier(id) => {
+                    // Check if the identifier is a variable in the module
+                    if let Some(value) = module.variable_table.variables.get(&id) {
+                        match value {
+                            VariableValue::Array(arr) => {
+                                resolved_iterator = StatementIterator::Array(arr.clone());
+                            }
+                            VariableValue::Number(num) => {
+                                resolved_iterator = StatementIterator::Number(*num);
+                            }
+                            _ => {
+                                eprintln!(
+                                    "⚠️ Unsupported variable type for loop iterator: {:?}",
+                                    value
+                                );
+                                resolved_iterator = StatementIterator::Unknown;
+                            }
+                        }
+                    } else {
+                        eprintln!("⚠️ Loop iterator variable '{}' not found", id);
+                        resolved_iterator = StatementIterator::Unknown;
+                    }
+                }
+                StatementIterator::Number(num) => {
+                    resolved_iterator = StatementIterator::Number(num);
+                }
+                _ => {
+                    resolved_iterator = iterator.clone();
+                }
+            }
+
+            return Statement {
+                kind: StatementKind::Loop { iterator: resolved_iterator },
+                value: stmt.value.clone(),
+                indent: stmt.indent,
+                line: stmt.line,
+                column: stmt.column,
+            };
+        }
+
         StatementKind::Trigger { entity, duration } => {
             // Parsing the duration
             let duration_raw_value = match duration {
@@ -69,21 +113,32 @@ pub fn resolve_statement(stmt: &Statement, module: &Module) -> Statement {
                 _ => "unknown",
             };
 
-            let parsed_duration_value = if
-                let Some(duration_value) = module.variable_table.variables.get(duration_raw_value)
-            {
-                match duration_value {
-                    VariableValue::Text(text) => TokenDuration::Identifier(text.clone()),
-                    VariableValue::Number(num) => TokenDuration::Number(*num),
-                    _ => {
-                        eprintln!("⚠️ Invalid duration type for Trigger: {:?}", duration_value);
-                        TokenDuration::Unknown
-                    }
-                }
+            let duration_variable_value = module.variable_table.variables.get(duration_raw_value);
+            let mut parsed_duration_value = TokenDuration::Unknown;
+
+            if duration_variable_value.is_some() {
+                parsed_duration_value = duration_variable_value
+                    .as_ref()
+                    .map_or(TokenDuration::Unknown, |value| {
+                        match value {
+                            VariableValue::Text(text) => TokenDuration::Identifier(text.clone()),
+                            VariableValue::Number(num) => TokenDuration::Number(*num),
+                            VariableValue::Boolean(_) => TokenDuration::Unknown,
+                            _ => {
+                                eprintln!("⚠️ Invalid duration type for Trigger: {:?}", value);
+                                TokenDuration::Unknown
+                            }
+                        }
+                    });
+            } else if let Ok(num) = duration_raw_value.parse::<f32>() {
+                parsed_duration_value = TokenDuration::Number(num);
+            } else if duration_raw_value == "auto" {
+                parsed_duration_value = TokenDuration::Auto;
+            } else if duration_raw_value == "infinite" {
+                parsed_duration_value = TokenDuration::Infinite;
             } else {
-                eprintln!("⚠️ Duration variable '{}' not found in module", duration_raw_value);
-                TokenDuration::Unknown
-            };
+                eprintln!("⚠️ Invalid duration format: {}", duration_raw_value);
+            }
 
             // Parsing the entity value (params)
             match &stmt.value {
@@ -105,81 +160,11 @@ pub fn resolve_statement(stmt: &Statement, module: &Module) -> Statement {
                         stmt.clone()
                     }
                 }
-                VariableValue::Map(map) => {
-                    // Parse other parameters
-                    let mut parsed_params_map: HashMap<String, TokenParamValue> = HashMap::new();
-
-                    let params_value = &map
-                        .get("params")
-                        .and_then(|v| {
-                            match v {
-                                TokenParamValue::String(text) => Some(text.clone()),
-                                TokenParamValue::Number(num) => Some(num.to_string()),
-                                TokenParamValue::Boolean(bool) => Some(bool.to_string()),
-                                TokenParamValue::Array(array) => {
-                                    let mut params = String::new();
-                                    for item in array {
-                                        if let TokenParamValue::String(text) = item {
-                                            params.push_str(&text);
-                                            params.push(' ');
-                                        } else {
-                                            eprintln!(
-                                                "⚠️ Invalid type in params array: {:?}",
-                                                item
-                                            );
-                                        }
-                                    }
-                                    Some(params.trim().to_string())
-                                }
-                                _ => None,
-                            }
-                        })
-                        .unwrap_or("params".to_string());
-
-                    if let Some(params) = module.variable_table.variables.get(params_value) {
-                        match &params {
-                            VariableValue::Text(text) => {
-                                parsed_params_map.insert(
-                                    "params".to_string(),
-                                    TokenParamValue::String(text.clone())
-                                );
-                            }
-                            VariableValue::Number(num) => {
-                                parsed_params_map.insert(
-                                    "params".to_string(),
-                                    TokenParamValue::Number(*num)
-                                );
-                            }
-                            VariableValue::Boolean(bool) => {
-                                parsed_params_map.insert(
-                                    "params".to_string(),
-                                    TokenParamValue::Boolean(*bool)
-                                );
-                            }
-                            VariableValue::Map(map) => {
-                                for (key, value) in map {
-                                    parsed_params_map.insert(key.clone(), value.clone());
-                                }
-                            }
-                            _ => {
-                                eprintln!("⚠️ Invalid params type for Trigger: {:?}", params);
-                            }
-                        }
-                    } else {
-                        eprintln!("⚠️ Params variable not found in module");
-                    }
-
-                    Statement {
-                        kind: StatementKind::Trigger {
-                            entity: entity.clone(),
-                            duration: parsed_duration_value.clone(),
-                        },
-                        value: VariableValue::Map(parsed_params_map),
-                        indent: stmt.indent,
-                        line: stmt.line,
-                        column: stmt.column,
-                    }
+                VariableValue::Map(map) => { stmt.clone() }
+                VariableValue::Null => {
+                    stmt.clone()
                 }
+                // TODO Parse other parameters
                 _ => {
                     eprintln!("⚠️ Invalid value type for Trigger statement: {:?}", stmt.value);
                     stmt.clone()
