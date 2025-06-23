@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use serde::Serialize;
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -17,6 +19,8 @@ pub enum TokenKind {
     Bank,
     Loop,
     Identifier,
+    Map,
+    Array,
     Number,
     String,
     Boolean,
@@ -43,6 +47,7 @@ pub enum TokenKind {
 pub enum TokenDuration {
     Number(f32),
     Identifier(String),
+    Infinite,
     Auto,
     Unknown,
 }
@@ -59,4 +64,7 @@ pub enum TokenParamValue {
     String(String),
     Boolean(bool),
     Identifier(String),
+    Map(HashMap<String, TokenParamValue>),
+    Array(Vec<TokenParamValue>),
+    Unknown,
 }

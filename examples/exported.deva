@@ -1,4 +1,5 @@
 let x = auto
 let y = 808
+let z = {decay:10, delay:30}
 
-@export { x, y }
+@export { x, y, z }

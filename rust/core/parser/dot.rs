@@ -1,8 +1,9 @@
-use std::collections::HashMap;
+use std::{ collections::HashMap, hash::Hash };
 
-use crate::core::{
-    parser::{ parse_variable_value, variable },
-    types::{ statement::Statement, token::{ TokenDuration, TokenKind }, variable::VariableValue },
+use crate::core::types::{
+    statement::Statement,
+    token::{ Token, TokenDuration, TokenKind, TokenParamValue },
+    variable::{ Variable, VariableValue },
 };
 
 pub fn parse_dot(
@@ -31,75 +32,158 @@ pub fn parse_dot(
 
     // Récupère la durée
     let duration_token = parser.peek().ok_or("Expected duration after identifier")?.clone();
-    let mut duration = VariableValue::Unknown;
-    if duration_token.kind == TokenKind::Identifier {
-        duration = VariableValue::Text(duration_token.lexeme.clone());
-    } else if duration_token.kind == TokenKind::Number {
-        duration = VariableValue::Number(duration_token.lexeme.parse::<f32>().unwrap_or(0.0));
+    let mut duration = TokenDuration::Unknown;
+
+    match duration_token.lexeme.as_str() {
+        "auto" => {
+            duration = TokenDuration::Auto;
+        }
+        "infinite" => {
+            duration = TokenDuration::Infinite;
+        }
+        _ => {
+            if let Ok(num) = duration_token.lexeme.parse::<f32>() {
+                duration = TokenDuration::Number(num);
+            } else if let Ok(boolean) = duration_token.lexeme.parse::<bool>() {
+                duration = TokenDuration::Unknown;
+            } else if duration_token.kind == TokenKind::Identifier {
+                duration = TokenDuration::Identifier(duration_token.lexeme.clone());
+            } else {
+                return Err(format!("Invalid duration format: {}", duration_token.lexeme));
+            }
+        }
     }
 
     parser.next(); // consomme la durée
 
-    // Parsing des paramètres
+    let params_map: VariableValue = parse_params_map(parser);
 
-    if let Some(lbrace_token) = parser.peek() {
-        parser.next();
-    }
+    dot_params.insert("params".to_string(), params_map);
 
-    let mut params: HashMap<String, VariableValue> = HashMap::new();
+    let mut dot_params_map: HashMap<String, TokenParamValue> = HashMap::new();
 
-    let param_tokens = parser.collect_until(|t| { t.kind == TokenKind::RBrace });
+    for (key, value) in dot_params {
+        let token_value = match value {
+            VariableValue::Text(s) => TokenParamValue::String(s),
+            VariableValue::Number(n) => TokenParamValue::Number(n),
+            VariableValue::Boolean(b) => TokenParamValue::Boolean(b),
+            VariableValue::Array(arr) => {
+                // Convertit l'array en une liste de TokenParamValue
+                let tokens: Vec<TokenParamValue> = arr
+                    .into_iter()
+                    .map(|t| {
+                        match t.kind {
+                            TokenKind::String => TokenParamValue::String(t.lexeme),
+                            TokenKind::Number =>
+                                TokenParamValue::Number(t.lexeme.parse().unwrap_or(0.0)),
+                            TokenKind::Boolean =>
+                                TokenParamValue::Boolean(t.lexeme.parse().unwrap_or(false)),
+                            TokenKind::Map => {
+                                // Si c'est une map, on la parse récursivement
+                                let mut new_map: HashMap<String, TokenParamValue> = HashMap::new();
 
-    let mut i = 0;
+                                let split_result = t.lexeme
+                                    .split(',')
+                                    .map(|kv| {
+                                        let mut parts = kv.splitn(2, ':');
+                                        let k = parts.next().unwrap_or("").trim().to_string();
+                                        let v = parts.next().unwrap_or("").trim().to_string();
+                                        (k, TokenParamValue::String(v))
+                                    })
+                                    .collect::<HashMap<String, TokenParamValue>>();
 
-    while i < param_tokens.len() {
-        let key_token = &param_tokens[i];
+                                for (k, v) in split_result {
+                                    new_map.insert(k, v);
+                                }
 
-        if key_token.kind != TokenKind::Identifier {
-            return Err(format!("Expected identifier as parameter key, found {:?}", key_token.kind));
-        }
+                                TokenParamValue::Map(new_map)
+                            }
 
-        let key = key_token.lexeme.clone();
-        i += 1;
+                            TokenKind::Identifier => TokenParamValue::String(t.lexeme),
 
-        if i >= param_tokens.len() || param_tokens[i].kind != TokenKind::Colon {
-            return Err(format!("Expected ':' after key '{}'", key));
-        }
-        i += 1;
-
-        if i >= param_tokens.len() {
-            return Err(format!("Expected value after ':' for key '{}'", key));
-        }
-
-        let value_token = &param_tokens[i];
-        let value = match value_token.kind {
-            TokenKind::String => VariableValue::Text(value_token.lexeme.clone()),
-            TokenKind::Number =>
-                VariableValue::Number(value_token.lexeme.parse::<f32>().unwrap_or(0.0)),
-            TokenKind::Boolean =>
-                VariableValue::Boolean(value_token.lexeme.parse::<bool>().unwrap_or(false)),
-            _ => VariableValue::Unknown,
+                            _ => { TokenParamValue::Unknown }
+                        }
+                    })
+                    .collect();
+                TokenParamValue::Array(tokens)
+            }
+            _ => {
+                continue;
+            }
         };
-
-        params.insert(key, value);
-        i += 1;
-
-        // Skip optional comma
-        if i < param_tokens.len() && param_tokens[i].kind == TokenKind::Comma {
-            i += 1;
-        }
+        dot_params_map.insert(key, token_value);
     }
 
-    dot_params.insert("duration".to_string(), duration);
-    dot_params.insert("params".to_string(), VariableValue::Map(params));
+    let params_value = VariableValue::Map(dot_params_map);
 
     Ok(Statement {
         kind: crate::core::types::statement::StatementKind::Trigger {
             entity: next_token.lexeme.clone(),
+            duration: duration.clone(),
         },
-        value: VariableValue::Map(dot_params),
+        value: params_value,
         indent: token.indent,
         line: token.line,
         column: token.column,
     })
+}
+
+fn parse_params_map(parser: &mut crate::core::parser::Parser) -> VariableValue {
+    let mut params_map: HashMap<String, VariableValue> = HashMap::new();
+    let mut next_token = parser.peek().cloned();
+    let mut current_key: Option<String> = None;
+    let mut current_value: Option<VariableValue> = None;
+    let mut params_tokens: Vec<Token> = Vec::new();
+
+    while let Some(token) = next_token {
+        match token.kind {
+            TokenKind::RBrace => {
+                parser.next(); // consomme le '}'
+                break;
+            }
+            TokenKind::Identifier => {
+                if let Some(key) = current_key.take() {
+                    // Si on a déjà une clé, on l'utilise pour ajouter la valeur précédente
+                    if let Some(value) = current_value.take() {
+                        params_map.insert(key, value);
+                    }
+                }
+                current_key = Some(token.lexeme.clone());
+                current_value = Some(VariableValue::Text(token.lexeme.clone()));
+                parser.next(); // consomme l'identifiant
+            }
+            TokenKind::Number | TokenKind::String | TokenKind::Boolean => {
+                if let Some(key) = current_key.take() {
+                    current_value = Some(Variable::from_token(token.clone()).value);
+                    params_map.insert(key, current_value.clone().unwrap());
+                }
+                parser.next(); // consomme la valeur
+            }
+            TokenKind::Map => {
+                if let Some(key) = current_key.take() {
+                    current_value = Some(parse_params_map(parser));
+                    params_map.insert(key, current_value.clone().unwrap());
+                }
+                parser.next(); // consomme la map
+            }
+            TokenKind::EOF => {
+                parser.next();
+                break;
+            }
+            _ => {
+                panic!("Expected identifier or value, found {:?}", token.kind);
+            }
+        }
+
+        params_tokens.push(token.clone());
+
+        next_token = parser.peek().cloned();
+    }
+    if let Some(key) = &current_key {
+        if let Some(value) = &current_value {
+            params_map.insert(key.clone(), value.clone());
+        }
+    }
+
+    VariableValue::Array(params_tokens)
 }

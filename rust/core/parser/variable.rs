@@ -1,8 +1,10 @@
+use std::collections::HashMap;
+
 use crate::core::{
     parser::Parser,
     types::{
         statement::{ Statement, StatementKind },
-        token::{ Token, TokenKind },
+        token::{ Token, TokenKind, TokenParamValue },
         variable::VariableValue,
     },
 };
@@ -39,16 +41,68 @@ pub fn parse_let_statement(parser: &mut Parser) -> Result<Statement, String> {
                 .map(VariableValue::Boolean)
                 .map_err(|_| "Invalid boolean value".to_string())?,
         TokenKind::Identifier => VariableValue::Text(value_token.lexeme.clone()),
+        TokenKind::LBrace => {
+            // Handle object literal
+            let mut object: HashMap<String, VariableValue> = HashMap::new();
+            while let Some(next_token) = parser.next() {
+                if next_token.kind == TokenKind::RBrace {
+                    break; // End of object literal
+                }
+                if next_token.kind != TokenKind::Identifier {
+                    return Err(
+                        format!("Expected identifier in object, found {:?}", next_token.kind)
+                    );
+                }
+                let key = next_token.lexeme.clone();
+
+                // Expect ':'
+                let colon_token = parser.next().ok_or("Expected ':' after object key")?.clone();
+                if colon_token.kind != TokenKind::Colon {
+                    return Err(format!("Expected ':', found {:?}", colon_token.kind));
+                }
+
+                // Expect value for the key
+                let value_token = parser.next().ok_or("Expected value after ':'")?.clone();
+                let value = match value_token.kind {
+                    TokenKind::String => VariableValue::Text(value_token.lexeme.clone()),
+                    TokenKind::Number =>
+                        value_token.lexeme
+                            .parse::<f32>()
+                            .map(VariableValue::Number)
+                            .map_err(|_| "Invalid number value".to_string())?,
+                    TokenKind::Boolean =>
+                        value_token.lexeme
+                            .parse::<bool>()
+                            .map(VariableValue::Boolean)
+                            .map_err(|_| "Invalid boolean value".to_string())?,
+                    _ => {
+                        return Err(format!("Invalid object value token: {:?}", value_token.kind));
+                    }
+                };
+                object.insert(key, value);
+            }
+
+            let mut variable_object_map: HashMap<String, TokenParamValue> = HashMap::new();
+
+            for (key, value) in object {
+                let token_value = match value {
+                    VariableValue::Text(s) => TokenParamValue::String(s),
+                    VariableValue::Number(n) => TokenParamValue::Number(n),
+                    VariableValue::Boolean(b) => TokenParamValue::Boolean(b),
+                    _ => continue,
+                };
+                variable_object_map.insert(key, token_value);
+            }
+
+            VariableValue::Map(variable_object_map)
+        }
         _ => {
             return Err(format!("Invalid value token: {:?}", value_token.kind));
         }
     };
 
     // NOTE: Insert the variable into the local variable table
-    parser.variable_table.variables.insert(
-        variable_name.clone(),
-        value.clone(),
-    );
+    parser.variable_table.variables.insert(variable_name.clone(), value.clone());
 
     Ok(Statement {
         kind: StatementKind::Let {
@@ -59,4 +113,28 @@ pub fn parse_let_statement(parser: &mut Parser) -> Result<Statement, String> {
         line: name_token.line,
         column: name_token.column,
     })
+}
+
+
+pub fn parse_variable_value(
+    parser: &mut Parser,
+    token: &Token,
+) -> Result<VariableValue, String> {
+    match token.kind {
+        TokenKind::String => Ok(VariableValue::Text(token.lexeme.clone())),
+        TokenKind::Number => {
+            token.lexeme
+                .parse::<f32>()
+                .map(VariableValue::Number)
+                .map_err(|_| "Invalid number value".to_string())
+        }
+        TokenKind::Boolean => {
+            token.lexeme
+                .parse::<bool>()
+                .map(VariableValue::Boolean)
+                .map_err(|_| "Invalid boolean value".to_string())
+        }
+        TokenKind::Identifier => Ok(VariableValue::Text(token.lexeme.clone())),
+        _ => Err(format!("Invalid variable value token: {:?}", token.kind)),
+    }
 }

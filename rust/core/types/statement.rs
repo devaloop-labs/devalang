@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use serde::Serialize;
 
 use crate::core::types::{token::{Token, TokenDuration, TokenParam}, variable::VariableValue};
@@ -11,13 +13,23 @@ pub struct Statement {
     pub column: usize,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub enum StatementValue {
+    Boolean(bool),
+    Number(f32),
+    String(String),
+    Array(Vec<Token>),
+    Map(HashMap<String, VariableValue>),
+    Unknown,
+}
+
 #[derive(Debug, Serialize, Clone)]
 /// Represents the kind of a statement
 pub enum StatementKind {
     // Trigger statements
     Trigger {
         entity: String,
-        // duration: TokenDuration,
+        duration: TokenDuration,
         // params: Vec<TokenParam>,
     },
 

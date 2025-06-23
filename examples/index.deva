@@ -1,5 +1,5 @@
-@import { x, y } from "./examples/exported.deva"
+@import { x, y, z } from "./examples/exported.deva"
 
 bank y
 
-.kick x {decay:10, delay:30}
+.kick x z

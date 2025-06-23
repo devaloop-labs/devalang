@@ -1,8 +1,13 @@
+use std::{ collections::HashMap, hash::Hash };
+
+use toml::value::Array;
+
 use crate::core::types::{
     module::Module,
     parser::Parser,
     statement::{ Statement, StatementKind },
     store::{ ExportTable, GlobalStore, ImportTable },
+    token::{ Token, TokenDuration, TokenKind, TokenParam, TokenParamValue },
     variable::VariableValue,
 };
 
@@ -54,84 +59,161 @@ pub fn resolve_imports(module: &mut Module, global_store: &GlobalStore) -> Impor
 
 pub fn resolve_statement(stmt: &Statement, module: &Module) -> Statement {
     match &stmt.kind {
-        StatementKind::Trigger { entity } => {
-            if let VariableValue::Map(params) = &stmt.value {
-                let mut resolved_params = std::collections::HashMap::new();
+        StatementKind::Trigger { entity, duration } => {
+            // Parsing the duration
+            let duration_raw_value = match duration {
+                TokenDuration::Auto => "auto",
+                TokenDuration::Infinite => "infinite",
+                TokenDuration::Number(n) => &n.to_string(),
+                TokenDuration::Identifier(id) => id.as_str(),
+                _ => "unknown",
+            };
 
-                for (key, val) in params {
-                    let resolved_val = match val {
-                        VariableValue::Text(name) =>
-                            module.import_table.imports
-                                .get(name)
-                                .or_else(|| module.variable_table.variables.get(name))
-                                .cloned()
-                                .unwrap_or(VariableValue::Text(format!("Unresolved: {}", name))),
-                        _ => val.clone(),
-                    };
-
-                    resolved_params.insert(key.clone(), resolved_val);
+            let parsed_duration_value = if
+                let Some(duration_value) = module.variable_table.variables.get(duration_raw_value)
+            {
+                match duration_value {
+                    VariableValue::Text(text) => TokenDuration::Identifier(text.clone()),
+                    VariableValue::Number(num) => TokenDuration::Number(*num),
+                    _ => {
+                        eprintln!("⚠️ Invalid duration type for Trigger: {:?}", duration_value);
+                        TokenDuration::Unknown
+                    }
                 }
+            } else {
+                eprintln!("⚠️ Duration variable '{}' not found in module", duration_raw_value);
+                TokenDuration::Unknown
+            };
 
-                Statement {
-                    kind: StatementKind::Trigger { entity: entity.clone() },
-                    value: VariableValue::Map(resolved_params),
-                    indent: stmt.indent,
-                    line: stmt.line,
-                    column: stmt.column,
+            // Parsing the entity value (params)
+            match &stmt.value {
+                VariableValue::Text(text) => {
+                    // Check if the text is a valid variable in the module
+                    if let Some(value) = module.variable_table.variables.get(text) {
+                        Statement {
+                            kind: StatementKind::Trigger {
+                                entity: entity.clone(),
+                                duration: duration.clone(),
+                            },
+                            value: value.clone(),
+                            indent: stmt.indent,
+                            line: stmt.line,
+                            column: stmt.column,
+                        }
+                    } else {
+                        eprintln!("⚠️ Trigger variable '{}' not found", text);
+                        stmt.clone()
+                    }
                 }
-            } else if let VariableValue::Text(name) = &stmt.value {
-                if
-                    let Some(imported_value) = module.import_table.imports
-                        .get(name)
-                        .or_else(|| module.variable_table.variables.get(name))
-                {
+                VariableValue::Map(map) => {
+                    // Parse other parameters
+                    let mut parsed_params_map: HashMap<String, TokenParamValue> = HashMap::new();
+
+                    let params_value = &map
+                        .get("params")
+                        .and_then(|v| {
+                            match v {
+                                TokenParamValue::String(text) => Some(text.clone()),
+                                TokenParamValue::Number(num) => Some(num.to_string()),
+                                TokenParamValue::Boolean(bool) => Some(bool.to_string()),
+                                TokenParamValue::Array(array) => {
+                                    let mut params = String::new();
+                                    for item in array {
+                                        if let TokenParamValue::String(text) = item {
+                                            params.push_str(&text);
+                                            params.push(' ');
+                                        } else {
+                                            eprintln!(
+                                                "⚠️ Invalid type in params array: {:?}",
+                                                item
+                                            );
+                                        }
+                                    }
+                                    Some(params.trim().to_string())
+                                }
+                                _ => None,
+                            }
+                        })
+                        .unwrap_or("params".to_string());
+
+                    if let Some(params) = module.variable_table.variables.get(params_value) {
+                        match &params {
+                            VariableValue::Text(text) => {
+                                parsed_params_map.insert(
+                                    "params".to_string(),
+                                    TokenParamValue::String(text.clone())
+                                );
+                            }
+                            VariableValue::Number(num) => {
+                                parsed_params_map.insert(
+                                    "params".to_string(),
+                                    TokenParamValue::Number(*num)
+                                );
+                            }
+                            VariableValue::Boolean(bool) => {
+                                parsed_params_map.insert(
+                                    "params".to_string(),
+                                    TokenParamValue::Boolean(*bool)
+                                );
+                            }
+                            VariableValue::Map(map) => {
+                                for (key, value) in map {
+                                    parsed_params_map.insert(key.clone(), value.clone());
+                                }
+                            }
+                            _ => {
+                                eprintln!("⚠️ Invalid params type for Trigger: {:?}", params);
+                            }
+                        }
+                    } else {
+                        eprintln!("⚠️ Params variable not found in module");
+                    }
+
                     Statement {
-                        kind: StatementKind::Trigger { entity: entity.clone() },
-                        value: VariableValue::Map(
-                            std::collections::HashMap::from([
-                                (name.clone(), imported_value.clone()),
-                            ])
-                        ),
+                        kind: StatementKind::Trigger {
+                            entity: entity.clone(),
+                            duration: parsed_duration_value.clone(),
+                        },
+                        value: VariableValue::Map(parsed_params_map),
                         indent: stmt.indent,
                         line: stmt.line,
                         column: stmt.column,
                     }
-                } else {
-                    eprintln!("⚠️ Unresolved variable '{}'", name);
+                }
+                _ => {
+                    eprintln!("⚠️ Invalid value type for Trigger statement: {:?}", stmt.value);
                     stmt.clone()
                 }
-            } else {
-                eprintln!("⚠️ Unexpected value type in trigger: {:?}", stmt.value);
-                stmt.clone()
             }
         }
+
+        // SECTION Bank declaration
         StatementKind::Bank { .. } => {
-            if let VariableValue::Number(n) = &stmt.value {
-                Statement {
-                    kind: StatementKind::Bank,
-                    value: VariableValue::Number(*n),
-                    indent: stmt.indent,
-                    line: stmt.line,
-                    column: stmt.column,
-                }
-            } else if let VariableValue::Text(name) = &stmt.value {
-                if let Some(imported_value) = module.import_table.imports.get(name) {
-                    Statement {
-                        kind: StatementKind::Bank,
-                        value: imported_value.clone(),
-                        indent: stmt.indent,
-                        line: stmt.line,
-                        column: stmt.column,
+            match &stmt.value {
+                VariableValue::Text(name) => {
+                    if
+                        let Some(value) = module.import_table.imports
+                            .get(name)
+                            .or_else(|| module.variable_table.variables.get(name))
+                    {
+                        Statement {
+                            kind: StatementKind::Bank,
+                            value: value.clone(),
+                            indent: stmt.indent,
+                            line: stmt.line,
+                            column: stmt.column,
+                        }
+                    } else {
+                        eprintln!("⚠️ Bank variable '{}' not found", name);
+                        stmt.clone()
                     }
-                } else {
-                    eprintln!("⚠️ Unresolved variable '{}'", name);
-                    stmt.clone()
                 }
-            } else {
-                eprintln!("⚠️ Unexpected value type in bank: {:?}", stmt.value);
-                stmt.clone()
+                _ => stmt.clone(),
             }
         }
+
+        // TODO Handle other statement kinds
+
         _ => stmt.clone(),
     }
 }

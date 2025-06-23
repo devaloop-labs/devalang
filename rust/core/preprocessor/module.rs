@@ -55,7 +55,8 @@ pub fn load_module_into_global_store(
 
     let tokens = lex(content);
 
-    println!("🔄 Tokens: {:?}", tokens);
+    // NOTE Debug output for tokens
+    // println!("🔄 Tokens: {:?}", tokens);
 
     let mut parser = Parser::new(tokens.clone());
 

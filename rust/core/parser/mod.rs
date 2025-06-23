@@ -64,7 +64,6 @@ pub fn parse_with_resolving(
 
     // module.statements.clone()
 
-
     let mut statements = Vec::new();
 
     statements.extend(parse_without_resolving(tokens, &mut parser, global_store));
@@ -114,7 +113,7 @@ pub fn parse_with_resolving(
 pub fn parse_without_resolving(
     tokens: Vec<Token>,
     mut parser: &mut Parser,
-    global_store: &mut GlobalStore,
+    global_store: &mut GlobalStore
 ) -> Vec<Statement> {
     let mut statements = Vec::new();
 
