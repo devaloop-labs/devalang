@@ -88,7 +88,7 @@ pub fn parse_identifier(
 
     // Sinon, on retourne une déclaration inconnue
     Ok(Statement {
-        kind: StatementKind::Unknown("Unknown Identifier statement".into()),
+        kind: StatementKind::Unknown,
         value: statment_value,
         indent: token.indent,
         line: token.line,

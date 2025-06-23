@@ -12,16 +12,16 @@ use crate::core::{
         bank::parse_bank,
         dot::parse_dot,
         identifer::parse_identifier,
-        loop_::parse_loop, tempo::parse_tempo,
-    },
-    types::{
+        loop_::parse_loop,
+        tempo::parse_tempo,
+    }, preprocessor::resolver::resolve_statement, types::{
         module::Module,
         parser::Parser,
-        statement::Statement,
+        statement::{Statement, StatementResolved, StatementResolvedValue},
         store::{ GlobalStore, VariableTable },
         token::{ Token, TokenKind },
         variable::VariableValue,
-    },
+    }
 };
 
 pub fn parse_without_resolving(
@@ -100,18 +100,48 @@ pub fn parse_without_resolving(
     statements
 }
 
-fn parse_variable_value(
-    value: VariableValue,
-    parser: &mut Parser,
-    global_store: &mut GlobalStore
-) -> VariableValue {
-    match value {
-        VariableValue::Text(text) => VariableValue::Text(text),
-        VariableValue::Number(num) => VariableValue::Number(num),
-        VariableValue::Array(tokens) => VariableValue::Array(tokens),
-        _ => {
-            eprintln!("⚠️ Unsupported variable value type: {:?}", value);
-            VariableValue::Text("Unsupported type".to_string())
-        }
+pub fn parse_without_resolving_with_module(
+    tokens: Vec<Token>,
+    module: &Module
+) -> Vec<Statement> {
+    let mut parser = Parser::new(tokens.clone());
+
+    // Mettre à jour le contexte du module courant
+    parser.current_module = module.path.clone();
+
+    let mut global_store = GlobalStore::new();
+    global_store.insert_module(module.path.clone(), module.clone());
+
+    let statements = parse_without_resolving(tokens, &mut parser, &mut global_store);
+    // Mettre à jour le module avec les déclarations
+    let mut updated_module = module.clone();
+    updated_module.statements = statements.clone();
+
+    return statements;
+}
+
+pub fn parse_with_resolving_with_module(
+    tokens: Vec<Token>,
+    module: &Module,
+) -> Vec<StatementResolved> {
+    let mut parser = Parser::new(tokens.clone());
+
+    // Mettre à jour le contexte du module courant
+    parser.current_module = module.path.clone();
+
+    let mut global_store = GlobalStore::new();
+    global_store.insert_module(module.path.clone(), module.clone());
+
+    let statements = parse_without_resolving(tokens, &mut parser, &mut global_store);
+
+    // Résoudre les déclarations
+
+    let mut resolved_statements = Vec::new();
+
+    for statement in statements {
+        let resolved_statement = resolve_statement(&statement, module);
+        resolved_statements.push(resolved_statement);
     }
+
+    return resolved_statements;
 }

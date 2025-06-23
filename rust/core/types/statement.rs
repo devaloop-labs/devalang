@@ -4,10 +4,19 @@ use serde::Serialize;
 
 use crate::core::types::{ token::{ Token, TokenDuration, TokenParam }, variable::VariableValue };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Statement {
     pub kind: StatementKind,
     pub value: VariableValue,
+    pub indent: usize,
+    pub line: usize,
+    pub column: usize,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct StatementResolved {
+    pub kind: StatementKind,
+    pub value: StatementResolvedValue,
     pub indent: usize,
     pub line: usize,
     pub column: usize,
@@ -18,8 +27,18 @@ pub enum StatementValue {
     Boolean(bool),
     Number(f32),
     String(String),
-    Array(Vec<Token>),
+    Array(Vec<Statement>),
     Map(HashMap<String, VariableValue>),
+    Unknown,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub enum StatementResolvedValue {
+    Boolean(bool),
+    Number(f32),
+    String(String),
+    Array(Vec<StatementResolved>),
+    Map(HashMap<String, StatementResolvedValue>),
     Unknown,
 }
 
@@ -27,7 +46,7 @@ pub enum StatementValue {
 pub enum StatementIterator {
     Identifier(String),
     Number(f32),
-    Array(Vec<Token>),
+    Array(Vec<Statement>),
     Map(HashMap<String, VariableValue>),
     Unknown,
 }
@@ -73,7 +92,7 @@ pub enum StatementKind {
     Define(String),
 
     // Error & Unknown statements
-    Unknown(String),
+    Unknown,
     Error {
         message: String,
         line: usize,

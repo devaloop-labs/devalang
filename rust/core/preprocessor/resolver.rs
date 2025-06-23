@@ -2,13 +2,27 @@ use std::{ collections::HashMap, hash::Hash };
 
 use toml::value::Array;
 
-use crate::core::types::{
-    module::Module,
-    parser::Parser,
-    statement::{ Statement, StatementIterator, StatementKind },
-    store::{ ExportTable, GlobalStore, ImportTable },
-    token::{ Token, TokenDuration, TokenKind, TokenParam, TokenParamValue },
-    variable::VariableValue,
+use crate::core::{
+    parser::{
+        parse_with_resolving_with_module,
+        parse_without_resolving,
+        parse_without_resolving_with_module,
+    },
+    types::{
+        module::Module,
+        parser::Parser,
+        statement::{
+            Statement,
+            StatementIterator,
+            StatementKind,
+            StatementResolved,
+            StatementResolvedValue,
+            StatementValue,
+        },
+        store::{ ExportTable, GlobalStore, ImportTable },
+        token::{ Token, TokenDuration, TokenKind, TokenParam, TokenParamValue },
+        variable::VariableValue,
+    },
 };
 
 pub fn resolve_exports(statements: &[Statement], parser: &Parser) -> ExportTable {
@@ -57,7 +71,53 @@ pub fn resolve_imports(module: &mut Module, global_store: &GlobalStore) -> Impor
     import_table
 }
 
-pub fn resolve_statement(stmt: &Statement, module: &Module) -> Statement {
+fn resolve_statement_with_module(stmt: &Statement, module: &Module) -> Statement {
+    let mut resolved_value = VariableValue::Unknown;
+
+    match &stmt.value {
+        VariableValue::Array(arr) => {
+            // Resolve each element in the array
+            let mut resolved_statements = Vec::new();
+
+            // TODO Handle nested arrays and statements
+            // for raw_stmt in arr {
+            //     let resolved_stmt = resolve_statement_with_module(raw_stmt, module);
+            //     resolved_statements.push(resolved_stmt);
+            // }
+
+            resolved_value = VariableValue::Array(resolved_statements);
+        }
+        VariableValue::Text(text) => {
+            // Check if the text is a valid variable in the module
+            if let Some(value) = module.variable_table.variables.get(text) {
+                resolved_value = value.clone();
+            } else {
+                eprintln!("⚠️ Variable '{}' not found in module '{}'", text, module.path);
+                resolved_value = VariableValue::Null;
+            }
+        }
+        VariableValue::Number(num) => {
+            resolved_value = VariableValue::Number(*num);
+        }
+        VariableValue::Boolean(b) => {
+            resolved_value = VariableValue::Boolean(*b);
+        }
+        _ => {
+            eprintln!("⚠️ Unsupported value type for statement resolution: {:?}", stmt.value);
+            resolved_value = VariableValue::Unknown;
+        }
+    }
+
+    Statement {
+        kind: stmt.kind.clone(),
+        value: resolved_value,
+        indent: stmt.indent,
+        line: stmt.line,
+        column: stmt.column,
+    }
+}
+
+pub fn resolve_statement(stmt: &Statement, module: &Module) -> StatementResolved {
     match &stmt.kind {
         StatementKind::Loop { iterator } => {
             let mut resolved_iterator = StatementIterator::Unknown;
@@ -68,7 +128,9 @@ pub fn resolve_statement(stmt: &Statement, module: &Module) -> Statement {
                     if let Some(value) = module.variable_table.variables.get(&id) {
                         match value {
                             VariableValue::Array(arr) => {
-                                resolved_iterator = StatementIterator::Array(arr.clone());
+                                resolved_iterator = StatementIterator::Array(
+                                    parse_without_resolving_with_module(arr.clone(), module)
+                                );
                             }
                             VariableValue::Number(num) => {
                                 resolved_iterator = StatementIterator::Number(*num);
@@ -94,9 +156,32 @@ pub fn resolve_statement(stmt: &Statement, module: &Module) -> Statement {
                 }
             }
 
-            return Statement {
+            // Resolve loop body
+            let mut resolved_body: StatementResolvedValue = StatementResolvedValue::Unknown;
+
+            match &stmt.value {
+                VariableValue::Array(arr) => {
+                    // Resolve each element in the array
+                    let raw_statements = parse_without_resolving_with_module(arr.clone(), module);
+
+                    let mut resolved_statements = Vec::new();
+
+                    for raw_stmt in raw_statements {
+                        let resolved_stmt = resolve_statement(&raw_stmt, module);
+                        resolved_statements.push(resolved_stmt);
+                    }
+
+                    resolved_body = StatementResolvedValue::Array(resolved_statements);
+                }
+                _ => {
+                    resolved_body = StatementResolvedValue::Unknown;
+                    eprintln!("⚠️ Unsupported value type for loop body: {:?}", stmt.value);
+                }
+            }
+
+            return StatementResolved {
                 kind: StatementKind::Loop { iterator: resolved_iterator },
-                value: stmt.value.clone(),
+                value: resolved_body,
                 indent: stmt.indent,
                 line: stmt.line,
                 column: stmt.column,
@@ -145,27 +230,145 @@ pub fn resolve_statement(stmt: &Statement, module: &Module) -> Statement {
                 VariableValue::Text(text) => {
                     // Check if the text is a valid variable in the module
                     if let Some(value) = module.variable_table.variables.get(text) {
-                        Statement {
+                        let parsed_entity_value: StatementResolvedValue = match value {
+                            VariableValue::Array(arr) => {
+                                StatementResolvedValue::Array(
+                                    parse_with_resolving_with_module(arr.clone(), module)
+                                )
+                            }
+                            VariableValue::Map(map) => {
+                                // Resolve the map into a StatementValue
+                                let mut resolved_map = HashMap::new();
+
+                                for (key, value) in map {
+                                    let resolved_value = match value {
+                                        TokenParamValue::String(text) =>
+                                            StatementResolvedValue::String(text.clone()),
+                                        TokenParamValue::Number(num) =>
+                                            StatementResolvedValue::Number(*num),
+                                        TokenParamValue::Boolean(b) =>
+                                            StatementResolvedValue::Boolean(*b),
+                                        // TokenParamValue::Array(arr) => {
+                                        //     StatementResolvedValue::Array(
+                                        //         parse_with_resolving_with_module(arr.clone(), module)
+                                        //     )
+                                        // }
+                                        _ => {
+                                            eprintln!(
+                                                "⚠️ Unsupported variable type for Trigger map: {:?}",
+                                                value
+                                            );
+                                            StatementResolvedValue::Unknown
+                                        }
+                                    };
+                                    resolved_map.insert(key.clone(), resolved_value);
+                                }
+
+                                StatementResolvedValue::Map(resolved_map)
+                            }
+
+                            | VariableValue::Text(_)
+                            | VariableValue::Number(_)
+                            | VariableValue::Boolean(_) => {
+                                StatementResolvedValue::String(text.clone())
+                            }
+                            _ => {
+                                eprintln!(
+                                    "⚠️ Unsupported variable type for Trigger entity: {:?}",
+                                    value
+                                );
+                                StatementResolvedValue::Unknown
+                            }
+                        };
+
+                        StatementResolved {
                             kind: StatementKind::Trigger {
                                 entity: entity.clone(),
-                                duration: duration.clone(),
+                                duration: parsed_duration_value,
                             },
-                            value: value.clone(),
+                            value: parsed_entity_value,
                             indent: stmt.indent,
                             line: stmt.line,
                             column: stmt.column,
                         }
                     } else {
                         eprintln!("⚠️ Trigger variable '{}' not found", text);
-                        stmt.clone()
+                        StatementResolved {
+                            kind: StatementKind::Trigger {
+                                entity: entity.clone(),
+                                duration: parsed_duration_value,
+                            },
+                            value: StatementResolvedValue::Unknown,
+                            indent: stmt.indent,
+                            line: stmt.line,
+                            column: stmt.column,
+                        }
                     }
                 }
-                VariableValue::Map(map) => { stmt.clone() }
-                VariableValue::Null => { stmt.clone() }
+                VariableValue::Map(map) => {
+                    // Resolve the map into a StatementValue
+                    let mut resolved_map = HashMap::new();
+
+                    // for (key, value) in map {
+                    //     let resolved_value = match value {
+                    //         TokenParamValue::String(text) =>
+                    //             StatementResolvedValue::String(text.clone()),
+                    //         TokenParamValue::Number(num) => StatementResolvedValue::Number(*num),
+                    //         TokenParamValue::Boolean(b) => StatementResolvedValue::Boolean(*b),
+                    //         TokenParamValue::Array(arr) => {
+                    //             StatementResolvedValue::Array(
+                    //                 parse_with_resolving_with_module(arr.clone(), module)
+                    //             )
+                    //         }
+                    //         _ => {
+                    //             eprintln!(
+                    //                 "⚠️ Unsupported variable type for Trigger map: {:?}",
+                    //                 value
+                    //             );
+                    //             StatementResolvedValue::Unknown
+                    //         }
+                    //     };
+                    //     resolved_map.insert(key.clone(), resolved_value);
+                    // }
+
+                    StatementResolved {
+                        kind: StatementKind::Trigger {
+                            entity: entity.clone(),
+                            duration: parsed_duration_value,
+                        },
+                        value: StatementResolvedValue::Map(resolved_map),
+                        indent: stmt.indent,
+                        line: stmt.line,
+                        column: stmt.column,
+                    }
+                }
+                VariableValue::Null => {
+                    eprintln!("⚠️ Trigger statement with null value");
+                    StatementResolved {
+                        kind: StatementKind::Trigger {
+                            entity: entity.clone(),
+                            duration: parsed_duration_value,
+                        },
+                        value: StatementResolvedValue::Unknown,
+                        indent: stmt.indent,
+                        line: stmt.line,
+                        column: stmt.column,
+                    }
+                }
                 // TODO Parse other parameters
                 _ => {
                     eprintln!("⚠️ Invalid value type for Trigger statement: {:?}", stmt.value);
-                    stmt.clone()
+
+                    StatementResolved {
+                        kind: StatementKind::Trigger {
+                            entity: entity.clone(),
+                            duration: parsed_duration_value,
+                        },
+                        value: StatementResolvedValue::Unknown,
+                        indent: stmt.indent,
+                        line: stmt.line,
+                        column: stmt.column,
+                    }
                 }
             }
         }
@@ -179,19 +382,50 @@ pub fn resolve_statement(stmt: &Statement, module: &Module) -> Statement {
                             .get(name)
                             .or_else(|| module.variable_table.variables.get(name))
                     {
-                        Statement {
+                        let statement_value: StatementResolvedValue = match value {
+                            VariableValue::Array(arr) => {
+                                StatementResolvedValue::Array(
+                                    parse_with_resolving_with_module(arr.clone(), module)
+                                )
+                            }
+                            VariableValue::Text(text) =>
+                                StatementResolvedValue::String(text.clone()),
+                            VariableValue::Number(num) => StatementResolvedValue::Number(*num),
+                            VariableValue::Boolean(b) => StatementResolvedValue::Boolean(*b),
+                            _ => {
+                                eprintln!("⚠️ Unsupported variable type for Bank: {:?}", value);
+                                StatementResolvedValue::Unknown
+                            }
+                        };
+
+                        StatementResolved {
                             kind: StatementKind::Bank,
-                            value: value.clone(),
+                            value: statement_value,
                             indent: stmt.indent,
                             line: stmt.line,
                             column: stmt.column,
                         }
                     } else {
                         eprintln!("⚠️ Bank variable '{}' not found", name);
-                        stmt.clone()
+                        StatementResolved {
+                            kind: StatementKind::Bank,
+                            value: StatementResolvedValue::Unknown,
+                            indent: stmt.indent,
+                            line: stmt.line,
+                            column: stmt.column,
+                        }
                     }
                 }
-                _ => stmt.clone(),
+                _ => {
+                    eprintln!("⚠️ Invalid value type for Bank statement: {:?}", stmt.value);
+                    StatementResolved {
+                        kind: StatementKind::Bank,
+                        value: StatementResolvedValue::Unknown,
+                        indent: stmt.indent,
+                        line: stmt.line,
+                        column: stmt.column,
+                    }
+                }
             }
         }
 
@@ -199,33 +433,50 @@ pub fn resolve_statement(stmt: &Statement, module: &Module) -> Statement {
             match &stmt.value {
                 VariableValue::Number(num) => {
                     if *num > 0.0 {
-                        Statement {
+                        StatementResolved {
                             kind: StatementKind::Tempo,
-                            value: VariableValue::Number(*num),
+                            value: StatementResolvedValue::Number(*num),
                             indent: stmt.indent,
                             line: stmt.line,
                             column: stmt.column,
                         }
                     } else {
                         eprintln!("⚠️ Invalid tempo value: {}", num);
-                        stmt.clone()
+                        StatementResolved {
+                            kind: StatementKind::Tempo,
+                            value: StatementResolvedValue::Unknown,
+                            indent: stmt.indent,
+                            line: stmt.line,
+                            column: stmt.column,
+                        }
                     }
                 }
                 VariableValue::Text(text) => {
                     // Check if the text is a valid variable in the module
                     if let Some(value) = module.variable_table.variables.get(text) {
-                        Statement {
+                        let variable_value: StatementResolvedValue = match value {
+                            VariableValue::Number(num) if *num > 0.0 => {
+                                StatementResolvedValue::Number(*num)
+                            }
+                            VariableValue::Text(t) => StatementResolvedValue::String(t.clone()),
+                            _ => {
+                                eprintln!("⚠️ Unsupported variable type for Tempo: {:?}", value);
+                                StatementResolvedValue::Unknown
+                            }
+                        };
+
+                        StatementResolved {
                             kind: StatementKind::Tempo,
-                            value: value.clone(),
+                            value: variable_value,
                             indent: stmt.indent,
                             line: stmt.line,
                             column: stmt.column,
                         }
                     } else {
                         eprintln!("⚠️ Tempo variable '{}' not found", text);
-                        Statement {
+                        StatementResolved {
                             kind: StatementKind::Tempo,
-                            value: VariableValue::Text(text.clone()),
+                            value: StatementResolvedValue::Unknown,
                             indent: stmt.indent,
                             line: stmt.line,
                             column: stmt.column,
@@ -234,13 +485,53 @@ pub fn resolve_statement(stmt: &Statement, module: &Module) -> Statement {
                 }
                 _ => {
                     eprintln!("⚠️ Invalid value type for Tempo statement: {:?}", stmt.value);
-                    stmt.clone()
+                    StatementResolved {
+                        kind: StatementKind::Tempo,
+                        value: StatementResolvedValue::Unknown,
+                        indent: stmt.indent,
+                        line: stmt.line,
+                        column: stmt.column,
+                    }
                 }
             }
         }
 
         // TODO Handle other statement kinds
 
-        _ => stmt.clone(),
+        _ => {
+            StatementResolved {
+                kind: StatementKind::Unknown,
+                value: StatementResolvedValue::Unknown,
+                indent: stmt.indent,
+                line: stmt.line,
+                column: stmt.column,
+            }
+        }
+    }
+}
+
+fn resolve_variable(token: Token, module: &Module) -> VariableValue {
+    match token.kind {
+        TokenKind::Identifier => {
+            if let Some(value) = module.variable_table.variables.get(&token.lexeme) {
+                value.clone()
+            } else {
+                eprintln!("⚠️ Variable '{}' not found in module '{}'", token.lexeme, module.path);
+                VariableValue::Null
+            }
+        }
+        TokenKind::Number => {
+            if let Ok(num) = token.lexeme.parse::<f32>() {
+                VariableValue::Number(num)
+            } else {
+                eprintln!("⚠️ Invalid number format: {}", token.lexeme);
+                VariableValue::Null
+            }
+        }
+        TokenKind::String => VariableValue::Text(token.lexeme),
+        _ => {
+            eprintln!("⚠️ Unsupported token kind for variable resolution: {:?}", token.kind);
+            VariableValue::Null
+        }
     }
 }

@@ -2,11 +2,12 @@ pub mod core;
 
 use std::fs;
 use crate::core::{
+    debugger::Debugger,
     preprocessor::{ module::load_all_modules, resolver::resolve_statement },
     types::{
         module::Module,
         parser::Parser,
-        statement::{ Statement, StatementKind },
+        statement::{ Statement, StatementKind, StatementResolved },
         store::{ ExportTable, GlobalStore, ImportTable },
         variable::VariableValue,
     },
@@ -35,33 +36,45 @@ fn main() {
     }
 
     if let Some(module) = global_store.modules.get("./examples/index.deva") {
-        run_statements(module);
+        let module_clone = module.clone();
+        let debugger = Debugger::new(&module_clone);
+
+        // Exécute les statements du module
+        let resolved_statements = run_statements(&module_clone, &debugger);
+
+        // Exécute le débogueur
+        debugger.run();
+        debugger.write_files("./output/debug/", resolved_statements);
     }
 }
 
 /// Exécute tous les statements d'un module avec résolution des variables
-pub fn run_statements(module: &Module) {
+pub fn run_statements(module: &Module, debugger: &Debugger) -> Vec<StatementResolved> {
     println!("▶️ Executing statements for module: {}", module.path);
+
+    let mut resolved_statements: Vec<StatementResolved> = Vec::new();
 
     for stmt in &module.statements {
         match &stmt.kind {
             StatementKind::Tempo { .. } => {
-                let resolved = resolve_statement(stmt, module);
-                println!("✅ Resolved Tempo Statement: {:?}", resolved);
+                let resolved = resolve_statement(stmt, &module);
+                resolved_statements.push(resolved);
             }
             StatementKind::Trigger { .. } => {
-                let resolved = resolve_statement(stmt, module);
-                println!("✅ Resolved Trigger Statement: {:?}", resolved);
+                let resolved = resolve_statement(stmt, &module);
+                resolved_statements.push(resolved);
             }
             StatementKind::Bank { .. } => {
-                let resolved = resolve_statement(stmt, module);
-                println!("✅ Resolved Bank Statement: {:?}", resolved);
+                let resolved = resolve_statement(stmt, &module);
+                resolved_statements.push(resolved);
             }
             StatementKind::Loop { .. } => {
-                let resolved = resolve_statement(stmt, module);
-                println!("✅ Resolved Loop Statement: {:?}", resolved);
+                let resolved = resolve_statement(stmt, &module);
+                resolved_statements.push(resolved);
             }
             _ => {}
         }
     }
+
+    resolved_statements
 }

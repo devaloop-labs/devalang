@@ -133,7 +133,7 @@ pub fn parse_at(parser: &mut Parser) -> Result<Statement, String> {
 
     // Retourne une déclaration de type At
     Ok(Statement {
-        kind: StatementKind::Unknown("At statement".into()),
+        kind: StatementKind::Unknown,
         value: VariableValue::Text(identifier_token.lexeme.clone()),
         indent: token.indent,
         line: token.line,
