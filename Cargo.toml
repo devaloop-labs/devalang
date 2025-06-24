@@ -42,3 +42,4 @@ serde-wasm-bindgen = "0.4"
 nom_locate = "4.0.0"
 chrono = "0.4"
 crossterm =  { version = "0.27", optional = true }
+indicatif = "0.17"

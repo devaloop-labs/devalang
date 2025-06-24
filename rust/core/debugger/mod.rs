@@ -35,31 +35,23 @@ impl Debugger {
         // Writing files
         write_tokens_debug_to_file(&tokens, &lexer_path);
         write_statements_debug_to_file(&statements, &statements_path);
-
-        println!("✅ Debug files written successfully.");
     }
 }
 
 fn clear_debug_directory(path: &str) {
-    if std::fs::remove_dir_all(path).is_err() {
-        println!("⚠️ Could not clear debug directory: {}", path);
-    }
+    std::fs::remove_dir_all(path);
 }
 
 fn create_debug_directory(path: &str) {
-    if std::fs::create_dir_all(path).is_err() {
-        println!("⚠️ Could not create debug directory: {}", path);
-    }
+    std::fs::create_dir_all(path);
 }
 
 fn write_statements_debug_to_file(statements: &Vec<String>, path: &str) {
     let content = statements.join("\n");
-
     std::fs::write(path, content).expect("Unable to write statements to file");
 }
 
 fn write_tokens_debug_to_file(tokens: &Vec<String>, path: &str) {
     let content = tokens.join("\n");
-
     std::fs::write(path, content).expect("Unable to write tokens to file");
 }

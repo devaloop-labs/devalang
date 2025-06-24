@@ -7,8 +7,8 @@ pub mod utils;
 use std::{ io };
 use clap::Parser;
 use crate::{
-    cli::{ check::handle_check_command },
-    core::{ types::{ cli::{ Cli, CliCommands, CliTemplateCommand } } },
+    cli::{ build::handle_build_command, check::handle_check_command },
+    core::types::cli::{ Cli, CliCommands, CliTemplateCommand },
 };
 
 fn main() -> io::Result<()> {
@@ -33,8 +33,7 @@ fn main() -> io::Result<()> {
             }
 
         CliCommands::Build { entry, output, watch, compilation_mode, debug, compress } => {
-            // handle_build(entry, output, watch, compilation_mode, debug, compress);
-            panic!("Command 'build' is not implemented yet.");
+            handle_build_command(entry, output);
         }
 
         CliCommands::Check { entry, output, watch, compilation_mode, debug } => {

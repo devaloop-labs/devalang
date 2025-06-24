@@ -5,9 +5,7 @@ use crate::core::{
 };
 
 /// Exécute tous les statements d'un module avec résolution des variables
-pub fn execute_statements(module: &Module, debugger: &Debugger) -> Vec<StatementResolved> {
-    println!("▶️ Executing statements for module: {}", module.path);
-
+pub fn execute_statements(module: &Module) -> Vec<StatementResolved> {
     let mut resolved_statements: Vec<StatementResolved> = Vec::new();
 
     for stmt in &module.statements {
