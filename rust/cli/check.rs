@@ -1,9 +1,9 @@
-use std::{thread, time::Duration};
+use std::{ thread, time::Duration };
 
 use crate::{
     core::{ debugger::Debugger, preprocessor::module::load_all_modules },
     runner::executer::execute_statements,
-    utils::{loader::with_spinner, logger::log_message, path::{ find_entry_file, normalize_path }},
+    utils::{ loader::with_spinner, logger::log_message, path::{ find_entry_file, normalize_path } },
 };
 
 pub fn handle_check_command(entry: String, output: String) -> () {
@@ -12,7 +12,7 @@ pub fn handle_check_command(entry: String, output: String) -> () {
         std::process::exit(1);
     });
 
-    let spinner = with_spinner("Building...", "✅ Build finished !", || {
+    let spinner = with_spinner("Checking...", || {
         // Simulation d’un traitement long
         thread::sleep(Duration::from_millis(800));
     });
@@ -31,17 +31,21 @@ pub fn handle_check_command(entry: String, output: String) -> () {
         // Exécute les statements du module
         let resolved_statements = execute_statements(&module_clone);
 
-        // Exécute le débogueur
-        let debugger = Debugger::new(&module_clone);
-        let debug_dir = format!("{}/debug/", normalized_output_dir.clone());
-        debugger.write_files(debug_dir.as_str(), resolved_statements);
+        if resolved_statements.is_empty() {
+            log_message("Errors found while checking the module.", "WARNING");
+        } else {
+            // Exécute le débogueur
+            let debugger = Debugger::new(&module_clone);
+            let debug_dir = format!("{}/debug/", normalized_output_dir.clone());
+            debugger.write_files(debug_dir.as_str(), resolved_statements);
 
-        // Affiche le message de succès
-        let success_message = format!(
-            "Check completed successfully in {:.2?}. Output files written to: '{}'",
-            duration.elapsed(),
-            normalized_output_dir
-        );
-        log_message(&success_message, "SUCCESS");
+            // Affiche le message de succès
+            let success_message = format!(
+                "Check completed successfully in {:.2?}. Output files written to: '{}'",
+                duration.elapsed(),
+                normalized_output_dir
+            );
+            log_message(&success_message, "SUCCESS");
+        }
     }
 }

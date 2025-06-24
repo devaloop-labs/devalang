@@ -16,7 +16,7 @@ pub fn handle_build_command(entry: String, output: String) {
         std::process::exit(1);
     });
 
-    let spinner = with_spinner("Building...", "✅ Build finished !", || {
+    let spinner = with_spinner("Building...", || {
         // Simulation d’un traitement long
         thread::sleep(Duration::from_millis(800));
     });

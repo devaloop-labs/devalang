@@ -93,11 +93,7 @@ pub enum StatementKind {
 
     // Error & Unknown statements
     Unknown,
-    Error {
-        message: String,
-        line: usize,
-        column: usize,
-    },
+    Error,
 
     // Empty or ignored statements
     Comment(String),

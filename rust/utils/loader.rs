@@ -1,7 +1,7 @@
 use indicatif::{ ProgressBar, ProgressStyle };
-use std::{ thread, time::Duration };
+use std::{ time::Duration };
 
-pub fn with_spinner<T, F>(start_msg: &str, end_msg: &str, f: F) -> T where F: FnOnce() -> T {
+pub fn with_spinner<T, F>(start_msg: &str, f: F) -> T where F: FnOnce() -> T {
     let spinner = ProgressBar::new_spinner();
     spinner.set_style(
         ProgressStyle::with_template("{spinner:.green} {msg}")
@@ -11,7 +11,6 @@ pub fn with_spinner<T, F>(start_msg: &str, end_msg: &str, f: F) -> T where F: Fn
     spinner.set_message(start_msg.to_string());
     spinner.enable_steady_tick(Duration::from_millis(80));
 
-    // Exécute la fonction principale pendant que le spinner tourne
     let result = f();
 
     spinner.finish_and_clear();

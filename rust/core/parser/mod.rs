@@ -6,22 +6,33 @@ pub mod bank;
 pub mod loop_;
 pub mod tempo;
 
-use crate::core::{
-    parser::{
-        at::parse_at,
-        bank::parse_bank,
-        dot::parse_dot,
-        identifer::parse_identifier,
-        loop_::parse_loop,
-        tempo::parse_tempo,
-    }, preprocessor::resolver::resolve_statement, types::{
-        module::Module,
-        parser::Parser,
-        statement::{Statement, StatementResolved, StatementResolvedValue},
-        store::{ GlobalStore, VariableTable },
-        token::{ Token, TokenKind },
-        variable::VariableValue,
-    }
+use crate::{
+    core::{
+        parser::{
+            at::parse_at,
+            bank::parse_bank,
+            dot::parse_dot,
+            identifer::parse_identifier,
+            loop_::parse_loop,
+            tempo::parse_tempo,
+        },
+        preprocessor::resolver::resolve_statement,
+        types::{
+            module::Module,
+            parser::Parser,
+            statement::{
+                Statement,
+                StatementKind,
+                StatementResolved,
+                StatementResolvedValue,
+                StatementValue,
+            },
+            store::{ GlobalStore, VariableTable },
+            token::{ Token, TokenKind },
+            variable::VariableValue,
+        },
+    },
+    utils::logger::log_message,
 };
 
 pub fn parse_without_resolving(
@@ -32,46 +43,72 @@ pub fn parse_without_resolving(
     let mut statements = Vec::new();
 
     while !parser.is_eof() {
+        let mut error_statement = Statement {
+            kind: StatementKind::Error,
+            value: VariableValue::Null,
+            line: parser.peek().map_or(0, |t| t.line),
+            column: parser.peek().map_or(0, |t| t.column),
+            indent: parser.peek().map_or(0, |t| t.indent),
+        };
+
         match parser.peek().map(|t| t.kind.clone()) {
             Some(TokenKind::Identifier) => {
                 match parse_identifier(&mut parser, global_store) {
                     Ok(statement) => statements.push(statement),
-                    Err(e) => eprintln!("Error parsing identifier: {}", e),
+                    Err(e) => {
+                        error_statement.value = VariableValue::Text(e.to_string());
+                        statements.push(error_statement);
+                    }
                 }
             }
 
             Some(TokenKind::Bank) => {
                 match parse_bank(&mut parser, global_store) {
                     Ok(statement) => statements.push(statement),
-                    Err(e) => eprintln!("Error parsing bank statement: {}", e),
+                    Err(e) => {
+                        error_statement.value = VariableValue::Text(e.to_string());
+                        statements.push(error_statement);
+                    }
                 }
             }
 
             Some(TokenKind::At) => {
                 match parse_at(&mut parser) {
                     Ok(statement) => statements.push(statement),
-                    Err(e) => eprintln!("Error parsing @ statement: {}", e),
+                    Err(e) => {
+                        error_statement.value = VariableValue::Text(e.to_string());
+                        statements.push(error_statement);
+                    }
                 }
             }
 
             Some(TokenKind::Dot) => {
                 match parse_dot(&mut parser, global_store) {
                     Ok(statement) => statements.push(statement),
-                    Err(e) => eprintln!("Error parsing dot statement: {}", e),
+                    Err(e) => {
+                        error_statement.value = VariableValue::Text(e.to_string());
+                        statements.push(error_statement);
+                    }
                 }
             }
 
             Some(TokenKind::Loop) => {
                 match parse_loop(&mut parser, global_store) {
                     Ok(statement) => statements.push(statement),
-                    Err(e) => eprintln!("Error parsing loop statement: {}", e),
+                    Err(e) => {
+                        error_statement.value = VariableValue::Text(e.to_string());
+                        statements.push(error_statement);
+                    }
                 }
             }
 
             Some(TokenKind::Tempo) => {
                 match parse_tempo(&mut parser, global_store) {
                     Ok(statement) => statements.push(statement),
-                    Err(e) => eprintln!("Error parsing tempo statement: {}", e),
+                    Err(e) => {
+                        error_statement.value = VariableValue::Text(e.to_string());
+                        statements.push(error_statement);
+                    }
                 }
             }
 
@@ -97,13 +134,44 @@ pub fn parse_without_resolving(
         }
     }
 
-    statements
+    let mut errors = Vec::new();
+
+    statements.iter().for_each(|statement| {
+        match &statement.kind {
+            StatementKind::Error => {
+                let error_message = format!(
+                    "Error at line {}, column {}: {:?}",
+                    statement.line,
+                    statement.column,
+                    statement.value
+                );
+
+                errors.push(statement.clone());
+
+                log_message(&error_message, "ERROR");
+            }
+            _ => {
+                // Pour les autres types de déclarations, on peut éventuellement faire d'autres traitements
+            }
+        }
+    });
+
+    if errors.len() > 0 {
+        log_message(
+            &format!(
+                "{} error(s) found while parsing, parsing stopped.",
+                errors.len()
+            ),
+            "INFO"
+        );
+
+        vec![]
+    } else {
+        statements
+    }
 }
 
-pub fn parse_without_resolving_with_module(
-    tokens: Vec<Token>,
-    module: &Module
-) -> Vec<Statement> {
+pub fn parse_without_resolving_with_module(tokens: Vec<Token>, module: &Module) -> Vec<Statement> {
     let mut parser = Parser::new(tokens.clone());
 
     // Mettre à jour le contexte du module courant
@@ -122,7 +190,7 @@ pub fn parse_without_resolving_with_module(
 
 pub fn parse_with_resolving_with_module(
     tokens: Vec<Token>,
-    module: &Module,
+    module: &Module
 ) -> Vec<StatementResolved> {
     let mut parser = Parser::new(tokens.clone());
 
