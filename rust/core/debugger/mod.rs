@@ -1,5 +1,4 @@
-use std::collections::HashMap;
-use crate::core::types::{ module::Module, statement::{ Statement, StatementResolved } };
+use crate::core::types::{ module::Module, statement::{ StatementResolved } };
 
 pub struct Debugger {
     pub module: Module,
@@ -15,11 +14,9 @@ impl Debugger {
     pub fn write_files(&self, output_dir: &str, resolved_statements: Vec<StatementResolved>) {
         const LEXER_FILENAME: &str = "debug_lexer.log";
         const STATEMENTS_FILENAME: &str = "debug_statements.log";
-        const AST_FILENAME: &str = "debug_ast.log";
 
         let lexer_path = format!("{}{}", output_dir, LEXER_FILENAME);
         let statements_path = format!("{}{}", output_dir, STATEMENTS_FILENAME);
-        let ast_path = format!("{}{}", output_dir, AST_FILENAME);
 
         // Collect debug information
         let tokens = self.module.tokens
@@ -36,8 +33,8 @@ impl Debugger {
         create_debug_directory(output_dir);
 
         // Writing files
-        write_tokens_to_file(&tokens, &lexer_path);
-        write_statements_to_file(&statements, &statements_path);
+        write_tokens_debug_to_file(&tokens, &lexer_path);
+        write_statements_debug_to_file(&statements, &statements_path);
 
         println!("✅ Debug files written successfully.");
     }
@@ -55,13 +52,13 @@ fn create_debug_directory(path: &str) {
     }
 }
 
-fn write_statements_to_file(statements: &Vec<String>, path: &str) {
+fn write_statements_debug_to_file(statements: &Vec<String>, path: &str) {
     let content = statements.join("\n");
 
     std::fs::write(path, content).expect("Unable to write statements to file");
 }
 
-fn write_tokens_to_file(tokens: &Vec<String>, path: &str) {
+fn write_tokens_debug_to_file(tokens: &Vec<String>, path: &str) {
     let content = tokens.join("\n");
 
     std::fs::write(path, content).expect("Unable to write tokens to file");

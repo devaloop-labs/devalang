@@ -1,5 +1,4 @@
 use clap::{ Parser, Subcommand };
-
 use crate::utils::version::get_version;
 
 #[derive(Parser)]
@@ -196,4 +195,8 @@ pub enum CliCommands {
         ///
         debug: String,
     },
+
+    Play {
+        // TODO: Implement play command
+    }
 }

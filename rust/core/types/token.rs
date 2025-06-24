@@ -13,7 +13,6 @@ pub struct Token {
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub enum TokenKind {
-    // Keyword(String),
     At,
     Tempo,
     Bank,
