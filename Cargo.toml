@@ -1,6 +1,6 @@
 [package]
 name = "devalang"
-version = "0.0.1"
+version = "0.0.1-alpha.1"
 authors = ["Devaloop <contact@devaloop.com>"]
 description = "A domain-specific language for music and sound automation"
 license = "MIT"

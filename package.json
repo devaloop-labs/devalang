@@ -1,0 +1,20 @@
+{
+  "name": "devalang",
+  "version": "0.0.1-alpha.1",
+  "main": "index.js",
+  "directories": {
+    "example": "examples"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "postbuild": "tsc && node out-tsc/scripts/postbuild.js",
+    "version:bump": "tsc && node out-tsc/scripts/version/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@types/node": "^24.0.3"
+  }
+}
