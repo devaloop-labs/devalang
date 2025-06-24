@@ -19,7 +19,6 @@ pub fn build_ast(statements: &Vec<StatementResolved>) -> String {
 }
 
 pub fn write_ast_to_file(ast: &str, file_path: &str) {
-    // Ensure the json directory exists and is cleared
     clear_json_directory(&file_path);
     create_json_directory(&file_path);
 

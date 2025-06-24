@@ -12,9 +12,8 @@ pub fn parse_tempo(
 ) -> Result<Statement, String> {
     let token = parser.peek().ok_or("Unexpected EOF")?.clone();
 
-    parser.next(); // Consume the tempo token
+    parser.next();
 
-    // Parse the tempo value
     if let Some(token) = parser.next() {
 
         if token.kind == TokenKind::Number {

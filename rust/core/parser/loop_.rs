@@ -12,9 +12,8 @@ pub fn parse_loop(
 ) -> Result<crate::core::types::statement::Statement, String> {
     let token = parser.peek().ok_or("Unexpected EOF")?.clone();
 
-    parser.next(); // consomme le mot-clé Loop
+    parser.next();
 
-    // Récuperation des paramètres de la boucle
     let mut iterator = StatementIterator::Unknown;
 
     let iterable_tokens: Vec<Token> = parser.collect_until(|t| { t.kind == TokenKind::Colon });
@@ -45,9 +44,8 @@ pub fn parse_loop(
         }
     });
 
-    parser.next(); // consomme le token de deux-points (:)
+    parser.next(); 
 
-    // Remplir les paramètres de la boucle
     let loop_body_tokens: Vec<Token> = parser.collect_until(|t| { t.kind == TokenKind::Dedent });
 
     let loop_statement = Statement {

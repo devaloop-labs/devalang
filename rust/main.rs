@@ -9,6 +9,7 @@ use clap::Parser;
 use crate::{
     cli::{ build::handle_build_command, check::handle_check_command },
     core::types::cli::{ Cli, CliCommands, CliTemplateCommand },
+    utils::logger::log_message,
 };
 
 fn main() -> io::Result<()> {
@@ -16,19 +17,16 @@ fn main() -> io::Result<()> {
 
     match cli.command {
         CliCommands::New { name, template } => {
-            // handle_new_command(&name, &template);
-            panic!("Command 'new project' is not implemented yet.");
+            log_message("Command 'new project' is not implemented yet.", "WARNING");
         }
 
         CliCommands::Template { command } =>
             match command {
                 CliTemplateCommand::List => {
-                    // handle_template_list();
-                    panic!("Command 'template list' is not implemented yet.");
+                    log_message("Command 'template list' is not implemented yet.", "WARNING");
                 }
                 CliTemplateCommand::Info { name } => {
-                    // handle_template_info(&name);
-                    panic!("Command 'template info' is not implemented yet.");
+                    log_message("Command 'template info' is not implemented yet.", "WARNING");
                 }
             }
 
@@ -41,7 +39,7 @@ fn main() -> io::Result<()> {
         }
 
         CliCommands::Play {} => {
-            panic!("Command 'play' is not implemented yet.");
+            log_message("Command 'play' is not implemented yet.", "WARNING");
         }
     }
 

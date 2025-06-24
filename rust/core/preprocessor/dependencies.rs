@@ -1,6 +1,5 @@
 use std::{ collections::{ HashSet, VecDeque }, fs };
 
-/// 🔍 Résout récursivement les fichiers @import depuis un fichier d’entrée
 pub fn collect_dependencies_recursively(entry_file: &str) -> Vec<String> {
     let mut queue = VecDeque::new();
     let mut loaded = HashSet::new();
@@ -23,8 +22,6 @@ pub fn collect_dependencies_recursively(entry_file: &str) -> Vec<String> {
     loaded.into_iter().collect()
 }
 
-/// 🔎 Analyse un fichier pour en extraire les chemins depuis les lignes `@import { ... } from "..."`
-/// Ne parse pas, lit juste les lignes en brut
 fn get_direct_dependencies(file: &str) -> Vec<String> {
     let content = match fs::read_to_string(file) {
         Ok(c) => c,

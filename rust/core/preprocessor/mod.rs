@@ -7,11 +7,9 @@ use crate::core::{
         dependencies::collect_dependencies_recursively,
         module::load_module_into_global_store,
     },
-    types::{ store::GlobalStore, token::Token },
+    types::{ store::GlobalStore },
 };
 
-/// 🔁 Fonction principale de prétraitement :
-/// Charge tous les fichiers à partir d’un fichier d’entrée, en suivant les @import
 pub fn preprocess(entry_file: &str) -> GlobalStore {
     println!("📦 Collecting dependencies for: {}", entry_file);
 

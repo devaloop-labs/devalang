@@ -14,28 +14,26 @@ pub fn parse_identifier(
 ) -> Result<Statement, String> {
     let token = parser.peek().ok_or("Unexpected EOF")?.clone();
 
-    // Ne consomme rien ici : on vérifie seulement
     if token.kind != TokenKind::Identifier {
         return Err(format!("Expected Identifier, found {:?}", token.kind));
     }
 
     match token.lexeme.as_str() {
         "let" => {
-            parser.next(); // consomme "let"
-            return parse_let_statement(parser); // consomme le reste
+            parser.next();
+            return parse_let_statement(parser); 
         }
         "bank" => {
-            parser.next(); // consomme "bank"
+            parser.next(); 
             return parse_bank(parser, global_store);
         }
         _ => {
-            parser.next(); // consomme l'identifiant
+            parser.next();
         }
     }
 
     let statment_value = match token.kind {
         TokenKind::Identifier => {
-            // On essaie de récupérer la valeur de la variable
             let var_name = &token.lexeme;
             let current_module = global_store.modules
                 .get(&parser.current_module);
@@ -54,12 +52,10 @@ pub fn parse_identifier(
 
             println!("Trying to get variable '{}' in module '{}'", var_name, parser.current_module);
 
-            // On retourne la valeur de la variable
             variable_value
         }
         TokenKind::Number => VariableValue::Number(token.lexeme.parse().unwrap_or(0.0)),
         TokenKind::String => {
-            // On essaie de récupérer la valeur de la variable
             let var_name = &token.lexeme;
             let current_module = global_store.modules
                 .get(&parser.current_module);
@@ -78,7 +74,6 @@ pub fn parse_identifier(
 
             println!("Trying to get variable '{}' in module '{}'", var_name, parser.current_module);
 
-            // On retourne la valeur de la variable
             variable_value
         }
         _ => VariableValue::Unknown,
@@ -86,7 +81,6 @@ pub fn parse_identifier(
 
     println!("Trying get variable : {:?}", global_store.modules);
 
-    // Sinon, on retourne une déclaration inconnue
     Ok(Statement {
         kind: StatementKind::Unknown,
         value: statment_value,

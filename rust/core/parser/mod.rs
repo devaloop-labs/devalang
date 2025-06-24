@@ -20,14 +20,8 @@ use crate::{
         types::{
             module::Module,
             parser::Parser,
-            statement::{
-                Statement,
-                StatementKind,
-                StatementResolved,
-                StatementResolvedValue,
-                StatementValue,
-            },
-            store::{ GlobalStore, VariableTable },
+            statement::{ Statement, StatementKind, StatementResolved },
+            store::{ GlobalStore },
             token::{ Token, TokenKind },
             variable::VariableValue,
         },
@@ -123,10 +117,10 @@ pub fn parse_without_resolving(
             | Some(TokenKind::Newline)
             | Some(TokenKind::Indent)
             | Some(TokenKind::Dedent) => {
-                parser.next(); // juste consommer pour le moment
+                parser.next();
             }
             Some(_) => {
-                parser.next(); // fallback : avance
+                parser.next();
             }
             None => {
                 break;
@@ -150,18 +144,13 @@ pub fn parse_without_resolving(
 
                 log_message(&error_message, "ERROR");
             }
-            _ => {
-                // Pour les autres types de déclarations, on peut éventuellement faire d'autres traitements
-            }
+            _ => {}
         }
     });
 
     if errors.len() > 0 {
         log_message(
-            &format!(
-                "{} error(s) found while parsing, parsing stopped.",
-                errors.len()
-            ),
+            &format!("{} error(s) found while parsing, parsing stopped.", errors.len()),
             "INFO"
         );
 
@@ -174,14 +163,13 @@ pub fn parse_without_resolving(
 pub fn parse_without_resolving_with_module(tokens: Vec<Token>, module: &Module) -> Vec<Statement> {
     let mut parser = Parser::new(tokens.clone());
 
-    // Mettre à jour le contexte du module courant
     parser.current_module = module.path.clone();
 
     let mut global_store = GlobalStore::new();
     global_store.insert_module(module.path.clone(), module.clone());
 
     let statements = parse_without_resolving(tokens, &mut parser, &mut global_store);
-    // Mettre à jour le module avec les déclarations
+
     let mut updated_module = module.clone();
     updated_module.statements = statements.clone();
 
@@ -194,15 +182,12 @@ pub fn parse_with_resolving_with_module(
 ) -> Vec<StatementResolved> {
     let mut parser = Parser::new(tokens.clone());
 
-    // Mettre à jour le contexte du module courant
     parser.current_module = module.path.clone();
 
     let mut global_store = GlobalStore::new();
     global_store.insert_module(module.path.clone(), module.clone());
 
     let statements = parse_without_resolving(tokens, &mut parser, &mut global_store);
-
-    // Résoudre les déclarations
 
     let mut resolved_statements = Vec::new();
 

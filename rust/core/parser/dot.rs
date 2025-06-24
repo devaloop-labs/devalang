@@ -13,22 +13,19 @@ pub fn parse_dot(
     let token = parser.peek().ok_or("Unexpected EOF")?.clone();
     let mut trigger_value: String = String::from("Unknown Trigger");
 
-    // Ne consomme rien ici : on vérifie seulement
     if token.kind != crate::core::types::token::TokenKind::Dot {
         return Err(format!("Expected Dot, found {:?}", token.kind));
     }
 
-    parser.next(); // consomme le point
+    parser.next();
 
-    // On attend un identifiant après le point
     let next_token = parser.peek().ok_or("Expected identifier after dot")?.clone();
     if next_token.kind != crate::core::types::token::TokenKind::Identifier {
         return Err(format!("Expected Identifier after Dot, found {:?}", next_token.kind));
     }
 
-    parser.next(); // consomme l'identifiant
+    parser.next(); 
 
-    // Récupère la durée
     let duration_token = parser.peek().ok_or("Expected duration after identifier")?.clone();
     let mut duration = TokenDuration::Unknown;
 
@@ -52,9 +49,8 @@ pub fn parse_dot(
         }
     }
 
-    parser.next(); // consomme la durée
+    parser.next();
    
-    // Récupère les paramètres
     let dot_params: Vec<Token> = parser.collect_until(|t| {
         t.kind == TokenKind::Newline
     });
@@ -87,11 +83,11 @@ pub fn parse_dot(
                 VariableValue::Text(param.lexeme.clone())
             }
             TokenKind::Unknown => {
-                println!("⚠️ Unsupported token type in dot parameters: {:?}", param.kind);
+                Err(format!("Unsupported token type in dot parameters: {:?}", param.kind))?;
                 VariableValue::Null
             },
             _ => {
-                println!("⚠️ Unsupported token type in dot parameters: {:?}", param.kind);
+                Err(format!("Unsupported token type in dot parameters: {:?}", param.kind))?;
                 VariableValue::Unknown
             },
         };

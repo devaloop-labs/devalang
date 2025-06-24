@@ -14,12 +14,10 @@ pub fn parse_bank(
 
     let mut bank_name = String::new();
 
-    // Expect the 'bank' keyword
     if parser.next().map(|t| t.kind.clone()) != Some(TokenKind::Bank) {
         return Err("Expected 'bank' keyword".to_string());
     }
 
-    // Parse the bank name
     if let Some(token) = parser.next() {
         if token.kind == TokenKind::Identifier {
             bank_name = token.lexeme.clone();
