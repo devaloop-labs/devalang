@@ -1,0 +1,199 @@
+use clap::{ Parser, Subcommand };
+
+use crate::utils::version::get_version;
+
+#[derive(Parser)]
+#[command(name = "devalang")]
+#[command(author = "Devaloop")]
+#[command(version = get_version())]
+#[command(about = "🦊 Devalang – A programming language for music and sound.")]
+pub struct Cli {
+    #[command(subcommand)]
+    pub command: CliCommands,
+}
+
+#[derive(Subcommand)]
+pub enum CliTemplateCommand {
+    /// Lists all available templates for Devalang projects.
+    List,
+    /// Displays information about a specific template.
+    Info {
+        name: String,
+    },
+}
+
+pub enum CompilationMode {
+    /// Real-time compilation mode, for compiling files as soon as possible.
+    RealTime,
+
+    /// Batch compilation mode, for compiling files one by one.
+    Batch,
+
+    /// Check mode, used for analyzing the code without compiling it.
+    Check,
+}
+
+#[derive(Subcommand)]
+pub enum CliCommands {
+    /// Creates a new Devalang project.
+    ///
+    /// ### Arguments
+    /// - `name` - The name of the new project.
+    /// - `template` - The template to use for the new project. Defaults to "minimal" if not specified.
+    ///
+    /// ### Example
+    /// ```bash
+    /// devalang new --name my_project --template minimal
+    /// ```
+    ///
+    New {
+        #[arg(short, long)]
+        /// The name of the new project.
+        name: String,
+
+        #[arg(short, long, default_value = "welcome")]
+        /// Template to use for the new project.
+        template: String,
+    },
+
+    /// Manage templates for Devalang projects.
+    ///
+    /// ### Subcommands
+    /// - `list` - Lists all available templates.
+    /// - `info <name>` - Displays information about a specific template.
+    ///
+    /// ### Example
+    /// ```bash
+    /// devalang template list
+    /// devalang template info minimal
+    /// ```
+    ///
+    Template {
+        #[command(subcommand)]
+        command: CliTemplateCommand,
+    },
+
+    /// Build the program and generate output files.
+    ///
+    /// ### Arguments
+    /// - `entry` - The entry point of the program to build. Defaults to "./src".
+    /// - `output` - The directory where the output files will be generated. Defaults to "./output".
+    /// - `watch` - Whether to watch for changes and rebuild. Defaults to "true".
+    ///
+    /// ### Example
+    /// ```bash
+    /// devalang build --entry ./src --output ./output --watch true
+    /// ```
+    ///
+    Build {
+        #[arg(short, long, default_value = "./src")]
+        /// The entry point of the program to build.
+        ///
+        /// ### Default value
+        /// - `./src`
+        ///
+        entry: String,
+
+        #[arg(short, long, default_value = "./output")]
+        /// The directory where the output files will be generated.
+        ///
+        /// ### Default value
+        /// - `./output`
+        ///
+        output: String,
+
+        #[arg(short, long, default_value = "true")]
+        /// Whether to watch for changes and rebuild.
+        ///
+        /// ### Default value
+        /// - `true`
+        ///
+        watch: String,
+
+        #[arg(long, default_value = "real-time")]
+        /// The mode of compilation.
+        ///
+        /// ### Default value
+        /// - `real-time`
+        ///
+        /// ### Possible values
+        /// - `real-time` - Compiles files as soon as possible.
+        /// - `batch` - Compiles files one by one.
+        /// - `check` - Analyzes the code without compiling it.
+        ///
+        compilation_mode: String,
+
+        #[arg(short, long, default_value = "false")]
+        /// Whether to print debug information.
+        ///
+        /// ### Default value
+        /// - `false`
+        ///
+        debug: String,
+
+        #[arg(short, long, default_value = "false")]
+        /// Whether to compress the output files.
+        ///
+        /// ### Default value
+        /// - `false`
+        ///
+        compress: String,
+    },
+
+    /// Analyze the program for errors and warnings.
+    ///
+    /// ### Arguments
+    /// - `entry` - The entry point of the program to analyze. Defaults to "./src".
+    /// - `watch` - Whether to watch for changes and re-analyze. Defaults to "true".
+    ///
+    /// ### Example
+    /// ```bash
+    /// devalang check --entry ./src --watch true --compilation-mode real-time
+    /// ```
+    Check {
+        #[arg(short, long, default_value = "./src")]
+        /// The entry point of the program to analyze.
+        ///
+        /// ### Default value
+        /// - `./src`
+        ///
+        entry: String,
+
+        #[arg(short, long, default_value = "./output")]
+        /// The directory where the output files will be generated.
+        ///
+        /// ### Default value
+        /// - `./output`
+        ///
+        output: String,
+
+        #[arg(short, long, default_value = "false")]
+        /// Whether to watch for changes and re-analyze.
+        ///
+        /// ### Default value
+        /// - `false`
+        ///
+        watch: String,
+
+        #[arg(short, long, default_value = "real-time")]
+        /// The mode of compilation.
+        ///
+        /// ### Default value
+        /// - `real-time`
+        ///
+        /// ### Possible values
+        /// - `real-time` - Analyzes files as soon as possible.
+        /// - `batch` - Analyzes files one by one.
+        /// - `check` - Analyzes the code without compiling it.
+        ///
+        compilation_mode: String,
+
+        #[arg(short, long, default_value = "false")]
+        /// Whether to print debug information.
+        ///
+        /// ### Default value
+        /// - `false`
+        ///
+        debug: String,
+    },
+}
