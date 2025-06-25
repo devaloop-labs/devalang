@@ -16,6 +16,14 @@ pub fn resolve_trigger_statement(
     duration: TokenDuration,
     module: &Module
 ) -> StatementResolved {
+    let mut entity_value = VariableValue::Unknown;
+
+    if let Some(value) = module.variable_table.variables.get(&entity) {
+        entity_value = value.clone();
+    } else {
+        entity_value = VariableValue::Text(entity.clone());
+    }
+
     let duration_raw_value = match duration {
         TokenDuration::Auto => "auto",
         TokenDuration::Infinite => "infinite",
@@ -136,13 +144,12 @@ pub fn resolve_trigger_statement(
             }
         }
         VariableValue::Null => {
-            eprintln!("⚠️ Trigger statement with null value");
             StatementResolved {
                 kind: StatementKind::Trigger {
                     entity: entity.clone(),
                     duration: parsed_duration_value,
                 },
-                value: StatementResolvedValue::Unknown,
+                value: StatementResolvedValue::Map(HashMap::new()),
                 indent: stmt.indent,
                 line: stmt.line,
                 column: stmt.column,

@@ -1,7 +1,20 @@
 use std::{ thread, time::Duration };
 
 use crate::{
-    core::{ debugger::Debugger, preprocessor::module::load_all_modules },
+    core::{
+        debugger::Debugger,
+        preprocessor::module::load_all_modules,
+        types::{
+            statement::{
+                Statement,
+                StatementIterator,
+                StatementKind,
+                StatementResolved,
+                StatementResolvedValue,
+            },
+            variable::VariableValue,
+        },
+    },
     runner::executer::execute_statements,
     utils::{ loader::with_spinner, logger::log_message, path::{ find_entry_file, normalize_path } },
 };
@@ -24,23 +37,97 @@ pub fn handle_check_command(entry: String, output: String) -> () {
     let global_store = load_all_modules(&normalized_entry_file);
 
     if let Some(module) = global_store.modules.get(&normalized_entry_file) {
-        let module_clone = module.clone();
+        let mut module_clone = module.clone();
 
-        let resolved_statements = execute_statements(&module_clone);
+        let resolved_statements = execute_statements(&mut module_clone);
 
-        if resolved_statements.is_empty() {
-            log_message("Errors found while checking the module.", "WARNING");
+        let debugger = Debugger::new(&module_clone);
+        let debug_dir = format!("{}/debug/", normalized_output_dir.clone());
+        debugger.write_files(debug_dir.as_str(), resolved_statements.clone());
+
+        let has_errors = resolved_statements.iter().any(|stmt| {
+            // println!("Checking statement: {:?}", stmt);
+            // match stmt.kind {
+            //     StatementKind::Error => {
+            //         eprintln!("❌ Error found in statement: {:?}", stmt);
+            //         true
+            //     }
+            //     _ => false,
+            // }
+
+            match_error_recursively_resolved(&stmt.clone())
+        });
+
+        if has_errors {
+            let warning_message = format!(
+                "Check completed with errors in {:.2?}. Output files written to: '{}'",
+                duration.elapsed(),
+                normalized_output_dir
+            );
+
+            log_message(&warning_message, "WARNING");
         } else {
-            let debugger = Debugger::new(&module_clone);
-            let debug_dir = format!("{}/debug/", normalized_output_dir.clone());
-            debugger.write_files(debug_dir.as_str(), resolved_statements);
-
             let success_message = format!(
                 "Check completed successfully in {:.2?}. Output files written to: '{}'",
                 duration.elapsed(),
                 normalized_output_dir
             );
+
             log_message(&success_message, "SUCCESS");
         }
     }
+}
+
+fn match_error_recursively_resolved(stmt: &StatementResolved) -> bool {
+    match stmt.value.clone() {
+        // TODO Other statement value types here
+
+        StatementResolvedValue::Map(map) => {
+            for (key, value) in map {
+                if match_error_recursively_resolved_value(&value) {
+                    return true;
+                }
+            }
+        }
+
+        StatementResolvedValue::Array(array) => {
+            for item in array {
+                if match_error_recursively_resolved(&item) {
+                    return true;
+                }
+            }
+        }
+
+        _ => {
+            if let StatementKind::Error = stmt.kind {
+                eprintln!("❌ Error found in statement: {:?}", stmt);
+                return true;
+            }
+        }
+    }
+
+    false
+}
+
+fn match_error_recursively_resolved_value(value: &StatementResolvedValue) -> bool {
+    match value {
+        StatementResolvedValue::Map(map) => {
+            for (_, v) in map {
+                if match_error_recursively_resolved_value(v) {
+                    return true;
+                }
+            }
+        }
+        
+        StatementResolvedValue::Array(array) => {
+            for item in array {
+                if match_error_recursively_resolved(item) {
+                    return true;
+                }
+            }
+        }
+        _ => {}
+    }
+
+    false
 }

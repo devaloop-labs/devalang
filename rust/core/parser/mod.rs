@@ -128,36 +128,7 @@ pub fn parse_without_resolving(
         }
     }
 
-    let mut errors = Vec::new();
-
-    statements.iter().for_each(|statement| {
-        match &statement.kind {
-            StatementKind::Error => {
-                let error_message = format!(
-                    "Error at line {}, column {}: {:?}",
-                    statement.line,
-                    statement.column,
-                    statement.value
-                );
-
-                errors.push(statement.clone());
-
-                log_message(&error_message, "ERROR");
-            }
-            _ => {}
-        }
-    });
-
-    if errors.len() > 0 {
-        log_message(
-            &format!("{} error(s) found while parsing, parsing stopped.", errors.len()),
-            "INFO"
-        );
-
-        vec![]
-    } else {
-        statements
-    }
+    statements
 }
 
 pub fn parse_without_resolving_with_module(tokens: Vec<Token>, module: &Module) -> Vec<Statement> {
@@ -173,7 +144,37 @@ pub fn parse_without_resolving_with_module(tokens: Vec<Token>, module: &Module) 
     let mut updated_module = module.clone();
     updated_module.statements = statements.clone();
 
-    return statements;
+    let mut errors: Vec<String> = Vec::new();
+
+    statements.iter().for_each(|statement| {
+        match &statement.kind {
+            StatementKind::Error => {
+                let error_message = match &statement.value {
+                    VariableValue::Text(text) => text.clone(),
+                    _ => "Unknown error".to_string(),
+                };
+
+                errors.push(format!(
+                    "Error in module '{}': {} at line {}, column {}",
+                    updated_module.path,
+                    error_message,
+                    statement.line,
+                    statement.column
+                ));
+
+                log_message(&format!("Error: {}", error_message), "ERROR");
+            }
+            _ => {}
+        }
+    });
+
+    if errors.len() > 0 {
+        log_message(&format!("{} error(s) found. Parsing stopped.", errors.len()), "INFO");
+
+        statements
+    } else {
+        statements
+    }
 }
 
 pub fn parse_with_resolving_with_module(
@@ -192,7 +193,7 @@ pub fn parse_with_resolving_with_module(
     let mut resolved_statements = Vec::new();
 
     for statement in statements {
-        let resolved_statement = resolve_statement(&statement, module);
+        let resolved_statement = resolve_statement(&statement, &mut module.clone());
         resolved_statements.push(resolved_statement);
     }
 

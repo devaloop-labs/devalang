@@ -55,12 +55,12 @@ pub fn resolve_loop_statement(
 
     match &loop_statement.value {
         VariableValue::Array(arr) => {
-            let raw_statements = parse_without_resolving_with_module(arr.clone(), module);
+            let raw_statements = parse_without_resolving_with_module(arr.clone(), &module.clone());
 
             let mut resolved_statements = Vec::new();
 
             for raw_stmt in raw_statements {
-                let resolved_stmt = resolve_statement(&raw_stmt, module);
+                let resolved_stmt = resolve_statement(&raw_stmt, &mut module.clone());
                 resolved_statements.push(resolved_stmt);
             }
 

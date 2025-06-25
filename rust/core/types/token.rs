@@ -11,6 +11,19 @@ pub struct Token {
     pub column: usize,
 }
 
+impl Token {
+    pub fn is_error(&self) -> bool {
+        match &self.kind {
+            TokenKind::Error(_) => {
+                return true;
+            },
+            _ => {
+                return false;
+            },
+        };
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub enum TokenKind {
     At,

@@ -40,6 +40,7 @@ pub enum StatementResolvedValue {
     Array(Vec<StatementResolved>),
     Map(HashMap<String, StatementResolvedValue>),
     Unknown,
+    Null,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -89,7 +90,10 @@ pub enum StatementKind {
         names: Vec<String>,
         source: String,
     },
-    Define(String),
+    Load {
+        source: String,
+        alias: String,
+    },
 
     // Error & Unknown statements
     Unknown,

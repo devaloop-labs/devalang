@@ -2,6 +2,7 @@ pub mod bank;
 pub mod loop_;
 pub mod tempo;
 pub mod trigger;
+pub mod at;
 
 use crate::core::{
     preprocessor::resolver::{
@@ -9,6 +10,7 @@ use crate::core::{
         loop_::resolve_loop_statement,
         tempo::resolve_tempo_statement,
         trigger::resolve_trigger_statement,
+        at::{ resolve_load_statement },
     },
     types::{
         module::Module,
@@ -65,7 +67,7 @@ pub fn resolve_imports(module: &mut Module, global_store: &GlobalStore) -> Impor
     import_table
 }
 
-pub fn resolve_statement(stmt: &Statement, module: &Module) -> StatementResolved {
+pub fn resolve_statement(stmt: &Statement, module: &mut Module) -> StatementResolved {
     match &stmt.kind {
         StatementKind::Loop { iterator } => {
             resolve_loop_statement(stmt, iterator.clone(), module)
@@ -75,12 +77,28 @@ pub fn resolve_statement(stmt: &Statement, module: &Module) -> StatementResolved
             resolve_trigger_statement(stmt, entity.clone(), duration.clone(), module)
         }
 
-        // SECTION Bank declaration
         StatementKind::Bank { .. } => { resolve_bank_statement(stmt, module) }
 
         StatementKind::Tempo { .. } => { resolve_tempo_statement(stmt, module) }
 
+        StatementKind::Load { source, alias } => {
+            resolve_load_statement(stmt, source, alias, module)
+        }
+
         // TODO Handle other statement kinds
+
+        StatementKind::Error => {
+            StatementResolved {
+                kind: StatementKind::Error,
+                value: match stmt.value {
+                    VariableValue::Text(ref msg) => StatementResolvedValue::String(msg.clone()),
+                    _ => StatementResolvedValue::Unknown,
+                },
+                indent: stmt.indent,
+                line: stmt.line,
+                column: stmt.column,
+            }
+        }
 
         _ => {
             StatementResolved {

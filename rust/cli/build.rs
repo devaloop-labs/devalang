@@ -28,9 +28,9 @@ pub fn handle_build_command(entry: String, output: String) {
     let global_store = load_all_modules(&normalized_entry_file);
 
     if let Some(module) = global_store.modules.get(&normalized_entry_file) {
-        let module_clone = module.clone();
+        let mut module_clone = module.clone();
 
-        let resolved_statements = execute_statements(&module_clone);
+        let resolved_statements = execute_statements(&mut module_clone);
 
         let ast = build_ast(&resolved_statements);
 

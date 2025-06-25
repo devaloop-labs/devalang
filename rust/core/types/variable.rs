@@ -11,6 +11,7 @@ pub enum VariableValue {
     Map(HashMap<String, TokenParamValue>),
     Text(String),
     Boolean(bool),
+    Sample(String),
     Unknown,
     Null,
 }
