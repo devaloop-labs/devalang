@@ -34,44 +34,6 @@ pub enum CompilationMode {
 
 #[derive(Subcommand)]
 pub enum CliCommands {
-    /// Creates a new Devalang project.
-    ///
-    /// ### Arguments
-    /// - `name` - The name of the new project.
-    /// - `template` - The template to use for the new project. Defaults to "minimal" if not specified.
-    ///
-    /// ### Example
-    /// ```bash
-    /// devalang new --name my_project --template minimal
-    /// ```
-    ///
-    New {
-        #[arg(short, long)]
-        /// The name of the new project.
-        name: String,
-
-        #[arg(short, long, default_value = "welcome")]
-        /// Template to use for the new project.
-        template: String,
-    },
-
-    /// Manage templates for Devalang projects.
-    ///
-    /// ### Subcommands
-    /// - `list` - Lists all available templates.
-    /// - `info <name>` - Displays information about a specific template.
-    ///
-    /// ### Example
-    /// ```bash
-    /// devalang template list
-    /// devalang template info minimal
-    /// ```
-    ///
-    Template {
-        #[command(subcommand)]
-        command: CliTemplateCommand,
-    },
-
     /// Build the program and generate output files.
     ///
     /// ### Arguments
@@ -195,8 +157,4 @@ pub enum CliCommands {
         ///
         debug: String,
     },
-
-    Play {
-        // TODO: Implement play command
-    }
 }

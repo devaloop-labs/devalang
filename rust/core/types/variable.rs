@@ -1,7 +1,5 @@
 use std::collections::HashMap;
-
 use serde::Serialize;
-
 use crate::core::types::token::{Token, TokenParamValue};
 
 #[derive(Debug, Clone, Serialize)]

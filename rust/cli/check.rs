@@ -46,15 +46,6 @@ pub fn handle_check_command(entry: String, output: String) -> () {
         debugger.write_files(debug_dir.as_str(), resolved_statements.clone());
 
         let has_errors = resolved_statements.iter().any(|stmt| {
-            // println!("Checking statement: {:?}", stmt);
-            // match stmt.kind {
-            //     StatementKind::Error => {
-            //         eprintln!("❌ Error found in statement: {:?}", stmt);
-            //         true
-            //     }
-            //     _ => false,
-            // }
-
             match_error_recursively_resolved(&stmt.clone())
         });
 

@@ -1,0 +1,1 @@
+// TODO Implement the new command to create a new project with a template

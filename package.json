@@ -1,19 +1,42 @@
 {
-  "name": "devalang",
-  "version": "0.0.0-alpha.0",
-  "main": "index.js",
-  "directories": {
-    "example": "examples"
+  "name": "@devaloop/devalang",
+  "private": false,
+  "version": "0.0.1-alpha.1",
+  "description": "Write music like code. Devalang is a domain-specific language (DSL) for sound designers and music hackers. Compose, automate, and control sound — in plain text.",
+  "main": "out-tsc/index.js",
+  "bin": {
+    "devalang": "./out-tsc/bin/index.js"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "postbuild": "tsc && node out-tsc/scripts/postbuild.js",
-    "version:bump": "tsc && node out-tsc/scripts/version/index.js"
+    "prepublish": "cargo build --release && npm run script:postbuild",
+    "rust:dev": "cargo run",
+    "rust:dev:build": "cargo run build --entry examples --output output",
+    "rust:dev:check": "cargo run check --entry examples --output output",
+    "script:postbuild": "tsc && node out-tsc/scripts/postbuild.js",
+    "script:version:bump": "tsc && node out-tsc/scripts/version/index.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
+  "homepage": "https://devaloop.com",
+  "keywords": [
+    "devalang",
+    "music",
+    "sound",
+    "domain-specific language",
+    "dsl",
+    "programming language",
+    "sound design",
+    "music hacking",
+    "audio",
+    "synthesis",
+    "scripting",
+    "sound synthesis",
+    "music programming"
+  ],
+  "author": "Devaloop",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/devaloop-labs/devalang.git"
+  },
   "dependencies": {
     "@types/node": "^24.0.3"
   }
