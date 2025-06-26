@@ -5,10 +5,10 @@ use crate::{
         builder::{ build_ast, write_ast_to_file },
         debugger::Debugger,
         preprocessor::module::load_all_modules,
+        types::config::DevalangConfig,
     },
     runner::executer::execute_statements,
     utils::{
-        config::load_config,
         loader::with_spinner,
         logger::log_message,
         path::{ find_entry_file, normalize_path },
@@ -16,9 +16,12 @@ use crate::{
     },
 };
 
-pub fn handle_build_command(entry: Option<String>, output: Option<String>, watch: bool) {
-    let config = load_config(None);
-
+pub fn handle_build_command(
+    config: Option<DevalangConfig>,
+    entry: Option<String>,
+    output: Option<String>,
+    watch: bool
+) {
     let fetched_entry = if entry.is_none() {
         config
             .as_ref()

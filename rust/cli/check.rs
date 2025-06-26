@@ -4,11 +4,13 @@ use crate::{
     core::{
         debugger::Debugger,
         preprocessor::module::load_all_modules,
-        types::statement::{ StatementKind, StatementResolved, StatementResolvedValue },
+        types::{
+            config::{ DevalangConfig },
+            statement::{ StatementKind, StatementResolved, StatementResolvedValue },
+        },
     },
     runner::executer::execute_statements,
     utils::{
-        config::load_config,
         loader::with_spinner,
         logger::log_message,
         path::{ find_entry_file, normalize_path },
@@ -16,9 +18,12 @@ use crate::{
     },
 };
 
-pub fn handle_check_command(entry: Option<String>, output: Option<String>, watch: bool) -> () {
-    let config = load_config(None);
-
+pub fn handle_check_command(
+    config: Option<DevalangConfig>,
+    entry: Option<String>,
+    output: Option<String>,
+    watch: bool
+) -> () {
     let fetched_entry = if entry.is_none() {
         config
             .as_ref()

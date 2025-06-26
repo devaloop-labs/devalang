@@ -13,11 +13,19 @@ use crate::{
         init::handle_init_command,
         template::{ handle_template_info_command, handle_template_list_command },
     },
-    core::types::cli::{ Cli, CliCommands, CliTemplateCommand },
+    core::types::{ cli::{ Cli, CliCommands, CliTemplateCommand }, config::DevalangConfig },
+    utils::{ config::load_config, logger::log_message },
 };
 
 fn main() -> io::Result<()> {
-    let cli = Cli::parse();
+    let cli: Cli = Cli::parse();
+    let mut config: Option<DevalangConfig> = None;
+
+    if !cli.no_config {
+        config = load_config(None);
+    } else {
+        log_message("Configuration file loading is skipped.", "WARNING");
+    }
 
     match cli.command {
         CliCommands::Init { name, template } => {
@@ -35,11 +43,11 @@ fn main() -> io::Result<()> {
             }
 
         CliCommands::Build { entry, output, watch, compilation_mode, debug, compress } => {
-            handle_build_command(entry, output, watch);
+            handle_build_command(config, entry, output, watch);
         }
 
         CliCommands::Check { entry, output, watch, compilation_mode, debug } => {
-            handle_check_command(entry, output, watch);
+            handle_check_command(config, entry, output, watch);
         }
 
         // TODO - Implement the play command

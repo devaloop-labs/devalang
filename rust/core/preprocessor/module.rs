@@ -1,5 +1,5 @@
 use crate::core::{
-    lexer::lex,
+    lexer::driver::lex,
     parser::{ parse_without_resolving },
     preprocessor::{
         collect_dependencies_recursively,

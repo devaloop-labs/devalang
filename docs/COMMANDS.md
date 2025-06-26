@@ -20,8 +20,8 @@ devalang init --name <project-name> --template <template-name>
 
 Available arguments:
 
-- `name`: The name of the project (cannot be empty)
-- `template`: The template to use for the project (default to `welcome`)
+- `--name`: The name of the project (cannot be empty)
+- `--template`: The template to use for the project (default to `welcome`)
 
 ## Checking
 
@@ -33,9 +33,10 @@ devalang check --entry ./examples --output ./output --watch
 
 Available arguments :
 
-- `entry`: The input folder (default to `./src`)
-- `output`: The output folder (default to `./output`)
-- `watch`: Whether to watch for changes and re-analyze (default to `false`)
+- `--no-config`: Whether to ignore the configuration file (default to `false`)
+- `--entry`: The input folder (default to `./src`)
+- `--output`: The output folder (default to `./output`)
+- `--watch`: Whether to watch for changes and re-analyze (default to `false`)
 
 ## Building
 
@@ -47,6 +48,7 @@ devalang build --entry ./examples --output ./output --watch
 
 Available arguments :
 
-- `entry`: The input folder (default to `./src`)
-- `output`: The output folder (default to `./output`)
-- `watch`: Whether to watch for changes and rebuild (default to `false`)
+- `--no-config`: Whether to ignore the configuration file (default to `false`)
+- `--entry`: The input folder (default to `./src`)
+- `--output`: The output folder (default to `./output`)
+- `--watch`: Whether to watch for changes and rebuild (default to `false`)

@@ -7,6 +7,10 @@ use crate::utils::version::get_version;
 #[command(version = get_version())]
 #[command(about = "🦊 Devalang – A programming language for music and sound.")]
 pub struct Cli {
+    #[arg(long, global = true)]
+    /// Skips loading the configuration file.
+    pub no_config: bool,
+
     #[command(subcommand)]
     pub command: CliCommands,
 }
@@ -108,21 +112,21 @@ pub enum CliCommands {
         ///
         compilation_mode: String,
 
-        #[arg(short, long, default_value = "false")]
+        #[arg(short, long, default_value_t = false)]
         /// Whether to print debug information.
         ///
         /// ### Default value
         /// - `false`
         ///
-        debug: String,
+        debug: bool,
 
-        #[arg(short, long, default_value = "false")]
+        #[arg(short, long, default_value_t = false)]
         /// Whether to compress the output files.
         ///
         /// ### Default value
         /// - `false`
         ///
-        compress: String,
+        compress: bool,
     },
 
     /// Analyze the program for errors and warnings.
@@ -167,12 +171,12 @@ pub enum CliCommands {
         ///
         compilation_mode: String,
 
-        #[arg(short, long, default_value = "false")]
+        #[arg(short, long, default_value_t = false)]
         /// Whether to print debug information.
         ///
         /// ### Default value
         /// - `false`
         ///
-        debug: String,
+        debug: bool,
     },
 }
