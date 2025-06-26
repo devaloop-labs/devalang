@@ -5,3 +5,4 @@ pub mod store;
 pub mod parser;
 pub mod module;
 pub mod cli;
+pub mod config;

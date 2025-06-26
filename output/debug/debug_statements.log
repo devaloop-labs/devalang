@@ -1,4 +1,4 @@
 StatementResolved { kind: Load { source: "./examples/samples/kick-808.wav", alias: "sample" }, value: Null, indent: 0, line: 2, column: 1 }
 StatementResolved { kind: Tempo, value: Number(155.0), indent: 0, line: 4, column: 8 }
 StatementResolved { kind: Bank, value: Number(808.0), indent: 0, line: 6, column: 4 }
-StatementResolved { kind: Loop { iterator: Number(15.0) }, value: Array([StatementResolved { kind: Trigger { entity: "sample", duration: Identifier("auto") }, value: Map({"delay": Number(30.0), "decay": Number(10.0)}), indent: 4, line: 9, column: 5 }]), indent: 0, line: 8, column: 4 }
+StatementResolved { kind: Loop { iterator: Number(15.0) }, value: Array([StatementResolved { kind: Trigger { entity: "sample", duration: Identifier("auto") }, value: Map({"decay": Number(10.0), "delay": Number(30.0)}), indent: 4, line: 9, column: 5 }]), indent: 0, line: 8, column: 4 }

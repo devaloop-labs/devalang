@@ -1,0 +1,5 @@
+let bpmVar = 120
+let bankVar = 808
+let loopVar = 10
+
+@export { bpmVar, bankVar, loopVar }

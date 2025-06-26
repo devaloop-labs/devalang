@@ -39,7 +39,7 @@ This is a list of tasks and features to be implemented in Devalang. Note that th
 
 ## Syntax elements
 
-- [ ] #
+- [x] #
 - [x] @import
 - [x] @export
 - [ ] @group
@@ -72,6 +72,7 @@ This is a list of tasks and features to be implemented in Devalang. Note that th
 ## Other TODOs
 
 - [ ] Implement a more robust error handling system
-- [ ] Replace eprinln & prinln with `log_message` function
+- [ ] Replace eprintln & println with `log_message` function
 - [ ] Implement a more comprehensive logging system
 - [ ] Add unit tests for all core components
+- [ ] Comment all core components

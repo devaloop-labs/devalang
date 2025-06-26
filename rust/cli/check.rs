@@ -4,19 +4,11 @@ use crate::{
     core::{
         debugger::Debugger,
         preprocessor::module::load_all_modules,
-        types::{
-            statement::{
-                Statement,
-                StatementIterator,
-                StatementKind,
-                StatementResolved,
-                StatementResolvedValue,
-            },
-            variable::VariableValue,
-        },
+        types::statement::{ StatementKind, StatementResolved, StatementResolvedValue },
     },
     runner::executer::execute_statements,
     utils::{
+        config::load_config,
         loader::with_spinner,
         logger::log_message,
         path::{ find_entry_file, normalize_path },
@@ -24,23 +16,62 @@ use crate::{
     },
 };
 
-pub fn handle_check_command(entry: String, output: String, watch: bool) -> () {
-    let entry_file = find_entry_file(&entry).unwrap_or_else(|| {
-        eprintln!("❌ index.deva not found in directory: {}", entry);
+pub fn handle_check_command(entry: Option<String>, output: Option<String>, watch: bool) -> () {
+    let config = load_config(None);
+
+    let fetched_entry = if entry.is_none() {
+        config
+            .as_ref()
+            .and_then(|c| c.defaults.entry.clone())
+            .unwrap_or_else(|| "".to_string())
+    } else {
+        entry.clone().unwrap_or_else(|| "".to_string())
+    };
+
+    let fetched_output = if output.is_none() {
+        config
+            .as_ref()
+            .and_then(|c| c.defaults.output.clone())
+            .unwrap_or_else(|| "".to_string())
+    } else {
+        output.clone().unwrap_or_else(|| "".to_string())
+    };
+
+    let fetched_watch = if watch {
+        watch
+    } else {
+        config
+            .as_ref()
+            .and_then(|c| c.defaults.watch)
+            .unwrap_or(false)
+    };
+
+    if fetched_entry.is_empty() {
+        eprintln!("❌ Entry path is not specified. Please provide a valid entry path.");
+        std::process::exit(1);
+    }
+
+    if fetched_output.is_empty() {
+        eprintln!("❌ Output directory is not specified. Please provide a valid output directory.");
+        std::process::exit(1);
+    }
+
+    let entry_file = find_entry_file(&fetched_entry).unwrap_or_else(|| {
+        eprintln!("❌ index.deva not found in directory: {}", fetched_entry);
         std::process::exit(1);
     });
 
-    if watch == true {
+    if fetched_watch.clone() == true {
         log_message("Watch mode enabled, waiting for file changes...", "INFO");
 
-        begin_check(entry_file.clone(), output.clone(), watch);
+        begin_check(entry_file.clone(), fetched_output.clone(), fetched_watch.clone());
 
         watch_directory(entry_file.clone(), move || {
             log_message("File change detected, rebuilding...", "INFO");
-            begin_check(entry_file.clone(), output.clone(), watch);
+            begin_check(entry_file.clone(), fetched_output.clone(), fetched_watch.clone());
         }).unwrap();
     } else {
-        begin_check(entry_file.clone(), output.clone(), watch);
+        begin_check(entry_file.clone(), fetched_output.clone(), fetched_watch.clone());
     }
 }
 

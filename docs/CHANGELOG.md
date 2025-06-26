@@ -14,6 +14,17 @@
   - Added `info` subcommand to show information about a specific template.
 - Implemented `watch` subcommand for the `build` and `check` command to watch for changes in files and automatically rebuild or check them.
 
+### Core Components
+
+- Implemented Config manager to handle configuration files.
+  - Added support for `.devalang` configuration file as a TOML file.
+- Implemented File System watcher to monitor file changes.
+- Implemented Template manager to handle templates and their metadata.
+
+### Syntax
+
+- Added support for built-in triggers for `.snare`, `.hihat`, `.clap`, `.tom`, `.crash`, `.ride`, `.synth`, `.bass`, and `.pad`.
+
 ## Version 0.0.1-alpha.1 (2024-06-25)
 
 ### Syntax

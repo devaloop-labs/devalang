@@ -77,21 +77,15 @@ pub enum CliCommands {
     /// ```
     ///
     Build {
-        #[arg(short, long, default_value = "./src")]
+        #[arg(short, long)]
         /// The entry point of the program to build.
         ///
-        /// ### Default value
-        /// - `./src`
-        ///
-        entry: String,
+        entry: Option<String>,
 
-        #[arg(short, long, default_value = "./output")]
+        #[arg(short, long)]
         /// The directory where the output files will be generated.
         ///
-        /// ### Default value
-        /// - `./output`
-        ///
-        output: String,
+        output: Option<String>,
 
         #[arg(long, default_value_t = false)]
         /// Whether to watch for changes and rebuild.
@@ -142,21 +136,15 @@ pub enum CliCommands {
     /// devalang check --entry ./src --watch true --compilation-mode real-time
     /// ```
     Check {
-        #[arg(short, long, default_value = "./src")]
+        #[arg(short, long)]
         /// The entry point of the program to analyze.
         ///
-        /// ### Default value
-        /// - `./src`
-        ///
-        entry: String,
+        entry: Option<String>,
 
-        #[arg(short, long, default_value = "./output")]
+        #[arg(short, long)]
         /// The directory where the output files will be generated.
         ///
-        /// ### Default value
-        /// - `./output`
-        ///
-        output: String,
+        output: Option<String>,
 
         #[arg(long, default_value_t = false)]
         /// Whether to watch for changes and re-analyze.

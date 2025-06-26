@@ -8,6 +8,7 @@ use crate::{
     },
     runner::executer::execute_statements,
     utils::{
+        config::load_config,
         loader::with_spinner,
         logger::log_message,
         path::{ find_entry_file, normalize_path },
@@ -15,23 +16,52 @@ use crate::{
     },
 };
 
-pub fn handle_build_command(entry: String, output: String, watch: bool) {
-    let entry_file = find_entry_file(&entry).unwrap_or_else(|| {
-        eprintln!("❌ index.deva not found in directory: {}", entry);
+pub fn handle_build_command(entry: Option<String>, output: Option<String>, watch: bool) {
+    let config = load_config(None);
+
+    let fetched_entry = if entry.is_none() {
+        config
+            .as_ref()
+            .and_then(|c| c.defaults.entry.clone())
+            .unwrap_or_else(|| "".to_string())
+    } else {
+        entry.clone().unwrap_or_else(|| "".to_string())
+    };
+
+    let fetched_output = if output.is_none() {
+        config
+            .as_ref()
+            .and_then(|c| c.defaults.output.clone())
+            .unwrap_or_else(|| "".to_string())
+    } else {
+        output.clone().unwrap_or_else(|| "".to_string())
+    };
+
+    let fetched_watch = if watch {
+        watch
+    } else {
+        config
+            .as_ref()
+            .and_then(|c| c.defaults.watch)
+            .unwrap_or(false)
+    };
+
+    let entry_file = find_entry_file(&fetched_entry).unwrap_or_else(|| {
+        eprintln!("❌ index.deva not found in directory: {}", fetched_entry);
         std::process::exit(1);
     });
 
     if watch == true {
         log_message("Watch mode enabled, waiting for file changes...", "INFO");
 
-        begin_build(entry_file.clone(), output.clone(), watch);
+        begin_build(entry_file.clone(), fetched_output.clone(), watch);
 
         watch_directory(entry_file.clone(), move || {
             log_message("File change detected, rebuilding...", "INFO");
-            begin_build(entry_file.clone(), output.clone(), watch);
+            begin_build(entry_file.clone(), fetched_output.clone(), watch);
         }).unwrap();
     } else {
-        begin_build(entry_file.clone(), output.clone(), watch);
+        begin_build(entry_file.clone(), fetched_output.clone(), watch);
     }
 }
 
