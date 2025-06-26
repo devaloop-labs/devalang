@@ -4,3 +4,4 @@ pub mod path;
 pub mod loader;
 pub mod logger;
 pub mod file;
+pub mod watcher;

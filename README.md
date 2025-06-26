@@ -41,6 +41,7 @@ From studio sketches to live sets, Devalang gives you rhythmic control — with 
 - 🧩 Module system for importing and exporting variables between files (`@import`, `@export`)
 - 📜 Structured AST generation for debugging and future compilation
 - 🔢 Basic data types: strings, numbers, booleans, maps, arrays
+- 👁️ Watch mode for `build` and `check` commands
 - ⏱️ `bpm` assignment for setting tempo
 - 🧱 `bank` declaration to define the instrument set
 - 🔁 Looping system with fixed repetitions (`loop 4:`)
@@ -107,13 +108,13 @@ devalang init --name <project-name> --template <template-name>
 ### Checking syntax only and output debug files
 
 ```bash
-devalang check --entry <entry-directory> --output <output-directory>
+devalang check --entry <entry-directory> --output <output-directory> --watch
 ```
 
 ### Building output file(s) (AST generation for the moment)
 
 ```bash
-devalang build --entry <entry-directory> --output <output-directory>
+devalang build --entry <entry-directory> --output <output-directory> --watch
 ```
 
 ## 📄 Syntax example
@@ -141,7 +142,7 @@ loop 5:
 
 let globalBpm = 120
 let globalBank = 808
-let kickDuration = 500 
+let kickDuration = 500
 
 @export { globalBpm, globalBank, kickDuration }
 ```
@@ -159,7 +160,8 @@ For more info, see [docs/ROADMAP.md](./docs/ROADMAP.md)
 
 - ⏳ Audio engine integration
 - ⏳ Other statements (e.g `if`, `@group`, ...)
-- ⏳ Watch mode for automatic rebuilds
+- ⏳ Cross-platform support (Linux, macOS)
+- ⏳ More built-in instruments (e.g. snare, hi-hat, etc.)
 
 ## 🛡️ License
 

@@ -16,22 +16,42 @@ use crate::{
         },
     },
     runner::executer::execute_statements,
-    utils::{ loader::with_spinner, logger::log_message, path::{ find_entry_file, normalize_path } },
+    utils::{
+        loader::with_spinner,
+        logger::log_message,
+        path::{ find_entry_file, normalize_path },
+        watcher::watch_directory,
+    },
 };
 
-pub fn handle_check_command(entry: String, output: String) -> () {
+pub fn handle_check_command(entry: String, output: String, watch: bool) -> () {
     let entry_file = find_entry_file(&entry).unwrap_or_else(|| {
         eprintln!("❌ index.deva not found in directory: {}", entry);
         std::process::exit(1);
     });
 
+    if watch == true {
+        log_message("Watch mode enabled, waiting for file changes...", "INFO");
+
+        begin_check(entry_file.clone(), output.clone(), watch);
+
+        watch_directory(entry_file.clone(), move || {
+            log_message("File change detected, rebuilding...", "INFO");
+            begin_check(entry_file.clone(), output.clone(), watch);
+        }).unwrap();
+    } else {
+        begin_check(entry_file.clone(), output.clone(), watch);
+    }
+}
+
+fn begin_check(entry: String, output: String, watch: bool) {
     let spinner = with_spinner("Checking...", || {
         thread::sleep(Duration::from_millis(800));
     });
 
     let duration = std::time::Instant::now();
 
-    let normalized_entry_file = normalize_path(&entry_file);
+    let normalized_entry_file = normalize_path(&entry);
     let normalized_output_dir = normalize_path(&output);
 
     let global_store = load_all_modules(&normalized_entry_file);
@@ -45,9 +65,9 @@ pub fn handle_check_command(entry: String, output: String) -> () {
         let debug_dir = format!("{}/debug/", normalized_output_dir.clone());
         debugger.write_files(debug_dir.as_str(), resolved_statements.clone());
 
-        let has_errors = resolved_statements.iter().any(|stmt| {
-            match_error_recursively_resolved(&stmt.clone())
-        });
+        let has_errors = resolved_statements
+            .iter()
+            .any(|stmt| { match_error_recursively_resolved(&stmt.clone()) });
 
         if has_errors {
             let warning_message = format!(
@@ -109,7 +129,7 @@ fn match_error_recursively_resolved_value(value: &StatementResolvedValue) -> boo
                 }
             }
         }
-        
+
         StatementResolvedValue::Array(array) => {
             for item in array {
                 if match_error_recursively_resolved(item) {

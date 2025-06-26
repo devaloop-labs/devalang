@@ -28,23 +28,25 @@ Available arguments:
 Checking syntax of .deva file(s)
 
 ```bash
-devalang check --entry ./examples --output ./output
+devalang check --entry ./examples --output ./output --watch
 ```
 
 Available arguments :
 
 - `entry`: The input folder (default to `./src`)
 - `output`: The output folder (default to `./output`)
+- `watch`: Whether to watch for changes and re-analyze (default to `false`)
 
 ## Building
 
 Building AST of .deva file(s)
 
 ```bash
-devalang build --entry ./examples --output ./output
+devalang build --entry ./examples --output ./output --watch
 ```
 
 Available arguments :
 
 - `entry`: The input folder (default to `./src`)
 - `output`: The output folder (default to `./output`)
+- `watch`: Whether to watch for changes and rebuild (default to `false`)

@@ -12,6 +12,7 @@
 - Implemented `template` command to manage templates.
   - Added `list` subcommand to list available templates.
   - Added `info` subcommand to show information about a specific template.
+- Implemented `watch` subcommand for the `build` and `check` command to watch for changes in files and automatically rebuild or check them.
 
 ## Version 0.0.1-alpha.1 (2024-06-25)
 

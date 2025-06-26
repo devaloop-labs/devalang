@@ -7,7 +7,12 @@ pub mod utils;
 use std::{ io };
 use clap::Parser;
 use crate::{
-    cli::{ build::handle_build_command, check::handle_check_command, init::handle_init_command, template::{handle_template_info_command, handle_template_list_command} },
+    cli::{
+        build::handle_build_command,
+        check::handle_check_command,
+        init::handle_init_command,
+        template::{ handle_template_info_command, handle_template_list_command },
+    },
     core::types::cli::{ Cli, CliCommands, CliTemplateCommand },
 };
 
@@ -30,11 +35,11 @@ fn main() -> io::Result<()> {
             }
 
         CliCommands::Build { entry, output, watch, compilation_mode, debug, compress } => {
-            handle_build_command(entry, output);
+            handle_build_command(entry, output, watch);
         }
 
         CliCommands::Check { entry, output, watch, compilation_mode, debug } => {
-            handle_check_command(entry, output);
+            handle_check_command(entry, output, watch);
         }
 
         // TODO - Implement the play command

@@ -12,15 +12,15 @@ This is a list of tasks and features to be implemented in Devalang. Note that th
   - [x] Implement init command
   - [x] Implement template selector
   - [ ] Implement project name validation
-- [ ] Template
-  - [ ] Implement template list
-  - [ ] Implement template info
+- [x] Template
+  - [x] Implement template list
+  - [x] Implement template info
 - [x] Checking
-  - [ ] Implement watch mode
+  - [x] Implement watch mode
   - [ ] Implement debug mode
   - [ ] Implement compilation mode
 - [x] Building
-  - [ ] Implement watch mode
+  - [x] Implement watch mode
   - [ ] Implement debug mode
   - [ ] Implement compilation mode
   - [ ] Implement compression mode

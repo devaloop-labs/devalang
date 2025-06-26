@@ -7,6 +7,7 @@
 Devalang is a work in progress. Here’s what we’re planning next:
 
 - ✅ **Basic syntax**: Implement the core syntax for Devalang, including data types and basic statements.
+- ✅ **Watch mode**: Add a watch mode to automatically rebuild on file changes.
 - ✅ **Module system**: Add support for importing and exporting variables between files using `@import` and `@export`.
 - ✅ **AST generation**: Implement the Abstract Syntax Tree (AST) generation for debugging and future compilation.
 - ✅ **Basic data types**: Support strings, numbers, booleans, maps, and arrays.
@@ -21,7 +22,6 @@ Devalang is a work in progress. Here’s what we’re planning next:
 - ⏳ **WASM support**: Compile Devalang to WebAssembly for use in web applications.
 - ⏳ **Other statements**: Implement `if`, `else`, and other control structures.
 - ⏳ **Pattern and group statements**: Add support for `@pattern` and `@group` to organize code.
-- ⏳ **Watch mode**: Add a watch mode to automatically rebuild on file changes.
 - ⏳ **Functions**: Add support for defining and calling functions.
 - ⏳ **Audio engine**: Integrate the audio engine for sound playback.
 - ⏳ **Testing**: Expand test coverage for all features.

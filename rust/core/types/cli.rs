@@ -93,13 +93,13 @@ pub enum CliCommands {
         ///
         output: String,
 
-        #[arg(short, long, default_value = "true")]
+        #[arg(long, default_value_t = false)]
         /// Whether to watch for changes and rebuild.
         ///
         /// ### Default value
-        /// - `true`
+        /// - `false`
         ///
-        watch: String,
+        watch: bool,
 
         #[arg(long, default_value = "real-time")]
         /// The mode of compilation.
@@ -158,13 +158,13 @@ pub enum CliCommands {
         ///
         output: String,
 
-        #[arg(short, long, default_value = "false")]
+        #[arg(long, default_value_t = false)]
         /// Whether to watch for changes and re-analyze.
         ///
         /// ### Default value
         /// - `false`
         ///
-        watch: String,
+        watch: bool,
 
         #[arg(short, long, default_value = "real-time")]
         /// The mode of compilation.
