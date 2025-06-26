@@ -1,3 +1,4 @@
 pub mod check;
-pub mod new;
+pub mod init;
 pub mod build;
+pub mod template;

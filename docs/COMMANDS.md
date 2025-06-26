@@ -4,6 +4,25 @@
 
 # Devalang Commands Guide
 
+## Initialization
+
+Initialize a new Devalang project (current folder)
+
+```bash
+devalang init
+```
+
+Initialize a new Devalang project (new folder)
+
+```bash
+devalang init --name <project-name> --template <template-name>
+```
+
+Available arguments:
+
+- `name`: The name of the project (cannot be empty)
+- `template`: The template to use for the project (default to `welcome`)
+
 ## Checking
 
 Checking syntax of .deva file(s)

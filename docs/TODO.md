@@ -8,7 +8,10 @@ This is a list of tasks and features to be implemented in Devalang. Note that th
 
 ## Commands
 
-- [ ] New project
+- [x] Init project
+  - [x] Implement init command
+  - [x] Implement template selector
+  - [ ] Implement project name validation
 - [ ] Template
   - [ ] Implement template list
   - [ ] Implement template info
@@ -64,3 +67,11 @@ This is a list of tasks and features to be implemented in Devalang. Note that th
 - [ ] .synth
 - [ ] .bass
 - [ ] .pad
+
+
+## Other TODOs
+
+- [ ] Implement a more robust error handling system
+- [ ] Replace eprinln & prinln with `log_message` function
+- [ ] Implement a more comprehensive logging system
+- [ ] Add unit tests for all core components

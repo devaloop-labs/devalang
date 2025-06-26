@@ -90,13 +90,27 @@ npm run rust:dev <command>
 
 For more examples, see [docs/COMMANDS.md](./docs/COMMANDS.md)
 
-Checking syntax only and output debug files
+### Initialize a new project
+
+In the current directory
+
+```bash
+devalang init
+```
+
+Or use optional arguments to specify a directory name and a template
+
+```bash
+devalang init --name <project-name> --template <template-name>
+```
+
+### Checking syntax only and output debug files
 
 ```bash
 devalang check --entry <entry-directory> --output <output-directory>
 ```
 
-Building output file(s) (AST generation for the moment)
+### Building output file(s) (AST generation for the moment)
 
 ```bash
 devalang build --entry <entry-directory> --output <output-directory>

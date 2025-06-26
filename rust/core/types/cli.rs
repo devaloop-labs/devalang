@@ -34,6 +34,36 @@ pub enum CompilationMode {
 
 #[derive(Subcommand)]
 pub enum CliCommands {
+    /// Create a new Devalang project.
+    ///
+    /// ### Arguments
+    /// - `name` - The name of the project to create.
+    /// - `template` - The template to use for the project. Defaults to "default".
+    ///
+    /// ### Example
+    /// ```bash
+    /// devalang init --name my_project --template default
+    ///
+    Init {
+        #[arg(short, long)]
+        /// The optional name (directory) of the project to create.
+        name: Option<String>,
+
+        #[arg(short, long)]
+        /// The template to use for the project.
+        ///
+        /// ### Default value
+        /// - `default`
+        ///
+        template: Option<String>,
+    },
+
+    Template {
+        #[command(subcommand)]
+        /// The template command to execute.
+        command: CliTemplateCommand,
+    },
+
     /// Build the program and generate output files.
     ///
     /// ### Arguments

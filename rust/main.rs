@@ -7,29 +7,27 @@ pub mod utils;
 use std::{ io };
 use clap::Parser;
 use crate::{
-    cli::{ build::handle_build_command, check::handle_check_command },
-    core::types::cli::{ Cli, CliCommands },
+    cli::{ build::handle_build_command, check::handle_check_command, init::handle_init_command, template::{handle_template_info_command, handle_template_list_command} },
+    core::types::cli::{ Cli, CliCommands, CliTemplateCommand },
 };
 
 fn main() -> io::Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        // TODO - Implement the new command
-        // CliCommands::New { name, template } => {
-        //     log_message("Command 'new project' is not implemented yet.", "WARNING");
-        // }
+        CliCommands::Init { name, template } => {
+            handle_init_command(name, template);
+        }
 
-        // TODO - Implement the template command
-        // CliCommands::Template { command } =>
-        //     match command {
-        //         CliTemplateCommand::List => {
-        //             log_message("Command 'template list' is not implemented yet.", "WARNING");
-        //         }
-        //         CliTemplateCommand::Info { name } => {
-        //             log_message("Command 'template info' is not implemented yet.", "WARNING");
-        //         }
-        //     }
+        CliCommands::Template { command } =>
+            match command {
+                CliTemplateCommand::List => {
+                    handle_template_list_command();
+                }
+                CliTemplateCommand::Info { name } => {
+                    handle_template_info_command(name);
+                }
+            }
 
         CliCommands::Build { entry, output, watch, compilation_mode, debug, compress } => {
             handle_build_command(entry, output);
