@@ -1,0 +1,28 @@
+use std::collections::HashMap;
+
+use crate::core::shared::value::Value;
+
+#[derive(Debug, Default, Clone, PartialEq)]
+pub struct VariableTable {
+    pub variables: HashMap<String, Value>,
+}
+
+impl VariableTable {
+    pub fn new() -> Self {
+        VariableTable {
+            variables: HashMap::new(),
+        }
+    }
+
+    pub fn set(&mut self, name: String, value: Value) {
+        self.variables.insert(name, value);
+    }
+
+    pub fn get(&self, name: &str) -> Option<&Value> {
+        self.variables.get(name)
+    }
+
+    pub fn remove(&mut self, name: &str) -> Option<Value> {
+        self.variables.remove(name)
+    }
+}

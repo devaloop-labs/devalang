@@ -1,0 +1,4 @@
+[defaults]
+entry = "./src"
+output = "./output"
+watch = false

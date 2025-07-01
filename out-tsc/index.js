@@ -1,0 +1,2 @@
+"use strict";
+// This file is part of the Devalang project

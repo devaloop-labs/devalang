@@ -1,0 +1,10 @@
+@import { duration, default_bank, params, loopCount, tempo } from "./examples/exported.deva"
+
+@load "./examples/samples/kick-808.wav" as sample
+
+bpm tempo
+
+bank default_bank
+
+loop loopCount:
+    .sample duration params

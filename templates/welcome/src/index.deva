@@ -1,0 +1,13 @@
+# 🦊 Welcome to Devalang !
+# This is your first Devalang program ?
+# Let's start with a simple example that plays a sample in a loop.
+
+@import { bpmVar, bankVar, loopVar } from './variables.deva'
+@load "../samples/kick-808.wav" as sample
+
+bpm bpmVar
+
+bank bankVar
+
+loop loopVar:
+    .sample auto

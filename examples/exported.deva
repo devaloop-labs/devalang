@@ -1,0 +1,7 @@
+let duration = auto
+let default_bank = 808
+let params = {decay:10, delay:30}
+let loopCount = 5
+let tempo = 155
+
+@export { duration, default_bank, params, loopCount, tempo }
