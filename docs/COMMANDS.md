@@ -52,3 +52,34 @@ Available arguments :
 - `--entry`: The input folder (default to `./src`)
 - `--output`: The output folder (default to `./output`)
 - `--watch`: Whether to watch for changes and rebuild (default to `false`)
+
+
+## Playing
+
+Playing .deva file(s) without audio playback (once)
+
+```bash
+devalang play --entry ./examples --output ./output
+```
+
+Playing .deva file(s) with audio playback (once by file change)
+
+```bash
+devalang play --entry ./examples --output ./output --watch
+```
+
+Playing .deva file(s) with audio playback (infinite loop)
+
+```bash
+devalang play --entry ./examples --output ./output --repeat
+```
+
+Note : You cannot use `--watch` and `--repeat` options together. Use `--repeat` instead.
+
+Available arguments :
+
+- `--no-config`: Whether to ignore the configuration file (default to `false`)
+- `--entry`: The input folder (default to `./src`)
+- `--output`: The output folder (default to `./output`)
+- `--watch`: Whether to watch for changes and rebuild + play (default to `false`)
+- `--repeat`: Whether to repeat the playback of the audio file (default to `false`)

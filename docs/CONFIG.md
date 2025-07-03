@@ -18,11 +18,13 @@ The configuration file is a TOML (Tom's Obvious, Minimal Language) file that con
 [defaults]
 entry = "./src"
 output = "./output"
-watch = true
+watch = false
+repeat = true
 ```
 
 ### Available Settings
 
-- `entry`: (String) The entry point for your Devalang project
-- `output`: (String) The output directory for generated files
-- `watch`: (Boolean) Whether to watch for changes in files and automatically rebuild or check them
+- `entry`: (String) The entry point for your Devalang project (default to `./src`)
+- `output`: (String) The output directory for generated files (default to `./output`)
+- `watch`: (Boolean) Whether to watch for changes in files and automatically rebuild or check them (default to `false`)
+- `repeat`: (Boolean) Whether to repeat the playback of audio files (default to `false`)

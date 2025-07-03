@@ -1,6 +1,6 @@
 [package]
 name = "devalang"
-version = "0.0.1-alpha.3"
+version = "0.0.1-alpha.4"
 authors = ["Devaloop <contact@devaloop.com>"]
 description = "Write music like code. Devalang is a domain-specific language (DSL) for sound designers and music hackers. Compose, automate, and control sound — in plain text."
 license = "MIT"
@@ -8,8 +8,8 @@ repository = "https://github.com/devaloop-labs/devalang"
 keywords = ["music", "dsl", "audio", "cli"]
 categories = ["command-line-utilities", "audio", "development-tools"]
 readme = "README.md"
-homepage = "https://devaloop.com"
-documentation = "https://docs.rs/devalang"
+homepage = "https://devalang.com"
+documentation = "https://docs.devalang.com/"
 edition = "2024"
 
 [[bin]]

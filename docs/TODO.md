@@ -24,13 +24,13 @@ This is a list of tasks and features to be implemented in Devalang. Note that th
   - [ ] Implement debug mode
   - [ ] Implement compilation mode
   - [ ] Implement compression mode
-- [ ] Play
-  - [ ] Implement Audio Engine
-  - [ ] Implement loop mode
+- [x] Play
+  - [x] Implement Audio Engine
+  - [x] Implement loop mode
 
 ## Core components
 
-- [ ] Audio Engine
+- [x] Audio Engine
 - [x] Lexer
 - [x] Parser
 - [x] Preprocessor

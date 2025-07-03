@@ -1,4 +1,4 @@
 [defaults]
 entry = "./examples"
 output = "./output"
-watch = true
+watch = false

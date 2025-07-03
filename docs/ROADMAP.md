@@ -8,6 +8,7 @@ Devalang is a work in progress. Here’s what we’re planning next:
 
 ### Stable
 
+- ✅ **Audio engine**: Integrate the audio engine for sound playback. 
 - ✅ **Basic syntax**: Implement the core syntax for Devalang, including data types and basic statements.
 - ✅ **Watch mode**: Add a watch mode to automatically rebuild on file changes.
 - ✅ **Module system**: Add support for importing and exporting variables between files using `@import` and `@export`.
@@ -22,7 +23,6 @@ Devalang is a work in progress. Here’s what we’re planning next:
 
 ### Upcoming
 
-- ⏳ **Audio engine**: Integrate the audio engine for sound playback. 
 - ⏳ **VSCode extension**: Create a VSCode extension for syntax highlighting and code completion.
 - ⏳ **WASM support**: Compile Devalang to WebAssembly for use in web applications.
 - ⏳ **Other statements**: Implement `if`, `else`, and other control structures.

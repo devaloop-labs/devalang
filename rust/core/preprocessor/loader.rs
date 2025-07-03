@@ -2,9 +2,8 @@ use std::collections::HashMap;
 
 use crate::{
     core::{
-        debugger::{ lexer::write_lexer_log_file, preprocessor::write_preprocessor_log_file },
         error::ErrorHandler,
-        lexer::Lexer,
+        lexer::{ token::Token, Lexer },
         parser::{ statement::{ Statement, StatementKind }, Parser },
         preprocessor::{
             module::Module,
@@ -13,7 +12,7 @@ use crate::{
         },
         store::global::GlobalStore,
     },
-    utils::logger::{ LogLevel, Logger },
+    utils::logger::{ Logger },
 };
 
 pub struct ModuleLoader {
@@ -29,26 +28,29 @@ impl ModuleLoader {
         }
     }
 
-    pub fn load_all(&self, global_store: &mut GlobalStore) -> HashMap<String, Vec<Statement>> {
+    pub fn load_all(
+        &self,
+        global_store: &mut GlobalStore
+    ) -> (HashMap<String, Vec<Token>>, HashMap<String, Vec<Statement>>) {
         // SECTION Load the entry module and its dependencies
-        self.load_module_recursively(&self.entry, global_store);
+        let tokens_by_module = self.load_module_recursively(&self.entry, global_store);
 
         // SECTION Process and resolve modules
         process_modules(self, global_store);
         resolve_all_modules(self, global_store);
 
-        let resolved = resolve_and_flatten_all_modules(global_store);
+        let statemnts_by_module = resolve_and_flatten_all_modules(global_store);
 
-        // SECTION Write resolved statements to log file
-        write_preprocessor_log_file(&self.output, "resolved_statements.log", resolved.clone());
-
-        // Return the resolved statements
-        resolved
+        (tokens_by_module, statemnts_by_module)
     }
 
-    fn load_module_recursively(&self, path: &str, global_store: &mut GlobalStore) {
+    fn load_module_recursively(
+        &self,
+        path: &str,
+        global_store: &mut GlobalStore
+    ) -> HashMap<String, Vec<Token>> {
         if global_store.modules.contains_key(path) {
-            return;
+            return HashMap::new();
         }
 
         let lexer = Lexer::new();
@@ -75,13 +77,22 @@ impl ModuleLoader {
 
         // SECTION Module creation
         let mut module = Module::new(path);
-        module.tokens = tokens;
-        module.statements = statements;
+        module.tokens = tokens.clone();
+        module.statements = statements.clone();
 
         global_store.insert_module(path.to_string(), module);
 
         // Then load the imports recursively
         self.load_module_imports(&path.to_string(), global_store);
+
+        // Return all tokens by module
+        let mut tokens_by_module = HashMap::new();
+
+        global_store.modules.iter().for_each(|(path, module)| {
+            tokens_by_module.insert(path.clone(), module.tokens.clone());
+        });
+
+        tokens_by_module
     }
 
     fn load_module_imports(&self, path: &String, global_store: &mut GlobalStore) {

@@ -1,6 +1,7 @@
 @import { duration, default_bank, params, loopCount, tempo } from "./examples/exported.deva"
 
 @load "./examples/samples/kick-808.wav" as sample
+@load "./examples/samples/hat-808.wav" as hat
 
 bpm tempo
 
@@ -8,3 +9,8 @@ bank default_bank
 
 loop loopCount:
     .sample duration params
+
+    # Uncomment the next line (.hat) while executing "play" command 
+    # with `--repeat` option to see magic happen !
+
+    # .hat duration params

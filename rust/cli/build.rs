@@ -1,7 +1,9 @@
 use crate::{
+    audio::render::render_audio_with_modules,
     config::Config,
     core::{
         builder::Builder,
+        debugger::{ lexer::write_lexer_log_file, preprocessor::write_preprocessor_log_file },
         preprocessor::loader::ModuleLoader,
         store::global::GlobalStore,
         utils::path::{ find_entry_file, normalize_path },
@@ -102,20 +104,29 @@ fn begin_build(entry: String, output: String) {
 
     // SECTION Load
     // NOTE: We use modules in the build command, so we need to load them
-    let modules = module_loader.load_all(&mut global_store);
+    let (modules_tokens, modules_statements) = module_loader.load_all(&mut global_store);
 
-    // SECTION Build
+    // SECTION Write logs
+    write_lexer_log_file(&normalized_output_dir, "lexer_tokens.log", modules_tokens.clone());
+    write_preprocessor_log_file(
+        &normalized_output_dir,
+        "resolved_statements.log",
+        modules_statements.clone()
+    );
+
+    // SECTION Building AST and Audio
     let builder = Builder::new();
-    builder.build_ast(&modules);
+    builder.build_ast(&modules_statements);
+    builder.build_audio(&modules_statements, &normalized_output_dir, &mut global_store);
 
-    // TODO: Implement debugging
-
+    // SECTION Logging
+    let logger = Logger::new();
+    
     let success_message = format!(
         "Build completed successfully in {:.2?}. Output files written to: '{}'",
         duration.elapsed(),
         normalized_output_dir
     );
 
-    let logger = Logger::new();
     logger.log_message(LogLevel::Success, &success_message);
 }

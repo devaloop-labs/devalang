@@ -2,6 +2,7 @@ pub mod core;
 pub mod cli;
 pub mod utils;
 pub mod config;
+pub mod audio;
 
 use std::io;
 use cli::{ Cli };
@@ -11,6 +12,7 @@ use crate::{
         build::handle_build_command,
         check::handle_check_command,
         init::handle_init_command,
+        play::handle_play_command,
         template::{ handle_template_info_command, handle_template_list_command },
         Commands,
         TemplateCommand,
@@ -49,6 +51,10 @@ fn main() -> io::Result<()> {
 
         Commands::Build { entry, output, watch, compilation_mode, debug, compress } => {
             handle_build_command(config, entry, output, watch);
+        }
+
+        Commands::Play { entry, output, watch, repeat } => {
+            handle_play_command(config, entry, output, watch, repeat);
         }
 
         _ => {}

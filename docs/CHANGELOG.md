@@ -4,6 +4,23 @@
 
 # Changelog
 
+## Version 0.0.1-alpha.4 (2025-07-03)
+
+### Audio Engine
+
+- Integrated Audio Engine to handle audio playback and rendering.
+- Implemented Audio Player to play audio files.
+- Added support for audio playback with the `play` command.
+
+### Commands
+
+- Implemented `play` command to play Devalang files.
+  - Added `--watch` option to watch for changes in files and automatically rebuild and play them. (once)
+  - Added `--repeat` option to repeat the playback of the audio file. (infinite)
+  
+  Note : You cannot use `--watch` and `--repeat` options together. Use `--repeat` instead.
+  
+
 ## Version 0.0.1-alpha.3 (2025-07-01)
 
 - /!\ Major refactor of the project structure and module system /!\

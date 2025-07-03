@@ -2,6 +2,7 @@ pub mod check;
 pub mod build;
 pub mod init;
 pub mod template;
+pub mod play;
 
 use clap::{ Parser, Subcommand };
 use crate::utils::version::get_version;
@@ -172,5 +173,33 @@ pub enum Commands {
         /// - `false`
         ///
         debug: bool,
+    },
+
+    Play {
+        #[arg(short, long)]
+        /// The entry point of the program to play.
+        ///
+        entry: Option<String>,
+
+        #[arg(short, long)]
+        /// The directory where the output files will be generated.
+        ///
+        output: Option<String>,
+
+        #[arg(long, default_value_t = false)]
+        /// Whether to watch for changes and re-play.
+        ///
+        /// ### Default value
+        /// - `false`
+        ///
+        watch: bool,
+
+        #[arg(long, default_value_t = false)]
+        /// Whether to replay the program after it finishes.
+        ///
+        /// ### Default value
+        /// - `false`
+        ///
+        repeat: bool,
     },
 }

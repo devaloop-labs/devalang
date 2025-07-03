@@ -1,17 +1,21 @@
-use std::collections::HashMap;
+use std::{ collections::HashMap, fs::create_dir_all };
 use crate::core::{ debugger::Debugger, parser::statement::Statement };
 
 pub fn write_preprocessor_log_file(
     output_dir: &str,
     file_name: &str,
-    statements: HashMap<String, Vec<Statement>>
+    modules: HashMap<String, Vec<Statement>>
 ) {
     let debugger = Debugger::new();
     let mut content = String::new();
 
-    for (path, stmts) in statements {
+    let log_directory = format!("{}/logs", output_dir);
+
+    create_dir_all(&log_directory).expect("Failed to create log directory");
+
+    for (path, stmts) in modules {
         content.push_str(&format!("--- Resolved Statements for {} ---\n", path));
-        
+
         for stmt in stmts {
             content.push_str(&format!("{:?}\n", stmt));
         }
@@ -19,5 +23,5 @@ pub fn write_preprocessor_log_file(
         content.push_str("\n");
     }
 
-    debugger.write_log_file(output_dir, file_name, &content);
+    debugger.write_log_file(&log_directory, file_name, &content);
 }
