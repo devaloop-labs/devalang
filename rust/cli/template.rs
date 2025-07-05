@@ -1,9 +1,9 @@
 use include_dir::{ include_dir, Dir, DirEntry };
-
 use crate::utils::file::format_file_size;
 
 static TEMPLATES_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/templates");
 
+#[cfg(feature = "cli")]
 pub fn handle_template_list_command() {
     let available_templates = get_available_templates();
 
@@ -16,6 +16,7 @@ pub fn handle_template_list_command() {
     println!("\nUsage : devalang init --name <project-name> --template <template-name>");
 }
 
+#[cfg(feature = "cli")]
 pub fn handle_template_info_command(name: String) {
     let template_dir = TEMPLATES_DIR.get_dir(name.clone()).unwrap_or_else(|| {
         println!("❌ The template '{}' is not found.", name);

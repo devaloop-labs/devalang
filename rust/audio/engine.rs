@@ -2,11 +2,7 @@ use std::{ collections::HashMap, fs::File, io::BufReader };
 use hound::{ SampleFormat, WavSpec, WavWriter };
 use rodio::{ Decoder, Source };
 
-use crate::core::{
-    parser::statement::Statement,
-    store::variable::VariableTable,
-    utils::path::normalize_path,
-};
+use crate::core::{ store::variable::VariableTable, utils::path::normalize_path };
 
 const SAMPLE_RATE: u32 = 44100;
 const CHANNELS: u16 = 2;

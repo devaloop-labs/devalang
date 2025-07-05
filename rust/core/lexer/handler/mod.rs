@@ -42,7 +42,7 @@ fn advance_char<I: Iterator<Item = char>>(
     Some(c)
 }
 
-pub fn handle_content_lexing(content: String) -> Vec<Token> {
+pub fn handle_content_lexing(content: String) -> Result<Vec<Token>, String> {
     let mut tokens = Vec::new();
 
     let mut line = 1;
@@ -234,5 +234,5 @@ pub fn handle_content_lexing(content: String) -> Vec<Token> {
     //     );
     // }
 
-    tokens
+    Ok(tokens)
 }

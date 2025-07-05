@@ -1,9 +1,9 @@
-use crate::audio::render::render_audio_with_modules;
-use crate::core::parser::statement::Statement;
+use crate::{ audio::render::render_audio_with_modules, core::parser::statement::Statement };
 use crate::core::store::global::GlobalStore;
-use crate::utils::logger::Logger;
 use std::{ collections::HashMap, fs::create_dir_all };
 use std::io::Write;
+
+use crate::utils::logger::Logger;
 
 pub struct Builder {}
 
@@ -12,16 +12,14 @@ impl Builder {
         Builder {}
     }
 
-    pub fn build_ast(&self, modules: &HashMap<String, Vec<Statement>>) {
-        let output_path = "./output";
-
+    pub fn build_ast(&self, modules: &HashMap<String, Vec<Statement>>, out_dir: &str) {
         for (name, statements) in modules {
             let formatted_name = name.split("/").last().unwrap_or(name);
             let formatted_name = formatted_name.replace(".deva", "");
 
-            create_dir_all(format!("{}/ast", output_path)).expect("Failed to create AST directory");
+            create_dir_all(format!("{}/ast", out_dir)).expect("Failed to create AST directory");
 
-            let file_path = format!("{}/ast/{}.json", output_path, formatted_name);
+            let file_path = format!("{}/ast/{}.json", out_dir, formatted_name);
             let mut file = std::fs::File::create(file_path).expect("Failed to create AST file");
 
             let content = serde_json
@@ -46,7 +44,9 @@ impl Builder {
             global_store
         );
 
-        create_dir_all(format!("{}/audio", normalized_output_dir)).expect("Failed to create audio directory");
+        create_dir_all(format!("{}/audio", normalized_output_dir)).expect(
+            "Failed to create audio directory"
+        );
 
         for (module_name, mut audio_engine) in audio_engines {
             let formatted_module_name = module_name

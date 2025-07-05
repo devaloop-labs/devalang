@@ -1,6 +1,7 @@
 /target
 /output
 /node_modules
+/pkg
 
 package-lock.json
 Cargo.lock

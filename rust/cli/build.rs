@@ -12,6 +12,7 @@ use crate::{
 };
 use std::{ thread, time::Duration };
 
+#[cfg(feature = "cli")]
 pub fn handle_build_command(
     config: Option<Config>,
     entry: Option<String>,
@@ -104,7 +105,7 @@ fn begin_build(entry: String, output: String) {
 
     // SECTION Load
     // NOTE: We use modules in the build command, so we need to load them
-    let (modules_tokens, modules_statements) = module_loader.load_all(&mut global_store);
+    let (modules_tokens, modules_statements) = module_loader.load_all_modules(&mut global_store);
 
     // SECTION Write logs
     write_lexer_log_file(&normalized_output_dir, "lexer_tokens.log", modules_tokens.clone());
@@ -116,12 +117,12 @@ fn begin_build(entry: String, output: String) {
 
     // SECTION Building AST and Audio
     let builder = Builder::new();
-    builder.build_ast(&modules_statements);
+    builder.build_ast(&modules_statements, &normalized_output_dir);
     builder.build_audio(&modules_statements, &normalized_output_dir, &mut global_store);
 
     // SECTION Logging
     let logger = Logger::new();
-    
+
     let success_message = format!(
         "Build completed successfully in {:.2?}. Output files written to: '{}'",
         duration.elapsed(),

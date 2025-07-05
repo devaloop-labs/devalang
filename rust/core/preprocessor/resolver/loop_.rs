@@ -33,13 +33,18 @@ pub fn resolve_loop(
                         Value::Null
                     }
                     None => {
-                        log_type_error(
-                            &logger,
-                            module,
-                            stmt,
-                            format!("Loop iterator '{ident}' not found")
-                        );
-                        Value::Null
+                        // Value is not a variable so we assume it's a number
+                        if let Ok(n) = ident.parse::<f32>() {
+                            Value::Number(n)
+                        } else {
+                            log_type_error(
+                                &logger,
+                                module,
+                                stmt,
+                                format!("Loop iterator '{ident}' is not a valid number")
+                            );
+                            Value::Null
+                        }
                     }
                 }
             }

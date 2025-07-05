@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-
 use crate::{
     core::{
         error::ErrorHandler,
@@ -11,8 +10,9 @@ use crate::{
             resolver::{ resolve_all_modules, resolve_and_flatten_all_modules },
         },
         store::global::GlobalStore,
+        utils::path::normalize_path,
     },
-    utils::logger::{ Logger },
+    utils::logger::Logger,
 };
 
 pub struct ModuleLoader {
@@ -28,7 +28,67 @@ impl ModuleLoader {
         }
     }
 
-    pub fn load_all(
+    pub fn from_raw_source(
+        entry_path: &str,
+        output_path: &str,
+        content: &str,
+        global_store: &mut GlobalStore
+    ) -> Self {
+        let normalized_entry_path = normalize_path(entry_path);
+
+        let mut module = Module::new(&entry_path);
+        module.content = content.to_string();
+
+        println!("Loading module from raw source: {}", normalized_entry_path);
+
+        global_store.insert_module(normalized_entry_path.to_string(), module);
+
+        Self {
+            entry: normalized_entry_path.to_string(),
+            output: output_path.to_string(),
+        }
+    }
+
+    pub fn extract_statements_map(
+        &self,
+        global_store: &GlobalStore
+    ) -> HashMap<String, Vec<Statement>> {
+        global_store.modules
+            .iter()
+            .map(|(path, module)| (path.clone(), module.statements.clone()))
+            .collect()
+    }
+
+    pub fn load_single_module(&self, global_store: &mut GlobalStore) -> Result<Module, String> {
+        let mut module = global_store.modules
+            .remove(&self.entry)
+            .ok_or_else(|| format!("Module not found in store for path: {}", self.entry))?;
+
+        // SECTION Lexing the module content
+        let lexer = Lexer::new();
+        let tokens = lexer
+            .lex_from_source(&module.content)
+            .map_err(|e| format!("Lexer failed: {}", e))?;
+
+        module.tokens = tokens.clone();
+
+        // SECTION Parsing tokens into statements
+        let mut parser = Parser::new();
+        parser.set_current_module(self.entry.clone());
+        let statements = parser.parse_tokens(tokens, global_store);
+        module.statements = statements;
+
+        // SECTION Error handling
+        let mut error_handler = ErrorHandler::new();
+        error_handler.detect_from_statements(&mut parser, &module.statements);
+
+        global_store.modules.insert(self.entry.clone(), module.clone());
+
+        Ok(module)
+    }
+
+    #[cfg(feature = "cli")]
+    pub fn load_all_modules(
         &self,
         global_store: &mut GlobalStore
     ) -> (HashMap<String, Vec<Token>>, HashMap<String, Vec<Statement>>) {
@@ -44,6 +104,7 @@ impl ModuleLoader {
         (tokens_by_module, statemnts_by_module)
     }
 
+    #[cfg(feature = "cli")]
     fn load_module_recursively(
         &self,
         path: &str,
@@ -95,6 +156,7 @@ impl ModuleLoader {
         tokens_by_module
     }
 
+    #[cfg(feature = "cli")]
     fn load_module_imports(&self, path: &String, global_store: &mut GlobalStore) {
         let imports = global_store.modules
             .get(path)

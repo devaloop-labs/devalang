@@ -18,6 +18,7 @@ pub struct Module {
     pub variable_table: VariableTable,
     pub export_table: ExportTable,
     pub import_table: ImportTable,
+    pub content: String,
 }
 
 impl Module {
@@ -30,6 +31,7 @@ impl Module {
             export_table: ExportTable::new(),
             import_table: ImportTable::new(),
             resolved: false,
+            content: String::new(),
         }
     }
 

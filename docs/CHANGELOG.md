@@ -4,6 +4,19 @@
 
 # Changelog
 
+## Version 0.0.1-alpha.5 (2025-07-05)
+
+### Syntax
+
+- Fixed block parsing issues caused by missing or incorrect `Indent` / `Dedent` token detection.
+- Indentation handling now triggers correctly at each newline.
+- Improved reliability of nested blocks (e.g., inside `loop`) with consistent `Dedent` termination.
+
+### Core Components
+
+- Added full **WebAssembly (WASM)** support — Devalang can now be compiled for browser or Node.js environments.
+- Prepared the ground for future IDE integrations (e.g., VSCode extension) by stabilizing core syntax parsing.
+
 ## Version 0.0.1-alpha.4 (2025-07-03)
 
 ### Audio Engine
@@ -15,11 +28,11 @@
 ### Commands
 
 - Implemented `play` command to play Devalang files.
+
   - Added `--watch` option to watch for changes in files and automatically rebuild and play them. (once)
   - Added `--repeat` option to repeat the playback of the audio file. (infinite)
-  
+
   Note : You cannot use `--watch` and `--repeat` options together. Use `--repeat` instead.
-  
 
 ## Version 0.0.1-alpha.3 (2025-07-01)
 

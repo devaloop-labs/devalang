@@ -1,5 +1,4 @@
 use std::{ fs, path::Path };
-
 use crate::config::Config;
 
 pub fn load_config(path: Option<&Path>) -> Option<Config> {

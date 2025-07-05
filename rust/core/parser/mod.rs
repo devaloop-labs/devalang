@@ -225,7 +225,6 @@ impl Parser {
                 break;
             }
             if condition(token) {
-                self.advance(); // Consume the token that matches the condition
                 break;
             }
             collected.push(self.advance().unwrap().clone());

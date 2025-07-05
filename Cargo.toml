@@ -1,6 +1,6 @@
 [package]
 name = "devalang"
-version = "0.0.1-alpha.4"
+version = "0.0.1-alpha.5"
 authors = ["Devaloop <contact@devaloop.com>"]
 description = "Write music like code. Devalang is a domain-specific language (DSL) for sound designers and music hackers. Compose, automate, and control sound — in plain text."
 license = "MIT"
@@ -10,11 +10,13 @@ categories = ["command-line-utilities", "audio", "development-tools"]
 readme = "README.md"
 homepage = "https://devalang.com"
 documentation = "https://docs.devalang.com/"
+license-file = "LICENSE"
 edition = "2024"
 
 [[bin]]
 name = "devalang"
 path = "rust/main.rs"
+required-features = ["cli"]
 
 [lib]
 path = "rust/lib.rs"
@@ -25,7 +27,7 @@ opt-level = "s"
 
 [features]
 default = ["cli"]
-cli = ["crossterm"]
+cli = ["crossterm", "indicatif", "inquire"]
 
 [dependencies]
 clap = { version = "4.5", features = ["derive"] }
@@ -42,5 +44,5 @@ serde-wasm-bindgen = "0.4"
 nom_locate = "4.0.0"
 chrono = "0.4"
 crossterm =  { version = "0.27", optional = true }
-indicatif = "0.17"
-inquire = "0.7.5"
+indicatif = { version = "0.17", optional = true }
+inquire = { version = "0.7.5", optional = true }

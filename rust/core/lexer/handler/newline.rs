@@ -14,6 +14,10 @@ pub fn handle_newline_lexer(
         lexeme: ch.to_string(),
         line: *line,
         column: 0,
-        indent: 0,
+        indent: *current_indent,
     });
+
+    *line += 1;
+    *column = 1;
+    *at_line_start = true;
 }

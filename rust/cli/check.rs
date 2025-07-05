@@ -9,6 +9,7 @@ use crate::{
 };
 use std::{ thread, time::Duration };
 
+#[cfg(feature = "cli")]
 pub fn handle_check_command(
     config: Option<Config>,
     entry: Option<String>,
@@ -101,7 +102,7 @@ fn begin_check(entry: String, output: String) {
 
     // SECTION Load
     // NOTE: We don't use modules in the check command, but we still need to load them
-    let modules = module_loader.load_all(&mut global_store);
+    let modules = module_loader.load_all_modules(&mut global_store);
 
     // TODO: Implement debugging
 

@@ -15,6 +15,7 @@ use std::{ path::Path, sync::mpsc::channel, thread, time::Duration };
 use std::fs;
 use std::collections::HashMap;
 
+#[cfg(feature = "cli")]
 pub fn handle_play_command(
     config: Option<Config>,
     entry: Option<String>,
@@ -144,7 +145,7 @@ fn begin_play(config: &Option<Config>, entry_file: &str, output: &str) {
     let duration = std::time::Instant::now();
     let mut global_store = GlobalStore::new();
     let loader = ModuleLoader::new(&normalized_entry, &normalized_output_dir);
-    let (modules_tokens, modules_statements) = loader.load_all(&mut global_store);
+    let (modules_tokens, modules_statements) = loader.load_all_modules(&mut global_store);
 
     // SECTION Write logs
     write_lexer_log_file(&normalized_output_dir, "lexer_tokens.log", modules_tokens.clone());
@@ -156,7 +157,7 @@ fn begin_play(config: &Option<Config>, entry_file: &str, output: &str) {
 
     // SECTION Building AST and Audio
     let builder = Builder::new();
-    builder.build_ast(&modules_statements);
+    builder.build_ast(&modules_statements, &output);
     builder.build_audio(&modules_statements, &output, &mut global_store);
 
     // SECTION Logging

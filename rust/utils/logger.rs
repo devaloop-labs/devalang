@@ -1,5 +1,6 @@
-use crossterm::style::{ Attribute, Color, ResetColor, SetAttribute, SetForegroundColor };
-use std::{ fmt::Write };
+#[cfg(feature = "cli")]
+use crossterm::style::{Attribute, Color, ResetColor, SetAttribute, SetForegroundColor};
+use std::fmt::Write;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum LogLevel {
@@ -12,24 +13,43 @@ pub enum LogLevel {
 }
 
 #[derive(Debug, Clone)]
-pub struct Logger {}
+pub struct Logger;
 
 impl Logger {
     pub fn new() -> Self {
-        Logger {}
+        Logger
     }
 
+    // --- log_message ---
+
+    #[cfg(feature = "cli")]
     pub fn log_message(&self, level: LogLevel, message: &str) {
         let formatted_status = self.format_status(level);
         println!("🦊 {} {} {}", self.language_signature(), formatted_status, message);
     }
 
+    #[cfg(not(feature = "cli"))]
+    pub fn log_message(&self, _level: LogLevel, _message: &str) {
+        // no-op for WASM
+    }
+
+    // --- log_error_with_stacktrace ---
+
+    #[cfg(feature = "cli")]
     pub fn log_error_with_stacktrace(&self, message: &str, stacktrace: &str) {
         let formatted_status = self.format_status(LogLevel::Error);
         println!("🦊 {} {} {}", self.language_signature(), formatted_status, message);
         println!("     ↳ {}", stacktrace);
     }
 
+    #[cfg(not(feature = "cli"))]
+    pub fn log_error_with_stacktrace(&self, _message: &str, _stacktrace: &str) {
+        // no-op for WASM
+    }
+
+    // --- language_signature ---
+
+    #[cfg(feature = "cli")]
     fn language_signature(&self) -> String {
         let mut s = String::new();
 
@@ -43,12 +63,19 @@ impl Logger {
 
         write!(&mut s, "{}", SetForegroundColor(Color::Grey)).unwrap();
         s.push(']');
-
         write!(&mut s, "{}", ResetColor).unwrap();
 
         s
     }
 
+    #[cfg(not(feature = "cli"))]
+    fn language_signature(&self) -> String {
+        "[Devalang]".to_string()
+    }
+
+    // --- format_status ---
+
+    #[cfg(feature = "cli")]
     fn format_status(&self, level: LogLevel) -> String {
         let mut s = String::new();
 
@@ -76,9 +103,21 @@ impl Logger {
         s.push_str(status);
         write!(&mut s, "{}", SetAttribute(Attribute::Reset)).unwrap();
         s.push(']');
-
         write!(&mut s, "{}", ResetColor).unwrap();
 
         s
+    }
+
+    #[cfg(not(feature = "cli"))]
+    fn format_status(&self, level: LogLevel) -> String {
+        match level {
+            LogLevel::Success => "[SUCCESS]",
+            LogLevel::Error => "[ERROR]",
+            LogLevel::Info => "[INFO]",
+            LogLevel::Warning => "[WARNING]",
+            LogLevel::Watcher => "[WATCHER]",
+            LogLevel::Debug => "[DEBUG]",
+        }
+        .to_string()
     }
 }

@@ -40,6 +40,17 @@ pub fn parse_loop_token(parser: &mut Parser, global_store: &mut GlobalStore) -> 
     );
     let loop_body = parser.parse_block(tokens.clone(), global_store);
 
+    // Peek for dedent
+    if let Some(token) = parser.peek() {
+        if token.kind == TokenKind::Dedent {
+            parser.advance();
+        } else {
+            // Unexpected token after loop body
+        }
+    } else {
+        // EOF or unexpected end of input
+    }
+
     let mut value_map = HashMap::new();
 
     value_map.insert("iterator".to_string(), Value::Identifier(iterator_name));

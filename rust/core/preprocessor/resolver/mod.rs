@@ -63,9 +63,9 @@ pub fn resolve_and_flatten_all_modules(
     global_store: &mut GlobalStore
 ) -> HashMap<String, Vec<Statement>> {
     let logger = Logger::new();
-    let snapshot = global_store.clone(); // pour éviter les emprunts mutables
+    let snapshot = global_store.clone();
 
-    // 1. Résolution des imports
+    // 1. Imports resolution
     for (module_path, module) in global_store.modules.iter_mut() {
         for (name, source_path) in &module.import_table.imports {
             if let Value::String(source_path_str) = source_path {
@@ -96,8 +96,8 @@ pub fn resolve_and_flatten_all_modules(
         }
     }
 
-    // 2. Résolution des statements
-    let mut resolved_map = HashMap::new();
+    // 2. Statements resolution
+    let mut resolved_map: HashMap<String, Vec<Statement>> = HashMap::new();
     let store_snapshot = global_store.clone();
 
     for (path, module) in &store_snapshot.modules {
@@ -135,7 +135,6 @@ pub fn resolve_and_flatten_all_modules(
                 }
 
                 StatementKind::Import { .. } | StatementKind::Export { .. } => {
-                    // Rien à faire
                     resolved.push(stmt.clone());
                 }
 

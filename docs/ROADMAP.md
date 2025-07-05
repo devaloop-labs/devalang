@@ -6,7 +6,7 @@
 
 Devalang is a work in progress. Here’s what we’re planning next:
 
-### Stable
+## Completed
 
 - ✅ **Audio engine**: Integrate the audio engine for sound playback. 
 - ✅ **Basic syntax**: Implement the core syntax for Devalang, including data types and basic statements.
@@ -20,11 +20,11 @@ Devalang is a work in progress. Here’s what we’re planning next:
 - ✅ **Instruction calls**: Add support for instruction calls with parameters (e.g. `.kick auto {reverb:10, decay:20}`).
 - ✅ **Let assignments**: Implement `let` assignments for storing reusable values.
 - ✅ **Sample loading**: Add `@load` assignment to load samples (.mp3, .wav) for use as values.
+- ✅ **WASM support**: Compile Devalang to WebAssembly for use in web applications and other environments.
 
-### Upcoming
+## Upcoming
 
 - ⏳ **VSCode extension**: Create a VSCode extension for syntax highlighting and code completion.
-- ⏳ **WASM support**: Compile Devalang to WebAssembly for use in web applications.
 - ⏳ **Other statements**: Implement `if`, `else`, and other control structures.
 - ⏳ **Pattern and group statements**: Add support for `@pattern` and `@group` to organize code.
 - ⏳ **Functions**: Add support for defining and calling functions.

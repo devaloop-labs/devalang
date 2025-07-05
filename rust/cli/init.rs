@@ -1,11 +1,13 @@
 use std::{ fs, path::Path };
 use include_dir::{ include_dir, Dir };
-use inquire::{ Select, Confirm };
-
 use crate::{ cli::template::get_available_templates, utils::file::copy_dir_recursive };
+
+#[cfg(feature = "cli")]
+use inquire::{ Select, Confirm };
 
 static TEMPLATES_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/templates");
 
+#[cfg(feature = "cli")]
 pub fn handle_init_command(name: Option<String>, template: Option<String>) {
     let current_dir = std::env::current_dir().unwrap();
     let project_name = name
