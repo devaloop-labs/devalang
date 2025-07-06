@@ -14,6 +14,9 @@
 ![npm](https://img.shields.io/npm/dt/@devaloop/devalang)
 ![crates](https://img.shields.io/crates/d/devalang)
 
+[![VSCode Extension](https://img.shields.io/visual-studio-marketplace/v/devaloop.devalang-vscode?label=VSCode%20Extension)](https://marketplace.visualstudio.com/items?itemName=devaloop.devalang-vscode)
+
+
 ## 🎼 Devalang, by **Devaloop Labs**
 
 🎶 Compose music with code — simple, structured, sonic.
@@ -27,6 +30,9 @@ From studio sketches to live sets, Devalang gives you rhythmic control — with 
 
 > 🚧 **v0.0.1-alpha.5 Notice** 🚧
 >
+> NEW: Devalang VSCode extension is now available !
+> [Get it here](https://marketplace.visualstudio.com/items?itemName=devaloop.devalang-vscode).
+>
 > Currently, Devalang CLI is only available for **Windows**.  
 > Linux and macOS binaries will be added in future releases via cross-platform builds.
 
@@ -36,6 +42,8 @@ From studio sketches to live sets, Devalang gives you rhythmic control — with 
 
 - [📖 Documentation](./docs/)
 - [💡 Examples](./examples/)
+- [🧩 VSCode Extension](https://marketplace.visualstudio.com/items?itemName=devaloop.devalang-vscode)
+- [🎨 Prettier Plugin](https://www.npmjs.com/package/@devaloop/prettier-plugin-devalang)
 - [🌐 Project Website](https://devalang.com)
 
 ## 🚀 Features
