@@ -17,7 +17,7 @@ pub fn handle_indent_lexer(
             chars.next();
             col += 1;
         } else if c == '\t' {
-            *current_indent += 4; // tabulation = 4 espaces
+            *current_indent += 4;
             chars.next();
             col += 4;
         } else {

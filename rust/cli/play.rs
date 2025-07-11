@@ -1,5 +1,4 @@
 use crate::{
-    audio::player::AudioPlayer,
     config::Config,
     core::{
         builder::Builder,
@@ -23,6 +22,8 @@ pub fn handle_play_command(
     watch: bool,
     repeat: bool
 ) {
+    use crate::core::audio::player::AudioPlayer;
+
     let logger = Logger::new();
 
     let entry_path = entry

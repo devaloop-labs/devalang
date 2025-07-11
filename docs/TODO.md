@@ -42,11 +42,14 @@ This is a list of tasks and features to be implemented in Devalang. Note that th
 - [x] #
 - [x] @import
 - [x] @export
-- [ ] @group
-- [ ] @pattern
-- [ ] @function
 - [x] @load
 - [ ] @include
+- [ ] function
+- [ ] pattern
+- [x] group
+- [x] call
+- [x] spawn
+- [x] sleep
 - [x] bpm
 - [x] bank
 - [x] loop
@@ -62,8 +65,6 @@ This is a list of tasks and features to be implemented in Devalang. Note that th
 
 ## Other TODOs
 
-- [x] Implement a more robust error handling system
-- [x] Replace eprintln & println with `log_message` function
-- [x] Implement a more comprehensive logging system
-- [ ] Add unit tests for all core components
+- [ ] Patch path handling to support relative paths
 - [ ] Comment all core components
+- [ ] Add unit tests for all core components

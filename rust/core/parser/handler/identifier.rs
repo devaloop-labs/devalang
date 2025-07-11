@@ -6,7 +6,7 @@ use crate::core::{
 };
 use std::collections::HashMap;
 
-pub fn parse_identifier_token(parser: &mut Parser, _global_store: &mut GlobalStore) -> Statement {
+pub fn parse_identifier_token(parser: &mut Parser, global_store: &mut GlobalStore) -> Statement {
     let Some(current_token) = parser.peek_clone() else {
         return Statement::unknown();
     };
@@ -107,6 +107,132 @@ pub fn parse_identifier_token(parser: &mut Parser, _global_store: &mut GlobalSto
         return Statement {
             kind: StatementKind::Let { name: identifier },
             value,
+            indent: current_token.indent,
+            line: current_token.line,
+            column: current_token.column,
+        };
+    } else if current_token.lexeme == "group" {
+        parser.advance(); // consume "group"
+
+        let identifier = if let Some(token) = parser.peek_clone() {
+            if token.kind == TokenKind::String {
+                parser.advance();
+                token.lexeme.clone()
+            } else if token.kind == TokenKind::Identifier {
+                parser.advance();
+                token.lexeme.clone()
+            } else {
+                return Statement::error(
+                    token,
+                    "Expected string or identifier after 'group'".to_string()
+                );
+            }
+        } else {
+            return Statement::error(current_token, "Expected string after 'group'".to_string());
+        };
+
+        let Some(colon_token) = parser.peek_clone() else {
+            return Statement::error(
+                current_token,
+                "Expected ':' after group identifier".to_string()
+            );
+        };
+
+        if colon_token.kind != TokenKind::Colon {
+            let message = format!(
+                "Expected ':' after group identifier, got {:?}",
+                colon_token.kind
+            );
+            return Statement::error(colon_token.clone(), message);
+        }
+
+        let tokens = parser.collect_until(
+            |t| (t.kind == TokenKind::Dedent || t.kind == TokenKind::EOF)
+        );
+        let group_body = parser.parse_block(tokens.clone(), global_store);
+
+        // Peek for dedent
+        if let Some(token) = parser.peek() {
+            if token.kind == TokenKind::Dedent {
+                parser.advance();
+            } else {
+                // Unexpected token after group body
+            }
+        } else {
+            // EOF or unexpected end of input
+        }
+
+        let mut value_map = HashMap::new();
+
+        value_map.insert("identifier".to_string(), Value::String(identifier));
+        value_map.insert("body".to_string(), Value::Block(group_body.clone()));
+
+        return Statement {
+            kind: StatementKind::Group,
+            value: Value::Map(value_map),
+            indent: current_token.indent,
+            line: current_token.line,
+            column: current_token.column,
+        };
+    } else if current_token.lexeme == "call" {
+        parser.advance(); // consume "call"
+
+        let identifier = if let Some(token) = parser.peek_clone() {
+            if token.kind == TokenKind::Identifier {
+                parser.advance();
+                token.lexeme.clone()
+            } else {
+                return Statement::error(token, "Expected identifier after 'call'".to_string());
+            }
+        } else {
+            return Statement::error(current_token, "Expected identifier after 'call'".to_string());
+        };
+
+        return Statement {
+            kind: StatementKind::Call,
+            value: Value::String(identifier),
+            indent: current_token.indent,
+            line: current_token.line,
+            column: current_token.column,
+        };
+    } else if current_token.lexeme == "spawn" {
+        parser.advance(); // consume "spawn"
+
+        let identifier = if let Some(token) = parser.peek_clone() {
+            if token.kind == TokenKind::Identifier {
+                parser.advance();
+                token.lexeme.clone()
+            } else {
+                return Statement::error(token, "Expected identifier after 'spawn'".to_string());
+            }
+        } else {
+            return Statement::error(current_token, "Expected identifier after 'spawn'".to_string());
+        };
+
+        return Statement {
+            kind: StatementKind::Spawn,
+            value: Value::String(identifier),
+            indent: current_token.indent,
+            line: current_token.line,
+            column: current_token.column,
+        };
+    } else if current_token.lexeme == "sleep" {
+        parser.advance(); // consume "sleep"
+
+        let duration = if let Some(token) = parser.peek_clone() {
+            if token.kind == TokenKind::Number {
+                parser.advance();
+                token.lexeme.parse().unwrap_or(0.0)
+            } else {
+                return Statement::error(token, "Expected number after 'sleep'".to_string());
+            }
+        } else {
+            return Statement::error(current_token, "Expected number after 'sleep'".to_string());
+        };
+
+        return Statement {
+            kind: StatementKind::Sleep,
+            value: Value::Number(duration),
             indent: current_token.indent,
             line: current_token.line,
             column: current_token.column,

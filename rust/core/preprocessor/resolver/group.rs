@@ -10,7 +10,7 @@ use crate::{
     utils::logger::Logger,
 };
 
-pub fn resolve_loop(
+pub fn resolve_group(
     stmt: &Statement,
     module: &Module,
     path: &str,
@@ -19,53 +19,20 @@ pub fn resolve_loop(
     let logger = Logger::new();
 
     if let Value::Map(value_map) = &stmt.value {
-        let iterator_value = match value_map.get("iterator") {
-            Some(Value::Identifier(ident)) => {
-                match module.variable_table.get(ident) {
-                    Some(Value::Number(n)) => Value::Number(*n),
-                    Some(_) => {
-                        log_type_error(
-                            &logger,
-                            module,
-                            stmt,
-                            format!("Loop iterator '{ident}' must resolve to a number")
-                        );
-                        Value::Null
-                    }
-                    None => {
-                        // Value is not a variable so we assume it's a number
-                        if let Ok(n) = ident.parse::<f32>() {
-                            Value::Number(n)
-                        } else {
-                            log_type_error(
-                                &logger,
-                                module,
-                                stmt,
-                                format!("Loop iterator '{ident}' is not a valid number")
-                            );
-                            Value::Null
-                        }
-                    }
-                }
-            }
-            Some(Value::Number(n)) => Value::Number(*n),
+        let group_name = match value_map.get("identifier") {
+            Some(Value::String(name)) => name.clone(),
             Some(other) => {
                 log_type_error(
                     &logger,
                     module,
                     stmt,
-                    format!("Unexpected value for loop iterator: {:?}", other)
+                    format!("Group name must be a string, found {:?}", other)
                 );
-                Value::Null
+                return stmt.clone();
             }
             None => {
-                log_type_error(
-                    &logger,
-                    module,
-                    stmt,
-                    "Missing 'iterator' key in loop statement map".to_string()
-                );
-                Value::Null
+                log_type_error(&logger, module, stmt, "Group name is required".to_string());
+                return stmt.clone();
             }
         };
 
@@ -86,7 +53,7 @@ pub fn resolve_loop(
                             resolved_block.push(resolved);
                         }
                         _ => {
-                            println!("Unhandled loop body statement: {:?}", statement);
+                            println!("Unhandled group body statement: {:?}", statement);
                         }
                     }
                 }
@@ -97,7 +64,7 @@ pub fn resolve_loop(
                     &logger,
                     module,
                     stmt,
-                    format!("Unexpected value for loop body: {:?}", other)
+                    format!("Unexpected value for group body: {:?}", other)
                 );
                 Value::Null
             }
@@ -106,32 +73,33 @@ pub fn resolve_loop(
                     &logger,
                     module,
                     stmt,
-                    "Missing 'body' key in loop statement map".to_string()
+                    "Missing 'body' key in group statement map".to_string()
                 );
                 Value::Null
             }
         };
 
         let mut resolved_map = HashMap::new();
-        resolved_map.insert("iterator".to_string(), iterator_value);
+
+        resolved_map.insert("identifier".to_string(), Value::String(group_name));
         resolved_map.insert("body".to_string(), body_value);
 
-        Statement {
-            kind: StatementKind::Loop,
+        return Statement {
+            kind: StatementKind::Group,
             value: Value::Map(resolved_map),
             ..stmt.clone()
-        }
+        };
     } else {
         log_type_error(
             &logger,
             module,
             stmt,
-            format!("Expected a map for loop value, found {:?}", stmt.value)
+            format!("Expected Map for group statement, found {:?}", stmt.value)
         );
 
         Statement {
             kind: StatementKind::Error {
-                message: "Expected a map for loop value".to_string(),
+                message: "Expected a map for group statement".to_string(),
             },
             value: Value::Null,
             ..stmt.clone()

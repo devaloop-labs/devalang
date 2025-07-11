@@ -1,4 +1,7 @@
-@import { duration, default_bank, params, loopCount, tempo } from "./examples/exported.deva"
+# This file demonstrates the use of main features in Devalang.
+
+@import { duration, default_bank, params, loopCount, tempo } from "./examples/variables.deva"
+@import { myGroup } from "./examples/group.deva"
 
 @load "./examples/samples/kick-808.wav" as kickCustom
 @load "./examples/samples/hat-808.wav" as hatCustom
@@ -7,11 +10,8 @@ bpm tempo
 
 bank default_bank
 
-loop loopCount:
-    .kickCustom duration params
+# Will be executed line by line (sequentially)
+call myGroup
 
-    # Uncomment the next line (.hat) while executing "play" command 
-    # with `--repeat` option to see magic happen !
-
-    # .hatCustom duration params
-    
+# Will be executed in parallel (concurrently)
+# spawn myGroup

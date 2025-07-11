@@ -1,3 +1,5 @@
+# This file only exports variables for use in other files.
+
 let duration = auto
 let default_bank = 808
 let params = {decay:10, delay:30}

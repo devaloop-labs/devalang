@@ -16,7 +16,6 @@
 
 [![VSCode Extension](https://img.shields.io/visual-studio-marketplace/v/devaloop.devalang-vscode?label=VSCode%20Extension)](https://marketplace.visualstudio.com/items?itemName=devaloop.devalang-vscode)
 
-
 ## 🎼 Devalang, by **Devaloop Labs**
 
 🎶 Compose music with code — simple, structured, sonic.
@@ -167,13 +166,27 @@ bpm globalBpm
 bank globalBank
 # Will declare a custom instrument bank using the globalBank variable
 
+# Loops
+
 loop 5:
     .customKick kickDuration {reverb=50, drive=25}
-    # Will play 5 times a kick for the duration of the kickDuration variable with reverb and drive effects
+    # Will play 5 times a custom sample for 500ms with reverb and overdrive effects
+
+# Groups
+
+group myGroup:
+    .customKick kickDuration {reverb=50, drive=25}
+    # Will play the same sample in a group, allowing for more complex patterns
+
+# Will be executed line by line (sequentially)
+call myGroup
+
+# Will be executed in parallel (concurrently)
+# spawn myGroup
 ```
 
 ```deva
-# global.deva
+# variables.deva
 
 let globalBpm = 120
 let globalBank = 808
@@ -184,15 +197,14 @@ let kickDuration = 500
 
 ## 🧯 Known issues
 
-- No support yet for `if`, `else`, `else if` statements
-- No support yet for `@group`, `@pattern`, `@function` statements
+- No support yet for `if`, `else`, `else if`, `pattern`, `function`, ... statements
 - No support yet for cross-platform builds (Linux, macOS)
 
 ## 🧪 Roadmap Highlights
 
 For more info, see [docs/ROADMAP.md](./docs/ROADMAP.md)
 
-- ⏳ Other statements (e.g `if`, `@group`, ...)
+- ⏳ Other statements (e.g `if`, `function`, ...)
 - ⏳ Cross-platform support (Linux, macOS)
 - ⏳ More built-in instruments (e.g. snare, hi-hat, etc.)
 

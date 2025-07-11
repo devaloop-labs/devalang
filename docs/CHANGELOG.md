@@ -4,6 +4,25 @@
 
 # Changelog
 
+## Version 0.0.1-alpha.6 (2025-07-11)
+
+## Examples
+
+- Added example for `group` directive in `examples/group.devalang`.
+
+## Structure
+
+- Moved `rust/audio` folder to `rust/core/audio` to better organize the project structure.
+
+### Core Components
+
+- Implemented `group` directive to define groups of sounds.
+- Implemented `call` directive to call a group of sounds.
+- Implemented `spawn` directive to spawn a group of sounds in parallel.
+- Implemented `sleep` directive to pause execution for a specified duration.
+- Patched line and column tracking in the lexer to ensure correct indentation handling.
+- Patched string lexing advancing to handle first character correctly.
+
 ## Version 0.0.1-alpha.5 (2025-07-05)
 
 ### Syntax

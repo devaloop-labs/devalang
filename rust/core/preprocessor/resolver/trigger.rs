@@ -38,7 +38,6 @@ pub fn resolve_trigger(
         };
     }
 
-    // ✅ Résolution de duration si c'est un identifiant
     if let Duration::Identifier(ident) = duration {
         if let Some(val) = module.variable_table.get(ident) {
             match val {
@@ -56,7 +55,6 @@ pub fn resolve_trigger(
         }
     }
 
-    // ✅ Résolution de value (params, effets)
     final_value = match &stmt.value {
         Value::Identifier(ident) => {
             match module.variable_table.get(ident) {
@@ -87,7 +85,6 @@ pub fn resolve_trigger(
         other => other.clone(),
     };
 
-    // ✅ On reconstruit le Statement avec Trigger résolu
     if let StatementKind::Trigger { entity, .. } = &stmt.kind {
         return Statement {
             kind: StatementKind::Trigger {

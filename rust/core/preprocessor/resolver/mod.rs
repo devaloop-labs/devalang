@@ -2,6 +2,7 @@ pub mod trigger;
 pub mod loop_;
 pub mod bank;
 pub mod tempo;
+pub mod group;
 
 use std::collections::HashMap;
 use crate::{
@@ -11,6 +12,7 @@ use crate::{
             loader::ModuleLoader,
             resolver::{
                 bank::resolve_bank,
+                group::resolve_group,
                 loop_::resolve_loop,
                 tempo::resolve_tempo,
                 trigger::resolve_trigger,
@@ -136,6 +138,11 @@ pub fn resolve_and_flatten_all_modules(
 
                 StatementKind::Import { .. } | StatementKind::Export { .. } => {
                     resolved.push(stmt.clone());
+                }
+
+                StatementKind::Group => {
+                    let resolved_stmt = resolve_group(&stmt, &module, &path, &store_snapshot);
+                    resolved.push(resolved_stmt);
                 }
 
                 _ => {

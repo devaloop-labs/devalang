@@ -17,6 +17,18 @@ The engine uses indentation to define blocks, similar to Python. Each block must
 <details>
 <summary>Show available types</summary>
 
+### Duration
+
+Duration is defined using a number. It represents the length of a sound in milliseconds.
+
+```deva
+let duration = 1000
+```
+
+Will play a sound for 1000 milliseconds (1 second).
+
+NOTE: Other time units like seconds or beats are not supported yet, but will be in the future.
+
 ### String
 
 Strings are defined using double quotes.
@@ -103,22 +115,13 @@ loop exportedIterator:
     .kick auto exportedParams
 ```
 
-### Built-in triggers
+### Triggers
 
-Usage : `.<trigger-name> <duration> <effects-map>`
+You can load your own samples and use them in your music.
 
-Other triggers will be added in future releases (e.g. `.snare`, `.hihat`, `.tom`, `.clap`, `.crash`, `.ride`, `.synth`, `.bass`, `.pad`).
-You can also create custom triggers using the `@load` directive.
+Load usage : `@load <path> as <name>`
 
-```deva
-.kick
-.kick 1/4
-.kick auto {reverb: 50, decay: 30}
-```
-
-### Custom triggers
-
-Same usage as built-in triggers, but with custom audio files or effects.
+Trigger usage : `.<name> <duration> <params>`
 
 ```deva
 @load "./path/to/instrument.mp3" as mySample
@@ -138,11 +141,36 @@ let map = {myKey: 200}
 let array = [0, 1, 2]
 ```
 
-### Basic loops
+### Loops
 
 Loops are defined using the `loop` keyword, followed by the number of iterations. The body of the loop is indented.
 
 ```deva
 loop 10:
     # ...
+```
+
+### Groups
+
+Groups are defined using the `group` keyword, followed by the group name. The body of the group is indented.
+
+```deva
+group myGroup:
+    # ...
+```
+
+### Calling Groups (Sequential Execution)
+
+Groups can be called using the `call` keyword, which executes the group in sequence.
+
+```deva
+call myGroup
+```
+
+### Spawning Groups (Parallel Execution)
+
+Groups can be spawned using the `spawn` keyword, which executes the group in parallel.
+
+```deva
+spawn myGroup
 ```

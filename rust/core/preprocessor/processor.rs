@@ -1,6 +1,8 @@
+use std::collections::HashMap;
+
 use crate::core::{
     parser::{ statement::StatementKind, Parser },
-    preprocessor::loader::ModuleLoader,
+    preprocessor::{ loader::ModuleLoader, resolver::group },
     shared::value::Value,
     store::global::GlobalStore,
 };
@@ -33,7 +35,31 @@ pub fn process_modules(module_loader: &ModuleLoader, global_store: &mut GlobalSt
                         module.import_table.add_import(name.clone(), Value::String(source.clone()));
                     }
                 }
-                
+
+                StatementKind::Group => {
+                    if let Value::Map(map) = &stmt.value {
+                        if
+                            let (Some(Value::String(name)), Some(Value::Block(body))) = (
+                                map.get("identifier"),
+                                map.get("body"),
+                            )
+                        {
+                            let mut stored_map = HashMap::new();
+
+                            stored_map.insert(
+                                "identifier".to_string(),
+                                Value::String(name.clone())
+                            );
+
+                            stored_map.insert("body".to_string(), Value::Block(body.clone()));
+
+                            module.variable_table.set(name.to_string(), Value::Map(stored_map));
+                        } else {
+                            eprintln!("❌ Invalid group definition: {:?}", stmt.value);
+                        }
+                    }
+                }
+
                 _ => {}
             }
         }

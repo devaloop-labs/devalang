@@ -1,4 +1,4 @@
-use crate::core::lexer::token::{Token, TokenKind};
+use crate::core::lexer::token::{ Token, TokenKind };
 
 pub fn handle_string_lexer(
     ch: char,
@@ -11,23 +11,20 @@ pub fn handle_string_lexer(
 ) {
     let quote_char = ch;
 
-    // Position de départ du token
     let start_column = *column;
     let start_line = *line;
 
-    // Consommer le guillemet ouvrant
-    chars.next();
     *column += 1;
 
     let mut string_content = String::new();
 
     while let Some(&next_ch) = chars.peek() {
         if next_ch == quote_char {
-            chars.next(); // Consomme le guillemet fermant
+            chars.next();
             *column += 1;
             break;
         } else if next_ch == '\\' {
-            chars.next(); // Consomme '\'
+            chars.next();
             *column += 1;
 
             if let Some(escaped) = chars.next() {

@@ -51,12 +51,16 @@ pub enum StatementKind {
     // Loop statements
     Loop,
 
+    // Group statements
+    Group,
+
+    // Special statements
+    Call,
+    Spawn,
+    Sleep,
+
     // Conditional statements
-    // If {
-    //     // condition: ConditionParts,
-    //     condition_state: bool,
-    //     body: Vec<Statement>,
-    // },
+    // If
 
     // Keyword statements
     Tempo,

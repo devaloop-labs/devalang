@@ -1,9 +1,12 @@
-use crate::{core::{
-    parser::statement::{Statement, StatementKind},
-    preprocessor::module::Module,
-    shared::value::Value,
-    store::global::GlobalStore,
-}, utils::logger::Logger};
+use crate::{
+    core::{
+        parser::statement::{ Statement, StatementKind },
+        preprocessor::module::Module,
+        shared::value::Value,
+        store::global::GlobalStore,
+    },
+    utils::logger::Logger,
+};
 
 pub fn resolve_bank(
     stmt: &Statement,
@@ -28,9 +31,7 @@ pub fn resolve_bank(
             }
         }
 
-        Value::String(_) => {
-            // Pas de résolution nécessaire
-        }
+        Value::String(_) => {}
 
         other => {
             let message = format!("Expected a string or identifier for bank, found {:?}", other);

@@ -34,8 +34,7 @@ fn advance_char<I: Iterator<Item = char>>(
 ) -> Option<char> {
     let c = chars.next()?;
     if c == '\n' {
-        *line += 1;
-        *column = 1;
+        // Do not increment column on newline here
     } else {
         *column += 1;
     }

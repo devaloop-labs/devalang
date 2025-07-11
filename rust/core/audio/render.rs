@@ -1,11 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    audio::{ engine::AudioEngine, interpreter::interprete_statements },
-    core::{
-        parser::statement::Statement,
-        store::global::GlobalStore,
-    },
+    core::{ audio::{engine::AudioEngine, interpreter::interprete_statements}, parser::statement::Statement, store::global::GlobalStore },
     utils::logger::{ LogLevel, Logger },
 };
 

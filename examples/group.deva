@@ -1,0 +1,12 @@
+# This file demonstrates the use of grouping in Devalang.
+
+@import { duration, default_bank, params, loopCount, tempo } from "./examples/variables.deva"
+
+@load "./examples/samples/kick-808.wav" as kickCustom
+@load "./examples/samples/hat-808.wav" as hatCustom
+
+group myGroup:
+    .kickCustom duration params
+    .hatCustom duration params
+
+@export { myGroup }
