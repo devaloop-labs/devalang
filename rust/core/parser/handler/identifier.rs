@@ -114,58 +114,60 @@ pub fn parse_identifier_token(parser: &mut Parser, global_store: &mut GlobalStor
     } else if current_token.lexeme == "group" {
         parser.advance(); // consume "group"
 
-        let identifier = if let Some(token) = parser.peek_clone() {
-            if token.kind == TokenKind::String {
-                parser.advance();
-                token.lexeme.clone()
-            } else if token.kind == TokenKind::Identifier {
-                parser.advance();
-                token.lexeme.clone()
-            } else {
-                return Statement::error(
-                    token,
-                    "Expected string or identifier after 'group'".to_string()
-                );
-            }
-        } else {
-            return Statement::error(current_token, "Expected string after 'group'".to_string());
+        let Some(identifier_token) = parser.peek_clone() else {
+            return Statement::error(current_token, "Expected identifier after 'group'".to_string());
         };
+
+        if
+            identifier_token.kind != TokenKind::Identifier &&
+            identifier_token.kind != TokenKind::String
+        {
+            return Statement::error(identifier_token, "Expected valid identifier".to_string());
+        }
+
+        parser.advance(); // consume identifier
 
         let Some(colon_token) = parser.peek_clone() else {
             return Statement::error(
-                current_token,
+                identifier_token,
                 "Expected ':' after group identifier".to_string()
             );
         };
 
         if colon_token.kind != TokenKind::Colon {
-            let message = format!(
-                "Expected ':' after group identifier, got {:?}",
-                colon_token.kind
+            return Statement::error(
+                colon_token.clone(),
+                "Expected ':' after group identifier".to_string()
             );
-            return Statement::error(colon_token.clone(), message);
         }
 
-        let tokens = parser.collect_until(
-            |t| (t.kind == TokenKind::Dedent || t.kind == TokenKind::EOF)
-        );
-        let group_body = parser.parse_block(tokens.clone(), global_store);
+        parser.advance(); // consume ':'
 
-        // Peek for dedent
-        if let Some(token) = parser.peek() {
-            if token.kind == TokenKind::Dedent {
-                parser.advance();
-            } else {
-                // Unexpected token after group body
+        let base_indent = current_token.indent;
+
+        // Clone without consuming tokens
+        let mut index = parser.token_index;
+        let mut tokens_inside_group = Vec::new();
+
+        while index < parser.tokens.len() {
+            let token = parser.tokens[index].clone();
+
+            if token.indent <= base_indent && token.kind != TokenKind::Newline {
+                break;
             }
-        } else {
-            // EOF or unexpected end of input
+
+            tokens_inside_group.push(token);
+            index += 1;
         }
+
+        // Advance index once to skip the processed tokens
+        parser.token_index = index;
+
+        let body = parser.parse_block(tokens_inside_group, global_store);
 
         let mut value_map = HashMap::new();
-
-        value_map.insert("identifier".to_string(), Value::String(identifier));
-        value_map.insert("body".to_string(), Value::Block(group_body.clone()));
+        value_map.insert("identifier".to_string(), Value::String(identifier_token.lexeme.clone()));
+        value_map.insert("body".to_string(), Value::Block(body));
 
         return Statement {
             kind: StatementKind::Group,

@@ -34,39 +34,32 @@ impl Statement {
 }
 
 #[derive(Debug, Serialize, Clone, Deserialize, PartialEq)]
-/// Represents the kind of a statement
 pub enum StatementKind {
-    // Trigger statements
-    Trigger {
-        entity: String,
-        duration: Duration,
-        // params: Vec<TokenParam>,
+    // ───── Core Instructions ─────
+    Tempo,
+    Bank,
+    Load {
+        source: String,
+        alias: String,
     },
-
-    // Variable statements
     Let {
         name: String,
     },
 
-    // Loop statements
-    Loop,
-
-    // Group statements
-    Group,
-
-    // Special statements
+    // ───── Playback / Scheduling ─────
+    Trigger {
+        entity: String,
+        duration: Duration,
+    },
+    Sleep,
     Call,
     Spawn,
-    Sleep,
+    Loop,
+    
+    // ───── Structure & Logic ─────
+    Group,
 
-    // Conditional statements
-    // If
-
-    // Keyword statements
-    Tempo,
-    Bank,
-
-    // At (@) statements
+    // ───── Module System ─────
     Include(String),
     Export {
         names: Vec<String>,
@@ -76,20 +69,16 @@ pub enum StatementKind {
         names: Vec<String>,
         source: String,
     },
-    Load {
-        source: String,
-        alias: String,
-    },
 
-    // Error & Unknown statements
-    Unknown,
-    Error {
-        message: String,
-    },
-
-    // Empty or ignored statements
+    // ───── Internal / Utility ─────
     Comment,
     Indent,
     Dedent,
     NewLine,
+
+    // ───── Error Handling ─────
+    Unknown,
+    Error {
+        message: String,
+    },
 }

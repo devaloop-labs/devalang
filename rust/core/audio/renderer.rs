@@ -1,7 +1,11 @@
 use std::collections::HashMap;
 
 use crate::{
-    core::{ audio::{engine::AudioEngine, interpreter::interprete_statements}, parser::statement::Statement, store::global::GlobalStore },
+    core::{
+        audio::{ engine::AudioEngine, interpreter::driver::run_audio_program },
+        parser::statement::Statement,
+        store::global::GlobalStore,
+    },
     utils::logger::{ LogLevel, Logger },
 };
 
@@ -22,7 +26,7 @@ pub fn render_audio_with_modules(
         }
 
         // Interpret the statements to fill the audio buffer
-        let (mut audio_engine, module_base_bpm, module_max_end_time) = interprete_statements(
+        let (mut audio_engine, module_base_bpm, module_max_end_time) = run_audio_program(
             &statements,
             audio_engine,
             module_name.clone(),

@@ -2,7 +2,11 @@ use crate::{
     config::Config,
     core::{
         builder::Builder,
-        debugger::{ lexer::write_lexer_log_file, preprocessor::write_preprocessor_log_file },
+        debugger::{
+            lexer::write_lexer_log_file,
+            preprocessor::write_preprocessor_log_file,
+            store::write_store_log_file,
+        },
         preprocessor::loader::ModuleLoader,
         store::global::GlobalStore,
         utils::path::{ find_entry_file, normalize_path },
@@ -113,6 +117,7 @@ fn begin_build(entry: String, output: String) {
         "resolved_statements.log",
         modules_statements.clone()
     );
+    write_store_log_file(&normalized_output_dir, "global_store.log", global_store.modules.clone());
 
     // SECTION Building AST and Audio
     let builder = Builder::new();

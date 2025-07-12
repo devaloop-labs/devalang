@@ -1,4 +1,4 @@
-use crate::core::audio::render::render_audio_with_modules;
+use crate::core::audio::renderer::render_audio_with_modules;
 use crate::core::parser::statement::Statement;
 use crate::core::store::global::GlobalStore;
 use std::{ collections::HashMap, fs::create_dir_all };

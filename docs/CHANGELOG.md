@@ -4,11 +4,28 @@
 
 # Changelog
 
-## Version 0.0.1-alpha.6 (2025-07-11)
+## Version 0.0.1-alpha.8 (2025-07-12)
+
+<!-- ### Syntax
+
+- Implemented `if` directive to conditionally execute blocks of code.
+- Implemented `else` directive to provide an alternative block of code when the `if` condition is not met.
+- Implemented `else if` directive to provide additional conditions for the `if` directive. -->
+
+<!-- TODO Implement if, else, else if -->
+
+### Core Components
+
+- Fixed `group` resolution and export issues.
+- Implemented `Global Store` debugger to inspect variables by module for build command.
+- Organized `TokenKind` and `StatementKind` enums for better clarity and maintainability.
+- Refactored audio interpreter to handle the new syntax and directives.
+
+## Version 0.0.1-alpha.7 (2025-07-11)
 
 ## Examples
 
-- Added example for `group` directive in `examples/group.devalang`.
+- Added examples in `examples` folder (group, loop, variables, index).
 
 ## Structure
 

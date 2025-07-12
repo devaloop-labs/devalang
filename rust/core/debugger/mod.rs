@@ -1,5 +1,6 @@
 pub mod preprocessor;
 pub mod lexer;
+pub mod store;
 
 use std::io::Write;
 

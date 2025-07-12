@@ -24,31 +24,46 @@ impl Token {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum TokenKind {
+    // ───── Keywords ─────
     At,
     Tempo,
     Bank,
     Loop,
+
+    // ───── Literals ─────
     Identifier,
-    Map,
-    Array,
     Number,
     String,
     Boolean,
+
+    // ───── Structures ─────
+    Map,
+    Array,
+
+    // ───── Symbols ─────
     Colon,
     Comma,
     Equals,
     DoubleEquals,
     Dot,
-    LBrace,
-    RBrace,
-    DbQuote,
-    Quote,
-    LBracket,
-    RBracket,
+
+    // ───── Brackets ─────
+    LBrace, // {
+    RBrace, // }
+    LBracket, // [
+    RBracket, // ]
+
+    // ───── Quotes ─────
+    Quote, // '
+    DbQuote, // "
+
+    // ───── Formatting ─────
     Newline,
     Indent,
     Dedent,
     Comment,
+
+    // ───── Special / Internal ─────
     Unknown,
     Error(String),
     EOF,

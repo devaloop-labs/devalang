@@ -26,7 +26,9 @@ pub fn load_trigger(
                 duration_as_secs = *num;
             } else if let Some(Value::String(num_str)) = variable_table.get(duration_identifier) {
                 duration_as_secs = num_str.parse::<f32>().unwrap_or(base_duration);
-            } else if let Some(Value::Identifier(num_str)) = variable_table.get(duration_identifier) {
+            } else if
+                let Some(Value::Identifier(num_str)) = variable_table.get(duration_identifier)
+            {
                 duration_as_secs = num_str.parse::<f32>().unwrap_or(base_duration);
             } else {
                 eprintln!("❌ Invalid duration identifier: {}", duration_identifier);
