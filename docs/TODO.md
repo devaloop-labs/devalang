@@ -54,9 +54,9 @@ This is a list of tasks and features to be implemented in Devalang. Note that th
 - [x] bank
 - [x] loop
 - [x] let
-- [ ] if
-- [ ] else
-- [ ] else if
+- [x] if
+- [x] else
+- [x] else if
 
 ## Triggers
 

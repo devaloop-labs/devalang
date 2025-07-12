@@ -1,6 +1,6 @@
 use crate::core::{
     lexer::token::TokenKind,
-    parser::{ statement::{ Statement, StatementKind }, Parser },
+    parser::{ statement::{ Statement, StatementKind }, driver::Parser },
     shared::{ duration::Duration, value::Value },
     store::global::GlobalStore,
 };

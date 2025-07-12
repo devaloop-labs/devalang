@@ -1,4 +1,4 @@
-use crate::core::parser::{ statement::{ Statement, StatementKind }, Parser };
+use crate::core::parser::{ statement::{ Statement, StatementKind }, driver::Parser };
 
 pub struct ErrorHandler {
     errors: Vec<Error>,

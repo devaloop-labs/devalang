@@ -3,7 +3,7 @@ pub mod token;
 
 use std::fs;
 use crate::core::{
-    lexer::{ handler::handle_content_lexing, token::Token },
+    lexer::{ handler::driver::handle_content_lexing, token::Token },
     utils::path::normalize_path,
 };
 

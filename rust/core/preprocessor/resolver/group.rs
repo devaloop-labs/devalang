@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::{
     core::{
         parser::statement::{ Statement, StatementKind },
-        preprocessor::{ module::Module, resolver::trigger::resolve_trigger },
+        preprocessor::{ module::Module, resolver::{condition::resolve_condition, trigger::resolve_trigger} },
         shared::value::Value,
         store::global::GlobalStore,
     },
@@ -54,6 +54,17 @@ pub fn resolve_group(
                         );
 
                         resolved.push(resolved_trigger);
+                    }
+
+                    StatementKind::If => {
+                        let resolved_condition = resolve_condition(
+                            &mut stmt.clone(),
+                            module,
+                            path,
+                            global_store
+                        );
+
+                        resolved.push(resolved_condition);
                     }
 
                     _ => {

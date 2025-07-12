@@ -18,7 +18,7 @@
 
 ## 🎼 Devalang, by **Devaloop Labs**
 
-🎶 Compose music with code — simple, structured, sonic.
+🎶 Compose music with code — structured, expressive, and fast.
 
 Devalang is a tiny domain-specific language (DSL) for music makers, sound designers, and audio hackers.
 Compose loops, control samples, render and play audio — all in clean, readable text.
@@ -27,10 +27,12 @@ Compose loops, control samples, render and play audio — all in clean, readable
 
 From studio sketches to live sets, Devalang gives you rhythmic control — with the elegance of code.
 
-> 🚧 **v0.0.1-alpha.5 Notice** 🚧
+> 🚧 **v0.0.1-alpha.8 Notice** 🚧
 >
 > NEW: Devalang VSCode extension is now available !
 > [Get it here](https://marketplace.visualstudio.com/items?itemName=devaloop.devalang-vscode).
+>
+> NEW: Devalang supports conditional statements (`if`, `else`, `else if`) for more dynamic compositions !
 >
 > Currently, Devalang CLI is only available for **Windows**.  
 > Linux and macOS binaries will be added in future releases via cross-platform builds.
@@ -45,6 +47,15 @@ From studio sketches to live sets, Devalang gives you rhythmic control — with 
 - [🎨 Prettier Plugin](https://www.npmjs.com/package/@devaloop/prettier-plugin-devalang)
 - [🌐 Project Website](https://devalang.com)
 
+## ❓ Why Devalang?
+
+- 🎹 Prototype audio ideas without opening a DAW
+- 💻 Integrate sound into code-based workflows
+- 🎛️ Control audio parameters through readable syntax
+- 🧪 Build musical logic with variables and conditions
+
+> Producer, coder, or both — Devalang gives you musical structure, instantly.
+
 ## 🚀 Features
 
 - 🎵 **Audio Engine**: Integrated audio playback and rendering
@@ -53,6 +64,8 @@ From studio sketches to live sets, Devalang gives you rhythmic control — with 
 - 🔢 **Basic data types**: strings, numbers, booleans, maps, arrays
 - 👁️ **Watch mode** for `build`, `check` and `play` commands
 - 📂 **Project templates** for quick setup
+- 🎛️ **Custom samples**: easily load and trigger your own audio files
+- 🔄 **Looping and grouping**: create complex patterns with ease
 
 ## 📆 Installation
 
@@ -63,13 +76,13 @@ From studio sketches to live sets, Devalang gives you rhythmic control — with 
 Install the package globally (NPM)
 
 ```bash
-npm install -g @devaloop/devalang
+npm install -g @devaloop/devalang@latest
 ```
 
 Usage without install (NPX)
 
 ```bash
-npx @devaloop/devalang <command>
+npx @devaloop/devalang@latest
 ```
 
 ### For contributors
@@ -78,10 +91,11 @@ npx @devaloop/devalang <command>
 > - ⚠️ Requires [Rust 1.70+](https://www.rust-lang.org/learn/get-started#installing-rust)
 
 ```bash
-> git clone https://github.com/devaloop-labs/devalang.git
-> cd devalang
-> npm install
-> cargo install --path .
+git clone https://github.com/devaloop-labs/devalang.git
+
+cd devalang
+
+npm install
 ```
 
 Development usage (you can customize arguments in package.json)
@@ -89,6 +103,7 @@ Development usage (you can customize arguments in package.json)
 ```bash
 # For syntax checking test
 npm run rust:dev:check
+
 # For building test
 npm run rust:dev:build
 ```
@@ -182,8 +197,11 @@ group myGroup:
 call myGroup
 
 # Will be executed in parallel (concurrently)
+# ⚠️ Note: `spawn` runs the entire group in parallel, but the group’s internal logic remains sequential unless it uses `spawn` internally.
 # spawn myGroup
 ```
+
+> 🧠 Note: `call` and `spawn` only work with `group` blocks. They do not apply to individual samples or other statements.
 
 ```deva
 # variables.deva
@@ -197,14 +215,15 @@ let kickDuration = 500
 
 ## 🧯 Known issues
 
-- No support yet for `if`, `else`, `else if`, `pattern`, `function`, ... statements
+- No smart modules yet, all groups, variables, and samples must be explicitly imported where used
+- No support yet for `pattern`, `function`, ... statements
 - No support yet for cross-platform builds (Linux, macOS)
 
 ## 🧪 Roadmap Highlights
 
 For more info, see [docs/ROADMAP.md](./docs/ROADMAP.md)
 
-- ⏳ Other statements (e.g `if`, `function`, ...)
+- ⏳ Other statements (e.g `function`, `pattern`, ...)
 - ⏳ Cross-platform support (Linux, macOS)
 - ⏳ More built-in instruments (e.g. snare, hi-hat, etc.)
 

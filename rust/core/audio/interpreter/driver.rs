@@ -3,6 +3,7 @@ use crate::core::{
         engine::AudioEngine,
         interpreter::{
             call::interprete_call_statement,
+            condition::interprete_condition_statement,
             let_::interprete_let_statement,
             load::interprete_load_statement,
             loop_::interprete_loop_statement,
@@ -163,6 +164,22 @@ pub fn execute_audio_block(
                     cursor_time
                 );
                 audio_engine = call_engine;
+                cursor_time = new_cursor;
+                max_end_time = new_max;
+            }
+
+            StatementKind::If | StatementKind::ElseIf | StatementKind::Else => {
+                let (condition_engine, new_max, new_cursor) = interprete_condition_statement(
+                    &stmt,
+                    audio_engine.clone(),
+                    variable_table.clone(),
+                    base_bpm,
+                    base_duration,
+                    max_end_time,
+                    cursor_time
+                );
+
+                audio_engine = condition_engine;
                 cursor_time = new_cursor;
                 max_end_time = new_max;
             }

@@ -1,5 +1,5 @@
 use std::{ collections::HashMap, fs::create_dir_all };
-use crate::core::{ debugger::Debugger, lexer::token::Token, parser::statement::Statement };
+use crate::core::{ debugger::Debugger, lexer::token::Token };
 
 pub fn write_lexer_log_file(
     output_dir: &str,

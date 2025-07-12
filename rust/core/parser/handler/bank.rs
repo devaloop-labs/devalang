@@ -1,6 +1,6 @@
 use crate::core::{
     lexer::token::TokenKind,
-    parser::{ statement::{ Statement, StatementKind }, Parser },
+    parser::{ statement::{ Statement, StatementKind }, driver::Parser },
     shared::value::Value,
     store::global::GlobalStore,
 };
@@ -25,7 +25,10 @@ pub fn parse_bank_token(parser: &mut Parser, _global_store: &mut GlobalStore) ->
             _ => Value::Unknown,
         }
     } else {
-        return Statement::error(bank_token, "Expected identifier or number after 'bank'".to_string());
+        return Statement::error(
+            bank_token,
+            "Expected identifier or number after 'bank'".to_string()
+        );
     };
 
     Statement {

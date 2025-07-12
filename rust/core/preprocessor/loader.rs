@@ -3,16 +3,16 @@ use crate::{
     core::{
         error::ErrorHandler,
         lexer::{ token::Token, Lexer },
-        parser::{ statement::{ Statement, StatementKind }, Parser },
-        preprocessor::{
-            module::Module,
-            processor::process_modules,
-            resolver::{ resolve_all_modules, resolve_and_flatten_all_modules },
-        },
+        parser::{ statement::{ Statement, StatementKind }, driver::Parser },
+        preprocessor::{ module::Module, processor::process_modules },
         store::global::GlobalStore,
         utils::path::normalize_path,
     },
     utils::logger::Logger,
+};
+use crate::core::preprocessor::resolver::driver::{
+    resolve_all_modules,
+    resolve_and_flatten_all_modules,
 };
 
 pub struct ModuleLoader {
@@ -93,6 +93,7 @@ impl ModuleLoader {
         global_store: &mut GlobalStore
     ) -> (HashMap<String, Vec<Token>>, HashMap<String, Vec<Statement>>) {
         // SECTION Load the entry module and its dependencies
+
         let tokens_by_module = self.load_module_recursively(&self.entry, global_store);
 
         // SECTION Process and resolve modules

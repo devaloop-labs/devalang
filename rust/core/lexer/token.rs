@@ -44,8 +44,15 @@ pub enum TokenKind {
     Colon,
     Comma,
     Equals,
-    DoubleEquals,
     Dot,
+
+    // ───── Operators ─────
+    DoubleEquals,
+    NotEquals,
+    GreaterEqual,
+    LessEqual,
+    Greater,
+    Less,
 
     // ───── Brackets ─────
     LBrace, // {
@@ -62,6 +69,11 @@ pub enum TokenKind {
     Indent,
     Dedent,
     Comment,
+
+    // ───── Conditions ─────
+    If,
+    Else,
+    ElseIf,
 
     // ───── Special / Internal ─────
     Unknown,

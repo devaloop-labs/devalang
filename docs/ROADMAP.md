@@ -24,8 +24,8 @@ Devalang is a work in progress. Here’s what we’re planning next:
 
 ## Upcoming
 
+- ⏳ **Smart modules**: Let Devalang detect and use groups, samples, and variables without needing to import them manually.
 - ⏳ **VSCode extension**: Create a VSCode extension for syntax highlighting and code completion.
-- ⏳ **Other statements**: Implement `if`, `else`, and other control structures.
-- ⏳ **Pattern and group statements**: Add support for `@pattern` and `@group` to organize code.
+- ⏳ **Other statements**: Implement `pattern`, `function`, and other control structures.
 - ⏳ **Functions**: Add support for defining and calling functions.
 - ⏳ **Testing**: Expand test coverage for all features.

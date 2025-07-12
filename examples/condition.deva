@@ -1,0 +1,24 @@
+# This file demonstrates the use of conditional blocks in Devalang.
+
+@import { myGroup } from "./examples/group.deva"
+
+@load "./examples/samples/kick-808.wav" as kickCustom
+@load "./examples/samples/hat-808.wav" as hatCustom
+
+group conditionBlock:
+    if tempo > 120:
+        # Will be executed if the condition is true
+        .kickCustom
+    else if tempo > 155:
+        # Will be executed if the condition is false
+        .hatCustom
+    else:
+        # Following lines will be executed if the condition is neither true or false
+        
+        # This will call myGroup sequentially (in the main thread)
+        call myGroup
+
+        # This will spawn a group in parallel to the main thread (kick + hat simultaneously)
+        # spawn myGroup
+
+@export { conditionBlock }

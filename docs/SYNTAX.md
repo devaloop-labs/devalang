@@ -58,7 +58,7 @@ let boolean = false
 Maps are key-value pairs defined using curly braces. Keys are strings, and values can be of any type (string, number, boolean, map, or array).
 
 ```deva
-let map = {myKey: 99}
+let map = { myKey: 99 }
 ```
 
 ### Array
@@ -93,13 +93,17 @@ bank 808
 
 Modules can be imported and exported to share variables between different files.
 
+> ⚠️ The import/export system is still experimental and may change in the future.
+>
+> You must explicitly declare imports and exports in each file — Devalang does not automatically detect or resolve them.
+
 Exporting variables from a module :
 
 ```deva
 # exported.deva
 
 let exportedIterator = 10
-let exportedParams = {drive: 50, decay: 30}
+let exportedParams = { drive: 50, decay: 30 }
 
 @export { exportedIterator, exportedParams }
 ```
@@ -115,7 +119,7 @@ loop exportedIterator:
     .kick auto exportedParams
 ```
 
-### Triggers
+### Loading Samples
 
 You can load your own samples and use them in your music.
 
@@ -129,7 +133,7 @@ Trigger usage : `.<name> <duration> <params>`
 .mySample auto {reverb: 50, drive: 25}
 ```
 
-### Let variables
+### Variables
 
 Variables are defined using the `let` keyword, followed by the variable name and its value. The value can be of any type (string, number, boolean, map, or array).
 
@@ -137,7 +141,7 @@ Variables are defined using the `let` keyword, followed by the variable name and
 let number = 0
 let boolean = true
 let string = "string"
-let map = {myKey: 200}
+let map = { myKey: 200 }
 let array = [0, 1, 2]
 ```
 
@@ -154,14 +158,40 @@ loop 10:
 
 Groups are defined using the `group` keyword, followed by the group name. The body of the group is indented.
 
+Groups allow you to organize your code into reusable blocks. They can be called or spawned later in the code.
+
 ```deva
 group myGroup:
     # ...
 ```
 
+### Conditions
+
+Conditions are defined using the `if` keyword, followed by a condition. The body of the condition is indented.
+
+```deva
+if myCondition:
+    # ...
+```
+
+You can also use `else` and `else if` for alternative branches:
+
+```deva
+if myCondition:
+    # ...
+else if anotherCondition:
+    # ...
+else:
+    # ...
+```
+
 ### Calling Groups (Sequential Execution)
 
-Groups can be called using the `call` keyword, which executes the group in sequence.
+Groups can be called using the `call` keyword, which executes only the group in sequence.
+
+> ⚠️ `call` only works on `group` declarations. It does not apply to other statements.
+
+This executes the entire group in the current execution thread, following a sequential order.
 
 ```deva
 call myGroup
@@ -169,7 +199,11 @@ call myGroup
 
 ### Spawning Groups (Parallel Execution)
 
-Groups can be spawned using the `spawn` keyword, which executes the group in parallel.
+Groups can be spawned using the `spawn` keyword, which executes only the group in parallel.
+
+> ⚠️ spawn also only works on group declarations. It does not make the group’s content parallel unless it explicitly uses spawn inside.
+
+This runs the entire group in a separate execution thread, allowing it to play alongside other actions.
 
 ```deva
 spawn myGroup

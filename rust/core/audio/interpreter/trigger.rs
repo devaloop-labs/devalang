@@ -15,7 +15,6 @@ pub fn interprete_trigger_statement(
 ) -> Option<(f32, f32, AudioEngine)> {
     if let StatementKind::Trigger { entity, duration } = &stmt.kind {
         if let Some(trigger_val) = variable_table.get(entity) {
-            // Résolution de la durée
             let duration_secs = match duration {
                 Duration::Number(n) => *n,
 
@@ -47,7 +46,6 @@ pub fn interprete_trigger_statement(
 
             let duration_final = duration_secs * base_duration;
 
-            // Chargement de la source
             let (src, _) = load_trigger(
                 trigger_val,
                 duration,

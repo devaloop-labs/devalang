@@ -22,6 +22,8 @@ pub fn handle_identifier_lexer(
     }
 
     let kind = match ident.as_str() {
+        "if" => TokenKind::If,
+        "else" => TokenKind::Else,
         "bank" => TokenKind::Bank,
         "bpm" => TokenKind::Tempo,
         "loop" => TokenKind::Loop,

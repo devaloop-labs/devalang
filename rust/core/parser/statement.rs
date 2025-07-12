@@ -1,5 +1,4 @@
 use serde::{ Deserialize, Serialize };
-
 use crate::core::{ lexer::token::Token, shared::{ duration::Duration, value::Value } };
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -69,6 +68,11 @@ pub enum StatementKind {
         names: Vec<String>,
         source: String,
     },
+
+    // ───── Conditions ─────
+    If,
+    Else,
+    ElseIf,
 
     // ───── Internal / Utility ─────
     Comment,

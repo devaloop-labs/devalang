@@ -6,20 +6,23 @@
 
 ## Version 0.0.1-alpha.8 (2025-07-12)
 
-<!-- ### Syntax
+### Syntax
 
 - Implemented `if` directive to conditionally execute blocks of code.
 - Implemented `else` directive to provide an alternative block of code when the `if` condition is not met.
-- Implemented `else if` directive to provide additional conditions for the `if` directive. -->
-
-<!-- TODO Implement if, else, else if -->
+- Implemented `else if` directive to provide additional conditions for the `if` directive.
 
 ### Core Components
 
+- Implemented evaluator for audio statements, to execute conditional statements.
 - Fixed `group` resolution and export issues.
 - Implemented `Global Store` debugger to inspect variables by module for build command.
 - Organized `TokenKind` and `StatementKind` enums for better clarity and maintainability.
 - Refactored audio interpreter to handle the new syntax and directives.
+- Refactored lexer to handle new directives and improve tokenization.
+- Refactored parser to handle new directives and improve parsing logic.
+- Added support for `call` and `spawn` execution of imported groups.
+- Enforced scoped resolution of groups in `spawn` and `call` (must be imported in current module).
 
 ## Version 0.0.1-alpha.7 (2025-07-11)
 

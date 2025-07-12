@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::core::{
-    parser::{ statement::StatementKind, Parser },
+    parser::{ statement::StatementKind, driver::Parser },
     preprocessor::{ loader::ModuleLoader, resolver::group },
     shared::value::Value,
     store::global::GlobalStore,
