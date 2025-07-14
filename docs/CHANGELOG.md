@@ -4,6 +4,14 @@
 
 # Changelog
 
+## Version 0.0.1-alpha.9 (2025-07-15)
+
+### Core Components
+
+- Refactored `condition`, `driver`, `loop`, `group` and `trigger`, `call`, `spawn` resolution to ensure correct scoping and imports.
+- Refactored `call` and `spawn` audio interpreter to ensure correct execution of audio statements.
+- Added `boolean` type support for let statements.
+
 ## Version 0.0.1-alpha.8 (2025-07-12)
 
 ### Syntax

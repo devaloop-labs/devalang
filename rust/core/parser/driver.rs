@@ -10,7 +10,7 @@ use crate::core::{
             loop_::parse_loop_token,
             tempo::parse_tempo_token,
         },
-        statement::{ Statement, StatementKind },
+        statement::{ Statement },
     },
     shared::value::Value,
     store::global::GlobalStore,
@@ -107,7 +107,7 @@ impl Parser {
                 }
             };
 
-            let mut statement = match &token.kind {
+            let statement = match &token.kind {
                 TokenKind::At => parse_at_token(self, global_store),
                 TokenKind::Identifier => parse_identifier_token(self, global_store),
                 TokenKind::Dot => parse_dot_token(self, global_store),

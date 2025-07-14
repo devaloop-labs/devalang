@@ -15,7 +15,7 @@ group conditionBlock:
     else:
         # Following lines will be executed if the condition is neither true or false
         
-        # This will call myGroup sequentially (in the main thread)
+        # This will call myGroup sequentially (once in the main thread)
         call myGroup
 
         # This will spawn a group in parallel to the main thread (kick + hat simultaneously)

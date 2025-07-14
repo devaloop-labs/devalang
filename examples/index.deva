@@ -4,7 +4,6 @@
 @import { conditionBlock } from "./examples/condition.deva"
 @import { myGroup } from "./examples/group.deva"
 
-
 @load "./examples/samples/kick-808.wav" as kickCustom
 @load "./examples/samples/hat-808.wav" as hatCustom
 
@@ -13,4 +12,7 @@ bpm tempo
 bank default_bank
 
 # This will call the group sequentially (line by line)
-call conditionBlock
+call myGroup
+
+# This will call the group in parallel (all lines at once)
+# spawn myGroup

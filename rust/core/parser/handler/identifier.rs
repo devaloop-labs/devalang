@@ -42,6 +42,10 @@ pub fn parse_identifier_token(parser: &mut Parser, global_store: &mut GlobalStor
                 parser.advance();
                 Value::Number(token.lexeme.parse().unwrap_or(0.0))
             }
+            Some(token) if token.kind == TokenKind::Boolean => {
+                parser.advance();
+                Value::Boolean(token.lexeme.parse().unwrap_or(false))
+            }
             Some(token) if token.kind == TokenKind::LBrace => {
                 parser.advance(); // consume '{'
                 let mut map = HashMap::new();
@@ -179,20 +183,28 @@ pub fn parse_identifier_token(parser: &mut Parser, global_store: &mut GlobalStor
     } else if current_token.lexeme == "call" {
         parser.advance(); // consume "call"
 
-        let identifier = if let Some(token) = parser.peek_clone() {
-            if token.kind == TokenKind::Identifier {
-                parser.advance();
-                token.lexeme.clone()
-            } else {
-                return Statement::error(token, "Expected identifier after 'call'".to_string());
+        let value = if let Some(token) = parser.peek_clone() {
+            parser.advance();
+            match token.kind {
+                TokenKind::Identifier => Value::Identifier(token.lexeme.clone()),
+                TokenKind::String => Value::String(token.lexeme.clone()),
+                _ => {
+                    return Statement::error(
+                        token,
+                        "Expected identifier or string after 'call'".to_string()
+                    );
+                }
             }
         } else {
-            return Statement::error(current_token, "Expected identifier after 'call'".to_string());
+            return Statement::error(
+                current_token,
+                "Expected identifier or string after 'call'".to_string()
+            );
         };
 
         return Statement {
             kind: StatementKind::Call,
-            value: Value::String(identifier),
+            value,
             indent: current_token.indent,
             line: current_token.line,
             column: current_token.column,
@@ -200,20 +212,28 @@ pub fn parse_identifier_token(parser: &mut Parser, global_store: &mut GlobalStor
     } else if current_token.lexeme == "spawn" {
         parser.advance(); // consume "spawn"
 
-        let identifier = if let Some(token) = parser.peek_clone() {
-            if token.kind == TokenKind::Identifier {
-                parser.advance();
-                token.lexeme.clone()
-            } else {
-                return Statement::error(token, "Expected identifier after 'spawn'".to_string());
+        let value = if let Some(token) = parser.peek_clone() {
+            parser.advance();
+            match token.kind {
+                TokenKind::Identifier => Value::Identifier(token.lexeme.clone()),
+                TokenKind::String => Value::String(token.lexeme.clone()),
+                _ => {
+                    return Statement::error(
+                        token,
+                        "Expected identifier or string after 'spawn'".to_string()
+                    );
+                }
             }
         } else {
-            return Statement::error(current_token, "Expected identifier after 'spawn'".to_string());
+            return Statement::error(
+                current_token,
+                "Expected identifier or string after 'spawn'".to_string()
+            );
         };
 
         return Statement {
             kind: StatementKind::Spawn,
-            value: Value::String(identifier),
+            value,
             indent: current_token.indent,
             line: current_token.line,
             column: current_token.column,

@@ -14,8 +14,29 @@ pub fn interprete_call_statement(
     max_end_time: f32,
     cursor_time: f32
 ) -> (AudioEngine, f32, f32) {
-    if let Value::String(identifier) = &stmt.value {
-        if let Some(Value::Map(map)) = variable_table.clone().get(identifier) {
+    match &stmt.value {
+        Value::String(identifier) | Value::Identifier(identifier) => {
+            if let Some(Value::Map(map)) = variable_table.clone().get(identifier) {
+                if let Some(Value::Block(block)) = map.get("body") {
+                    let (eng, _, end_time) = execute_audio_block(
+                        audio_engine,
+                        variable_table,
+                        block.clone(),
+                        base_bpm,
+                        base_duration,
+                        max_end_time,
+                        cursor_time
+                    );
+                    return (eng, max_end_time.max(end_time), end_time);
+                } else {
+                    eprintln!("❌ Group '{}' has no 'body' block", identifier);
+                }
+            } else {
+                eprintln!("❌ Group '{}' not found or not a map", identifier);
+            }
+        }
+
+        Value::Map(map) => {
             if let Some(Value::Block(block)) = map.get("body") {
                 let (eng, _, end_time) = execute_audio_block(
                     audio_engine,
@@ -26,16 +47,15 @@ pub fn interprete_call_statement(
                     max_end_time,
                     cursor_time
                 );
-
                 return (eng, max_end_time.max(end_time), end_time);
             } else {
-                eprintln!("❌ 'body' must be a block");
+                eprintln!("❌ Call map has no 'body' block");
             }
-        } else {
-            eprintln!("❌ Call target '{}' not found or invalid", identifier);
         }
-    } else {
-        eprintln!("❌ Invalid call statement: expected string identifier");
+
+        other => {
+            eprintln!("❌ Invalid call statement: expected identifier or map, found {:?}", other);
+        }
     }
 
     (audio_engine, max_end_time, cursor_time)

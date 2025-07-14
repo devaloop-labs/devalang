@@ -1,17 +1,23 @@
 use std::collections::HashMap;
 use crate::{
     core::{
-        parser::statement::{ self, Statement, StatementKind },
+        parser::statement::{ Statement, StatementKind },
         preprocessor::{
             loader::ModuleLoader,
             module::Module,
             resolver::{
-                bank::resolve_bank, call::resolve_call, condition::resolve_condition, group::resolve_group, loop_::resolve_loop, spawn::resolve_spawn, tempo::resolve_tempo, trigger::resolve_trigger
+                bank::resolve_bank,
+                call::resolve_call,
+                condition::resolve_condition,
+                group::resolve_group,
+                loop_::resolve_loop,
+                spawn::resolve_spawn,
+                tempo::resolve_tempo,
+                trigger::resolve_trigger,
             },
         },
-        shared::{ duration::Duration, value::Value },
+        shared::value::Value,
         store::global::GlobalStore,
-        utils::validation::{ is_valid_entity, is_valid_identifier },
     },
     utils::logger::Logger,
 };
@@ -30,28 +36,81 @@ pub fn resolve_statement(
 ) -> Statement {
     match &stmt.kind {
         StatementKind::Trigger { entity, duration } => {
-            resolve_trigger(
-                &mut stmt.clone(),
-                entity,
-                &mut duration.clone(),
-                module,
-                path,
-                global_store
-            )
+            resolve_trigger(stmt, entity, &mut duration.clone(), module, path, global_store)
         }
 
-        StatementKind::If => { resolve_condition(stmt, module, path, global_store) }
+        StatementKind::If => resolve_condition(stmt, module, path, global_store),
 
-        StatementKind::Group => { resolve_group(stmt, module, path, global_store) }
+        StatementKind::Group => resolve_group(stmt, module, path, global_store),
 
         StatementKind::Call => { resolve_call(stmt, module, path, global_store) }
 
-        StatementKind::Spawn => { resolve_spawn(stmt, module, path, global_store) }
+        StatementKind::Spawn => resolve_spawn(stmt, module, path, global_store),
 
-        // TODO: Handle other statement kinds if necessary
-        // ...
+        StatementKind::Bank => resolve_bank(stmt, module, path, global_store),
 
-        _ => stmt.clone(),
+        StatementKind::Tempo => resolve_tempo(stmt, module, path, global_store),
+
+        StatementKind::Loop => resolve_loop(stmt, module, path, global_store),
+
+        _ => {
+            let resolved_value = resolve_value(&stmt.value, module, global_store);
+            Statement {
+                value: resolved_value,
+                ..stmt.clone()
+            }
+        }
+    }
+}
+
+fn resolve_value(value: &Value, module: &Module, global_store: &GlobalStore) -> Value {
+    match value {
+        Value::Identifier(name) => {
+            if let Some(original_val) = module.variable_table.get(name) {
+                return resolve_value(original_val, module, global_store);
+            }
+
+            for other_mod in global_store.modules.values() {
+                if let Some(original_val) = other_mod.export_table.get_export(name) {
+                    return resolve_value(original_val, other_mod, global_store);
+                }
+            }
+
+            eprintln!("⚠️ Unresolved identifier '{}'", name);
+            Value::Null
+        }
+
+        Value::Map(map) => {
+            let mut resolved = HashMap::new();
+            for (k, v) in map {
+                resolved.insert(k.clone(), resolve_value(v, module, global_store));
+            }
+            Value::Map(resolved)
+        }
+
+        Value::Block(stmts) => {
+            let resolved_stmts = stmts
+                .iter()
+                .flat_map(|stmt| {
+                    let resolved = resolve_statement(stmt, module, &module.path, global_store);
+
+                    // Résout les blocs imbriqués dans des Call vers des Group
+                    if let StatementKind::Call = resolved.kind {
+                        if let Value::Block(nested) = &resolved.value {
+                            return nested
+                                .iter()
+                                .map(|s| resolve_statement(s, module, &module.path, global_store))
+                                .collect::<Vec<_>>();
+                        }
+                    }
+
+                    vec![resolved]
+                })
+                .collect();
+            Value::Block(resolved_stmts)
+        }
+
+        other => other.clone(),
     }
 }
 

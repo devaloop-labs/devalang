@@ -1,13 +1,11 @@
-use std::collections::HashMap;
-
 use crate::{
     core::{
         parser::statement::{ Statement, StatementKind },
-        preprocessor::{ module::Module, resolver::{condition::resolve_condition, trigger::resolve_trigger} },
+        preprocessor::{module::Module, resolver::driver::resolve_statement},
         shared::value::Value,
         store::global::GlobalStore,
     },
-    utils::logger::Logger,
+    utils::logger::{ LogLevel, Logger },
 };
 
 pub fn resolve_group(
@@ -18,92 +16,49 @@ pub fn resolve_group(
 ) -> Statement {
     let logger = Logger::new();
 
-    let Value::Map(value_map) = &stmt.value else {
-        return type_error(&logger, module, stmt, "Expected a map for group statement".to_string());
+    let Value::Map(group_map) = &stmt.value else {
+        return type_error(&logger, module, stmt, "Expected a map in group statement".to_string());
     };
 
-    let group_name = match value_map.get("identifier") {
-        Some(Value::String(name)) => name.clone(),
-        Some(other) => {
-            return type_error(
-                &logger,
-                module,
-                stmt,
-                format!("Group name must be a string, found {:?}", other)
-            );
-        }
-        None => {
-            return type_error(&logger, module, stmt, "Group name is required".to_string());
-        }
-    };
+    let mut resolved_map = group_map.clone();
 
-    let resolved_body = match value_map.get("body") {
-        Some(Value::Block(statements)) => {
-            let mut resolved = Vec::new();
-
-            for stmt in statements {
-                match &stmt.kind {
-                    StatementKind::Trigger { entity, duration } => {
-                        let resolved_trigger = resolve_trigger(
-                            &mut stmt.clone(),
-                            entity,
-                            &mut duration.clone(),
-                            module,
-                            path,
-                            global_store
-                        );
-
-                        resolved.push(resolved_trigger);
-                    }
-
-                    StatementKind::If => {
-                        let resolved_condition = resolve_condition(
-                            &mut stmt.clone(),
-                            module,
-                            path,
-                            global_store
-                        );
-
-                        resolved.push(resolved_condition);
-                    }
-
-                    _ => {
-                        println!("Unhandled group body statement: {:?}", stmt);
-                    }
-                }
-            }
-
-            Value::Block(resolved)
-        }
-
-        Some(other) => {
-            return type_error(
-                &logger,
-                module,
-                stmt,
-                format!("Unexpected value for group body: {:?}", other)
-            );
-        }
-
-        None => {
-            return type_error(
-                &logger,
-                module,
-                stmt,
-                "Missing 'body' key in group statement".to_string()
-            );
-        }
-    };
-
-    let mut resolved_map = HashMap::new();
-    resolved_map.insert("identifier".to_string(), Value::String(group_name));
-    resolved_map.insert("body".to_string(), resolved_body);
+    if let Some(Value::Block(body)) = group_map.get("body") {
+        let resolved_body = resolve_block_statements(body, module, path, global_store);
+        resolved_map.insert("body".to_string(), Value::Block(resolved_body));
+    } else {
+        logger.log_message(LogLevel::Warning, "group without a body");
+    }
 
     Statement {
         kind: StatementKind::Group,
         value: Value::Map(resolved_map),
         ..stmt.clone()
     }
+}
+
+fn resolve_block_statements(
+    body: &[Statement],
+    module: &Module,
+    path: &str,
+    global_store: &GlobalStore
+) -> Vec<Statement> {
+    body.iter()
+        .flat_map(|stmt| {
+            let resolved = resolve_statement(stmt, module, path, global_store);
+
+            // Inject nested statements if it's a Call with a Block
+            if let StatementKind::Call = resolved.kind {
+                if let Value::Block(inner) = &resolved.value {
+                    return inner
+                        .iter()
+                        .map(|s| resolve_statement(s, module, path, global_store))
+                        .collect();
+                }
+            }
+
+            vec![resolved]
+        })
+        .collect()
 }
 
 fn type_error(logger: &Logger, module: &Module, stmt: &Statement, message: String) -> Statement {

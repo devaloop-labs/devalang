@@ -2,9 +2,9 @@ use std::collections::HashMap;
 
 use crate::{
     core::{
-        parser::statement::{ Statement, StatementKind },
+        parser::statement::{Statement, StatementKind},
         preprocessor::module::Module,
-        shared::{ duration::Duration, value::Value },
+        shared::{duration::Duration, value::Value},
         store::global::GlobalStore,
         utils::validation::is_valid_entity,
     },
@@ -17,7 +17,7 @@ pub fn resolve_trigger(
     duration: &mut Duration,
     module: &Module,
     path: &str,
-    global_store: &GlobalStore
+    global_store: &GlobalStore,
 ) -> Statement {
     let logger = Logger::new();
 
@@ -25,9 +25,10 @@ pub fn resolve_trigger(
     let mut final_value = stmt.value.clone();
 
     if !is_valid_entity(entity, module, global_store) {
-        let message = format!("Invalid entity '{}', expected a valid identifier", entity);
-        let stacktrace = format!("{}:{}:{}", module.path, stmt.line, stmt.column);
-        logger.log_error_with_stacktrace(&message, &stacktrace);
+        logger.log_error_with_stacktrace(
+            &format!("Invalid entity '{}'", entity),
+            &format!("{}:{}:{}", module.path, stmt.line, stmt.column),
+        );
 
         return Statement {
             kind: stmt.kind.clone(),
@@ -38,67 +39,46 @@ pub fn resolve_trigger(
         };
     }
 
+    // Duration resolution
     if let Duration::Identifier(ident) = duration {
-        if let Some(val) = module.variable_table.get(ident) {
+        if let Some(val) = resolve_identifier(ident, module, global_store) {
             match val {
-                Value::Number(num) => {
-                    final_duration = Duration::Number(*num);
-                }
-                Value::String(s) => {
-                    final_duration = Duration::Identifier(s.clone());
-                }
-                Value::Identifier(id) if id == "auto" => {
-                    final_duration = Duration::Auto;
-                }
+                Value::Number(n) => final_duration = Duration::Number(n),
+                Value::String(s) => final_duration = Duration::Identifier(s),
+                Value::Identifier(s) if s == "auto" => final_duration = Duration::Auto,
                 _ => {}
             }
         }
     }
 
+    // Params value resolution
     final_value = match &stmt.value {
         Value::Identifier(ident) => {
-            match module.variable_table.get(ident) {
-                Some(val) => val.clone(),
-                None => {
-                    let stacktrace = format!("{}:{}:{}", module.path, stmt.line, stmt.column);
-                    let message = format!(
-                        "'{path}': value identifier '{ident}' not found in variable table"
-                    );
-                    logger.log_error_with_stacktrace(&message, &stacktrace);
-                    Value::Null
-                }
-            }
+            resolve_identifier(ident, module, global_store).unwrap_or_else(|| {
+                logger.log_error_with_stacktrace(
+                    &format!("'{path}': value identifier '{ident}' not found"),
+                    &format!("{}:{}:{}", module.path, stmt.line, stmt.column),
+                );
+                Value::Null
+            })
         }
         Value::Map(map) => {
             let mut resolved_map = HashMap::new();
-            for (k, v) in map.iter() {
-                let resolved_v = match v {
+            for (k, v) in map {
+                let resolved = match v {
                     Value::Identifier(id) => {
-                        module.variable_table.get(id).cloned().unwrap_or(Value::Null)
+                        resolve_identifier(id, module, global_store).unwrap_or(Value::Null)
                     }
                     other => other.clone(),
                 };
-                resolved_map.insert(k.clone(), resolved_v);
+                resolved_map.insert(k.clone(), resolved);
             }
             Value::Map(resolved_map)
         }
         other => other.clone(),
     };
 
-    if let StatementKind::Trigger { entity, .. } = &stmt.kind {
-        return Statement {
-            kind: StatementKind::Trigger {
-                entity: entity.to_string(),
-                duration: final_duration,
-            },
-            value: final_value,
-            line: stmt.line,
-            column: stmt.column,
-            indent: stmt.indent,
-        };
-    }
-
-    return Statement {
+    Statement {
         kind: StatementKind::Trigger {
             entity: entity.to_string(),
             duration: final_duration,
@@ -107,5 +87,38 @@ pub fn resolve_trigger(
         line: stmt.line,
         column: stmt.column,
         indent: stmt.indent,
-    };
+    }
+}
+
+fn resolve_identifier(
+    ident: &str,
+    module: &Module,
+    global_store: &GlobalStore,
+) -> Option<Value> {
+    if let Some(val) = module.variable_table.get(ident) {
+        return Some(resolve_value(val, module, global_store));
+    }
+
+    for (_, other_mod) in &global_store.modules {
+        if let Some(val) = other_mod.export_table.get_export(ident) {
+            return Some(resolve_value(val, other_mod, global_store));
+        }
+    }
+
+    None
+}
+
+fn resolve_value(val: &Value, module: &Module, global_store: &GlobalStore) -> Value {
+    match val {
+        Value::Identifier(inner) => resolve_identifier(inner, module, global_store)
+            .unwrap_or(Value::Identifier(inner.clone())),
+        Value::Map(map) => {
+            let mut resolved = HashMap::new();
+            for (k, v) in map {
+                resolved.insert(k.clone(), resolve_value(v, module, global_store));
+            }
+            Value::Map(resolved)
+        }
+        other => other.clone(),
+    }
 }

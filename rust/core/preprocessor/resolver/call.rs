@@ -1,7 +1,7 @@
 use crate::{
     core::{
         parser::statement::{Statement, StatementKind},
-        preprocessor::module::Module,
+        preprocessor::{module::Module, resolver::group::resolve_group},
         shared::value::Value,
         store::global::GlobalStore,
     },
@@ -11,33 +11,69 @@ use crate::{
 pub fn resolve_call(
     stmt: &Statement,
     module: &Module,
-    _path: &str,
-    _global_store: &GlobalStore,
+    path: &str,
+    global_store: &GlobalStore,
 ) -> Statement {
     let logger = Logger::new();
 
-    let Value::String(name) = &stmt.value else {
-        return type_error(&logger, module, stmt, "Call expects a group name as string.".to_string());
-    };
-
-    match module.variable_table.variables.get(name) {
-        Some(Value::Map(group_stmt)) => Statement {
-            kind: StatementKind::Call,
-            value: Value::Map(group_stmt.clone()),
-            ..stmt.clone()
-        },
-        Some(other) => type_error(
+    match &stmt.value {
+        Value::Identifier(ident) => {
+            match module.variable_table.get(ident) {
+                Some(Value::String(group_name)) => resolve_group_by_name(group_name, stmt, module, &logger),
+                Some(Value::Map(group_map)) => resolved_call(stmt, group_map),
+                Some(other) => type_error(
+                    &logger,
+                    module,
+                    stmt,
+                    format!("Identifier '{ident}' must resolve to a group name or map, found {:?}", other),
+                ),
+                None => type_error(
+                    &logger,
+                    module,
+                    stmt,
+                    format!("Identifier '{ident}' not found in variable table"),
+                ),
+            }
+        }
+        Value::String(name) => resolve_group_by_name(name, stmt, module, &logger),
+        Value::Map(group_map) => resolved_call(stmt, group_map),
+        other => type_error(
             &logger,
+            module,
+            stmt,
+            format!("Call expects a group name as string or identifier, found {:?}", other),
+        ),
+    }
+}
+
+fn resolve_group_by_name<'a>(
+    name: &str,
+    stmt: &Statement,
+    module: &'a Module,
+    logger: &Logger,
+) -> Statement {
+    match module.variable_table.get(name) {
+        Some(Value::Map(group_map)) => resolved_call(stmt, group_map),
+        Some(other) => type_error(
+            logger,
             module,
             stmt,
             format!("Expected a group for '{}', but found {:?}", name, other),
         ),
         None => type_error(
-            &logger,
+            logger,
             module,
             stmt,
             format!("Group '{}' not found in module '{}'", name, module.path),
         ),
+    }
+}
+
+fn resolved_call(stmt: &Statement, group_map: &std::collections::HashMap<String, Value>) -> Statement {
+    Statement {
+        kind: StatementKind::Call,
+        value: Value::Map(group_map.clone()),
+        ..stmt.clone()
     }
 }
 

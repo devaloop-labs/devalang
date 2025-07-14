@@ -1,6 +1,6 @@
 use crate::{
     core::{
-        parser::statement::{ Statement, StatementKind },
+        parser::statement::{Statement, StatementKind},
         preprocessor::{module::Module, resolver::driver::resolve_statement},
         shared::value::Value,
         store::global::GlobalStore,
@@ -12,7 +12,7 @@ pub fn resolve_condition(
     stmt: &Statement,
     module: &Module,
     path: &str,
-    global_store: &GlobalStore
+    global_store: &GlobalStore,
 ) -> Statement {
     let logger = Logger::new();
 
@@ -22,27 +22,29 @@ pub fn resolve_condition(
 
     let mut resolved_map = condition_map.clone();
 
-    // Body resolution
+    // Main body resolution
     if let Some(Value::Block(body)) = condition_map.get("body") {
-        let resolved_body = body
-            .iter()
-            .map(|s| resolve_statement(s, module, path, global_store))
-            .collect::<Vec<_>>();
-
+        let resolved_body = resolve_block_statements(body, module, path, global_store);
         resolved_map.insert("body".to_string(), Value::Block(resolved_body));
     }
 
-    // Next resolution
-    if let Some(Value::Map(next)) = condition_map.get("next") {
+    // Recursive resolution of next condition
+    if let Some(Value::Map(next_map)) = condition_map.get("next") {
         let next_stmt = Statement {
             kind: StatementKind::If,
-            value: Value::Map(next.clone()),
+            value: Value::Map(next_map.clone()),
             ..stmt.clone()
         };
 
         let resolved_next = resolve_condition(&next_stmt, module, path, global_store);
 
-        if let Value::Map(resolved_next_map) = resolved_next.value {
+        if let Value::Map(mut resolved_next_map) = resolved_next.value {
+            // Body next resolution
+            if let Some(Value::Block(body)) = resolved_next_map.get("body") {
+                let resolved_body = resolve_block_statements(body, module, path, global_store);
+                resolved_next_map.insert("body".to_string(), Value::Block(resolved_body));
+            }
+
             resolved_map.insert("next".to_string(), Value::Map(resolved_next_map));
         }
     }
@@ -52,6 +54,30 @@ pub fn resolve_condition(
         value: Value::Map(resolved_map),
         ..stmt.clone()
     }
+}
+
+fn resolve_block_statements(
+    body: &[Statement],
+    module: &Module,
+    path: &str,
+    global_store: &GlobalStore,
+) -> Vec<Statement> {
+    body.iter()
+        .flat_map(|stmt| {
+            let resolved = resolve_statement(stmt, module, path, global_store);
+
+            if let StatementKind::Call = resolved.kind {
+                if let Value::Block(inner) = &resolved.value {
+                    return inner
+                        .iter()
+                        .map(|s| resolve_statement(s, module, path, global_store))
+                        .collect();
+                }
+            }
+
+            vec![resolved]
+        })
+        .collect()
 }
 
 fn type_error(logger: &Logger, module: &Module, stmt: &Statement, message: String) -> Statement {
