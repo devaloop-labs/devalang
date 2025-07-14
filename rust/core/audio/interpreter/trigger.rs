@@ -54,7 +54,7 @@ pub fn interprete_trigger_statement(
             );
 
             let mut updated_engine = audio_engine.clone();
-            updated_engine.insert(&src, cursor_time, duration_final, None);
+            updated_engine.insert_sample(&src, cursor_time, duration_final, None);
 
             let new_cursor_time = cursor_time + duration_final;
             let new_max_end_time = new_cursor_time.max(max_end_time);

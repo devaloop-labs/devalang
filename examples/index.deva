@@ -1,11 +1,11 @@
 # This file demonstrates the use of main features in Devalang.
 
-@import { duration, default_bank, params, loopCount, tempo } from "./examples/variables.deva"
-@import { conditionBlock } from "./examples/condition.deva"
-@import { myGroup } from "./examples/group.deva"
+@import { duration, default_bank, params, loopCount, tempo } from "./variables.deva"
+@import { conditionBlock } from "./condition.deva"
+@import { myGroup } from "./group.deva"
 
-@load "./examples/samples/kick-808.wav" as kickCustom
-@load "./examples/samples/hat-808.wav" as hatCustom
+@load "./samples/kick-808.wav" as kickCustom
+@load "./samples/hat-808.wav" as hatCustom
 
 bpm tempo
 

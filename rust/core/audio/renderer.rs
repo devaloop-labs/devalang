@@ -18,7 +18,7 @@ pub fn render_audio_with_modules(
 
     for (module_name, statements) in modules {
         let mut global_max_end_time = 0.0;
-        let mut audio_engine = AudioEngine::new();
+        let mut audio_engine = AudioEngine::new(module_name.clone());
 
         // Apply the module's variable table if it exists
         if let Some(module) = global_store.get_module(&module_name) {

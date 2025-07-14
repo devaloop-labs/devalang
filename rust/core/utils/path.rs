@@ -1,46 +1,31 @@
-use std::path::{ Component, Path };
+use std::path::{ Component, Path, PathBuf };
 
-pub fn find_entry_file(path: &str) -> Option<String> {
-    let path = Path::new(path);
+pub fn find_entry_file(entry: &str) -> Option<String> {
+    let path = Path::new(entry);
 
-    // Check if the path is a file
     if path.is_file() {
-        return Some(path.to_string_lossy().to_string());
+        return Some(normalize_path(entry));
     }
 
-    // Check if the path is a directory
     if path.is_dir() {
-        // Look for an index.deva file in the directory
-        let index_path = path.join("index.deva");
-        if index_path.is_file() {
-            return Some(index_path.to_string_lossy().to_string());
+        let candidate = path.join("index.deva");
+        if candidate.exists() {
+            return Some(normalize_path(&candidate));
         }
     }
 
     None
 }
 
-pub fn normalize_path(path: &str) -> String {
-    let mut components = Vec::new();
+pub fn normalize_path<P: AsRef<Path>>(path: P) -> String {
+    let path_buf = PathBuf::from(path.as_ref());
+    path_buf.components().collect::<PathBuf>().to_string_lossy().replace('\\', "/")
+}
 
-    // Iterate through the components of the path
-    for comp in Path::new(path).components() {
-        match comp {
-            Component::CurDir => {
-                continue;
-            }
-            Component::Normal(c) => components.push(c),
-            Component::RootDir => components.clear(),
-            _ => {}
-        }
-    }
-
-    // Join the components into a normalized path
-    let normalized = components
-        .iter()
-        .map(|c| c.to_string_lossy())
-        .collect::<Vec<_>>()
-        .join("/");
-
-    format!("./{}", normalized)
+pub fn resolve_relative_path(base: &str, import: &str) -> String {
+    let base_path = Path::new(base)
+        .parent()
+        .unwrap_or_else(|| Path::new(""));
+    let full_path = base_path.join(import);
+    full_path.components().collect::<PathBuf>().to_string_lossy().replace("\\", "/")
 }

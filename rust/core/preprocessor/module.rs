@@ -1,12 +1,7 @@
 use crate::core::{
     lexer::token::Token,
     parser::statement::Statement,
-    store::{
-        export::ExportTable,
-        global::GlobalStore,
-        import::ImportTable,
-        variable::VariableTable,
-    },
+    store::{ export::ExportTable, import::ImportTable, variable::VariableTable },
 };
 
 #[derive(Debug, Clone)]
@@ -19,6 +14,7 @@ pub struct Module {
     pub export_table: ExportTable,
     pub import_table: ImportTable,
     pub content: String,
+    pub current_dir: String,
 }
 
 impl Module {
@@ -32,6 +28,7 @@ impl Module {
             import_table: ImportTable::new(),
             resolved: false,
             content: String::new(),
+            current_dir: String::new(),
         }
     }
 

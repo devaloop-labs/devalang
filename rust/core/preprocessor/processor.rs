@@ -1,10 +1,11 @@
-use std::collections::HashMap;
+use std::{ collections::HashMap, path::Path };
 
 use crate::core::{
-    parser::{ statement::StatementKind, driver::Parser },
+    parser::{ driver::Parser, statement::StatementKind },
     preprocessor::{ loader::ModuleLoader, resolver::group },
     shared::value::Value,
     store::global::GlobalStore,
+    utils::path::{normalize_path, resolve_relative_path},
 };
 
 pub fn process_modules(module_loader: &ModuleLoader, global_store: &mut GlobalStore) {
@@ -16,9 +17,13 @@ pub fn process_modules(module_loader: &ModuleLoader, global_store: &mut GlobalSt
                 }
 
                 StatementKind::Load { source, alias } => {
+                    let module_dir = Path::new(&module.path).parent().unwrap_or(Path::new(""));
+
+                    let resolved_path = normalize_path(&module_dir.join(source));
+
                     module.variable_table.variables.insert(
                         alias.clone(),
-                        Value::Sample(source.clone())
+                        Value::Sample(resolved_path)
                     );
                 }
 
@@ -31,8 +36,12 @@ pub fn process_modules(module_loader: &ModuleLoader, global_store: &mut GlobalSt
                 }
 
                 StatementKind::Import { names, source } => {
+                    let resolved = resolve_relative_path(&module.path, source);
                     for name in names {
-                        module.import_table.add_import(name.clone(), Value::String(source.clone()));
+                        module.import_table.add_import(
+                            name.clone(),
+                            Value::String(resolved.clone())
+                        );
                     }
                 }
 

@@ -2,7 +2,10 @@ use std::{ collections::HashMap, fs::File, io::BufReader };
 use hound::{ SampleFormat, WavSpec, WavWriter };
 use rodio::{ Decoder, Source };
 
-use crate::core::{ store::variable::VariableTable, utils::path::normalize_path };
+use crate::core::{
+    store::variable::VariableTable,
+    utils::path::{ normalize_path, resolve_relative_path },
+};
 
 const SAMPLE_RATE: u32 = 44100;
 const CHANNELS: u16 = 2;
@@ -12,14 +15,16 @@ pub struct AudioEngine {
     pub volume: f32,
     pub variables: VariableTable,
     pub buffer: Vec<i16>,
+    pub module_name: String,
 }
 
 impl AudioEngine {
-    pub fn new() -> Self {
+    pub fn new(module_name: String) -> Self {
         AudioEngine {
             volume: 1.0,
             buffer: vec![],
             variables: VariableTable::new(),
+            module_name,
         }
     }
 
@@ -72,18 +77,16 @@ impl AudioEngine {
         Ok(())
     }
 
-    pub fn insert(
+    pub fn insert_sample(
         &mut self,
         filepath: &str,
         time_secs: f32,
         dur_sec: f32,
         effects: Option<HashMap<String, f32>>
     ) {
-        let normalized_filepath = normalize_path(filepath);
+        let resolved = resolve_relative_path(&self.module_name.clone(), filepath);
 
-        let file = BufReader::new(
-            File::open(normalized_filepath).expect("Failed to open audio file")
-        );
+        let file = BufReader::new(File::open(resolved).expect("Failed to open audio file"));
         let decoder = Decoder::new(file).expect("Failed to decode audio file");
 
         // Mono or stereo reading possible here, we will duplicate in L/R

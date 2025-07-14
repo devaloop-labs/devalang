@@ -1,9 +1,9 @@
 # This file demonstrates the use of conditional blocks in Devalang.
 
-@import { myGroup } from "./examples/group.deva"
+@import { myGroup } from "./group.deva"
 
-@load "./examples/samples/kick-808.wav" as kickCustom
-@load "./examples/samples/hat-808.wav" as hatCustom
+@load "./samples/kick-808.wav" as kickCustom
+@load "./samples/hat-808.wav" as hatCustom
 
 group conditionBlock:
     if tempo > 120:

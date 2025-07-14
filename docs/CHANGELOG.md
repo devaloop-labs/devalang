@@ -9,8 +9,9 @@
 ### Core Components
 
 - Refactored `condition`, `driver`, `loop`, `group` and `trigger`, `call`, `spawn` resolution to ensure correct scoping and imports.
-- Refactored `call` and `spawn` audio interpreter to ensure correct execution of audio statements.
-- Added `boolean` type support for let statements.
+- Refactored `call` and `spawn` audio interpreter to ensure correct execution of audio statements and groups.
+- Added `boolean` type support for let statements (e.g., `let isActive = true`).
+- Refactored `module loader` to ensure correct loading of modules and their dependencies (You can now import modules without using root path, use only relative paths).
 
 ## Version 0.0.1-alpha.8 (2025-07-12)
 

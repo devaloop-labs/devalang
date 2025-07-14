@@ -2,6 +2,7 @@ pub mod handler;
 pub mod token;
 
 use std::fs;
+use std::path::{Path, PathBuf};
 use crate::core::{
     lexer::{ handler::driver::handle_content_lexing, token::Token },
     utils::path::normalize_path,
@@ -20,11 +21,31 @@ impl Lexer {
 
     pub fn lex_tokens(&self, entrypoint: &str) -> Vec<Token> {
         let path = normalize_path(entrypoint);
+        let resolved_path = Self::resolve_entry_path(&path);
 
-        let file_content = fs::read_to_string(&path).expect("Failed to read the entrypoint file");
+        let file_content =
+            fs::read_to_string(&resolved_path).expect("Failed to read the entrypoint file");
 
-        let tokens = handle_content_lexing(file_content).expect("Failed to lex the content");
+        handle_content_lexing(file_content).expect("Failed to lex the content")
+    }
 
-        tokens
+    fn resolve_entry_path(path: &str) -> String {
+        let candidate = Path::new(path);
+
+        if candidate.is_dir() {
+            let index_path = candidate.join("index.deva");
+            if index_path.exists() {
+                return index_path.to_string_lossy().replace("\\", "/");
+            } else {
+                panic!(
+                    "Expected 'index.deva' in directory '{}', but it was not found",
+                    path
+                );
+            }
+        } else if candidate.is_file() {
+            return path.to_string();
+        } else {
+            panic!("Provided entrypoint '{}' is not a valid file or directory", path);
+        }
     }
 }
