@@ -5,11 +5,13 @@
 @load "./samples/kick-808.wav" as kickCustom
 @load "./samples/hat-808.wav" as hatCustom
 
-loop loopCount:
-    .kickCustom duration params
+group myLoop:
+    loop loopCount:
+        .kickCustom duration params
 
-    # Uncomment the next line (.hat) while executing "play" command
-    # with `--repeat` option to see magic happen !
+        # Uncomment the next line (.hat) while executing "play" command
+        # with `--repeat` option to see magic happen !
 
-    .hatCustom duration params
+        .hatCustom duration params
 
+@export { myLoop }

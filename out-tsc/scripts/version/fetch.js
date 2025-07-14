@@ -16,19 +16,15 @@ exports.fetchVersion = void 0;
 const fs_1 = __importDefault(require("fs"));
 const child_process_1 = require("child_process");
 const fetchVersion = (projectVersionPath) => __awaiter(void 0, void 0, void 0, function* () {
-    // Lire le fichier
     const data = JSON.parse(fs_1.default.readFileSync(projectVersionPath, "utf-8"));
-    // Incrémenter le numéro de build
     data.build = (data.build || 0) + 1;
-    // Récupérer le dernier hash git
     try {
         const commit = (0, child_process_1.execSync)("git rev-parse HEAD").toString().trim();
         data.lastCommit = commit;
     }
     catch (err) {
-        console.warn("⚠️ Impossible de récupérer le hash git.");
+        console.warn("⚠️ Unable to fetch git commit hash. Ensure you are in a git repository.");
     }
-    // Écrire la mise à jour
     fs_1.default.writeFileSync(projectVersionPath, JSON.stringify(data, null, 2));
 });
 exports.fetchVersion = fetchVersion;

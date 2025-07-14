@@ -9,3 +9,4 @@ pub mod sleep;
 pub mod loop_;
 pub mod call;
 pub mod condition;
+pub mod arrow_call;

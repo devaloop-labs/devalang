@@ -4,14 +4,32 @@
 
 # Changelog
 
-## Version 0.0.1-alpha.9 (2025-07-15)
+## Version 0.0.1-alpha.9 (2025-07-14)
 
-### Core Components
+### ✨ Syntax
 
-- Refactored `condition`, `driver`, `loop`, `group` and `trigger`, `call`, `spawn` resolution to ensure correct scoping and imports.
-- Refactored `call` and `spawn` audio interpreter to ensure correct execution of audio statements and groups.
-- Added `boolean` type support for let statements (e.g., `let isActive = true`).
-- Refactored `module loader` to ensure correct loading of modules and their dependencies (You can now import modules without using root path, use only relative paths).
+- Added support for `synth` directives to define synthesizer sounds directly in code  
+  → Example:
+
+  ```deva
+  let mySynth = synth sine
+  ```
+
+### 🧠 Core Engine
+
+- ✅ **Major refactor** of the resolution layer:
+
+  - `condition`, `loop`, `group`, `trigger`, `call`, `spawn`, and `driver` were fully rewritten
+  - Ensures **correct variable scoping**, **cross-module references**, and **imported symbol resolution**
+
+- ✅ Audio interpreter updated:
+  - `call` and `spawn` now execute correctly in parallel, preserving **temporal alignment** across groups
+
+### 🧩 Language Features
+
+- Improved `@import` behavior:
+  - Modules can now be imported using **relative paths only**
+  - No need for absolute or root-based imports
 
 ## Version 0.0.1-alpha.8 (2025-07-12)
 

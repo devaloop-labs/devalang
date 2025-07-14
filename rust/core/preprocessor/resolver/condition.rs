@@ -12,7 +12,7 @@ pub fn resolve_condition(
     stmt: &Statement,
     module: &Module,
     path: &str,
-    global_store: &GlobalStore,
+    global_store: &mut GlobalStore,
 ) -> Statement {
     let logger = Logger::new();
 
@@ -60,7 +60,7 @@ fn resolve_block_statements(
     body: &[Statement],
     module: &Module,
     path: &str,
-    global_store: &GlobalStore,
+    global_store: &mut GlobalStore,
 ) -> Vec<Statement> {
     body.iter()
         .flat_map(|stmt| {

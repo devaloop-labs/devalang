@@ -37,14 +37,28 @@ impl AudioEngine {
         }
     }
 
-    pub fn set_duration(&mut self, duration_secs: f32) {
-        let mut total_samples = (duration_secs * (SAMPLE_RATE as f32) * (CHANNELS as f32)) as usize;
-
-        if total_samples % (CHANNELS as usize) != 0 {
-            total_samples += 1;
+    pub fn merge_with(&mut self, other: AudioEngine) {
+        if other.buffer.iter().all(|&s| s == 0) {
+            eprintln!("⚠️ Skipping merge: other buffer is silent");
+            return;
         }
 
-        self.buffer.resize(total_samples, 0);
+        if self.buffer.iter().all(|&s| s == 0) {
+            self.buffer = other.buffer;
+            self.variables.variables.extend(other.variables.variables);
+            return;
+        }
+
+        self.mix(&other);
+        self.variables.variables.extend(other.variables.variables);
+    }
+
+    pub fn set_duration(&mut self, duration_secs: f32) {
+        let total_samples = (duration_secs * (SAMPLE_RATE as f32) * (CHANNELS as f32)) as usize;
+
+        if self.buffer.len() < total_samples {
+            self.buffer.resize(total_samples, 0);
+        }
     }
 
     pub fn set_variables(&mut self, variables: VariableTable) {
@@ -75,6 +89,66 @@ impl AudioEngine {
         writer.finalize().map_err(|e| format!("Error finalizing WAV: {:?}", e))?;
 
         Ok(())
+    }
+
+    pub fn insert_note(
+        &mut self,
+        waveform: String,
+        freq: f32,
+        amp: f32,
+        start_time_ms: f32,
+        duration_ms: f32
+    ) {
+        let sample_rate = SAMPLE_RATE as f32;
+        let channels = CHANNELS as usize;
+
+        let total_samples = ((duration_ms / 1000.0) * sample_rate) as usize;
+        let start_sample = ((start_time_ms / 1000.0) * sample_rate) as usize;
+        let amplitude = (i16::MAX as f32) * amp.clamp(0.0, 1.0);
+
+        let mut samples = Vec::with_capacity(total_samples);
+        let fade_len = (sample_rate * 0.01) as usize; // 10 ms fade
+
+        for i in 0..total_samples {
+            let t = ((start_sample + i) as f32) / sample_rate;
+            let phase = 2.0 * std::f32::consts::PI * freq * t;
+
+            let mut value = match waveform.as_str() {
+                "sine" => phase.sin(),
+                "square" => if phase.sin() >= 0.0 { 1.0 } else { -1.0 }
+                "saw" => 2.0 * (freq * t - (freq * t + 0.5).floor()),
+                "triangle" => (2.0 * (2.0 * (freq * t).fract() - 1.0)).abs() * 2.0 - 1.0,
+                _ => 0.0,
+            };
+
+            // Fade in/out
+            if i < fade_len {
+                value *= (i as f32) / (fade_len as f32);
+            } else if i >= total_samples - fade_len {
+                value *= ((total_samples - i) as f32) / (fade_len as f32);
+            }
+
+            samples.push((value * amplitude) as i16);
+        }
+
+        // Convert to stereo
+        let stereo_samples: Vec<i16> = samples
+            .iter()
+            .flat_map(|s| vec![*s, *s])
+            .collect();
+
+        let offset = start_sample * channels;
+        let required_len = offset + stereo_samples.len();
+
+        if self.buffer.len() < required_len {
+            self.buffer.resize(required_len, 0);
+        }
+
+        for (i, sample) in stereo_samples.iter().enumerate() {
+            if *sample != 0 {
+            }
+            self.buffer[offset + i] = self.buffer[offset + i].saturating_add(*sample);
+        }
     }
 
     pub fn insert_sample(

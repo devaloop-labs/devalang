@@ -2,11 +2,10 @@ use std::collections::HashMap;
 
 use crate::{
     core::{
-        parser::statement::{Statement, StatementKind},
+        parser::statement::{ Statement, StatementKind },
         preprocessor::module::Module,
-        shared::{duration::Duration, value::Value},
+        shared::{ duration::Duration, value::Value },
         store::global::GlobalStore,
-        utils::validation::is_valid_entity,
     },
     utils::logger::Logger,
 };
@@ -17,35 +16,26 @@ pub fn resolve_trigger(
     duration: &mut Duration,
     module: &Module,
     path: &str,
-    global_store: &GlobalStore,
+    global_store: &GlobalStore
 ) -> Statement {
     let logger = Logger::new();
 
     let mut final_duration = duration.clone();
     let mut final_value = stmt.value.clone();
 
-    if !is_valid_entity(entity, module, global_store) {
-        logger.log_error_with_stacktrace(
-            &format!("Invalid entity '{}'", entity),
-            &format!("{}:{}:{}", module.path, stmt.line, stmt.column),
-        );
-
-        return Statement {
-            kind: stmt.kind.clone(),
-            value: Value::Null,
-            line: stmt.line,
-            column: stmt.column,
-            indent: stmt.indent,
-        };
-    }
-
     // Duration resolution
     if let Duration::Identifier(ident) = duration {
         if let Some(val) = resolve_identifier(ident, module, global_store) {
             match val {
-                Value::Number(n) => final_duration = Duration::Number(n),
-                Value::String(s) => final_duration = Duration::Identifier(s),
-                Value::Identifier(s) if s == "auto" => final_duration = Duration::Auto,
+                Value::Number(n) => {
+                    final_duration = Duration::Number(n);
+                }
+                Value::String(s) => {
+                    final_duration = Duration::Identifier(s);
+                }
+                Value::Identifier(s) if s == "auto" => {
+                    final_duration = Duration::Auto;
+                }
                 _ => {}
             }
         }
@@ -57,7 +47,7 @@ pub fn resolve_trigger(
             resolve_identifier(ident, module, global_store).unwrap_or_else(|| {
                 logger.log_error_with_stacktrace(
                     &format!("'{path}': value identifier '{ident}' not found"),
-                    &format!("{}:{}:{}", module.path, stmt.line, stmt.column),
+                    &format!("{}:{}:{}", module.path, stmt.line, stmt.column)
                 );
                 Value::Null
             })
@@ -90,11 +80,7 @@ pub fn resolve_trigger(
     }
 }
 
-fn resolve_identifier(
-    ident: &str,
-    module: &Module,
-    global_store: &GlobalStore,
-) -> Option<Value> {
+fn resolve_identifier(ident: &str, module: &Module, global_store: &GlobalStore) -> Option<Value> {
     if let Some(val) = module.variable_table.get(ident) {
         return Some(resolve_value(val, module, global_store));
     }
@@ -110,8 +96,10 @@ fn resolve_identifier(
 
 fn resolve_value(val: &Value, module: &Module, global_store: &GlobalStore) -> Value {
     match val {
-        Value::Identifier(inner) => resolve_identifier(inner, module, global_store)
-            .unwrap_or(Value::Identifier(inner.clone())),
+        Value::Identifier(inner) =>
+            resolve_identifier(inner, module, global_store).unwrap_or(
+                Value::Identifier(inner.clone())
+            ),
         Value::Map(map) => {
             let mut resolved = HashMap::new();
             for (k, v) in map {

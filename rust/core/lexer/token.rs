@@ -30,11 +30,15 @@ pub enum TokenKind {
     Bank,
     Loop,
 
+    // ───── Instruments ─────
+    Synth,
+
     // ───── Literals ─────
     Identifier,
     Number,
     String,
     Boolean,
+    Arrow,
 
     // ───── Structures ─────
     Map,

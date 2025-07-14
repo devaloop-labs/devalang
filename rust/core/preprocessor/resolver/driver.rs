@@ -10,6 +10,7 @@ use crate::{
                 call::resolve_call,
                 condition::resolve_condition,
                 group::resolve_group,
+                let_::resolve_let,
                 loop_::resolve_loop,
                 spawn::resolve_spawn,
                 tempo::resolve_tempo,
@@ -32,29 +33,23 @@ pub fn resolve_statement(
     stmt: &Statement,
     module: &Module,
     path: &str,
-    global_store: &GlobalStore
+    global_store: &mut GlobalStore
 ) -> Statement {
     match &stmt.kind {
-        StatementKind::Trigger { entity, duration } => {
-            resolve_trigger(stmt, entity, &mut duration.clone(), module, path, global_store)
-        }
-
+        StatementKind::Trigger { entity, duration } =>
+            resolve_trigger(stmt, entity, &mut duration.clone(), module, path, global_store),
         StatementKind::If => resolve_condition(stmt, module, path, global_store),
-
         StatementKind::Group => resolve_group(stmt, module, path, global_store),
-
-        StatementKind::Call => { resolve_call(stmt, module, path, global_store) }
-
+        StatementKind::Call => resolve_call(stmt, module, path, global_store),
         StatementKind::Spawn => resolve_spawn(stmt, module, path, global_store),
-
         StatementKind::Bank => resolve_bank(stmt, module, path, global_store),
-
         StatementKind::Tempo => resolve_tempo(stmt, module, path, global_store),
-
         StatementKind::Loop => resolve_loop(stmt, module, path, global_store),
+        StatementKind::Let { name, .. } => resolve_let(stmt, name, module, path, global_store),
 
         _ => {
             let resolved_value = resolve_value(&stmt.value, module, global_store);
+
             Statement {
                 value: resolved_value,
                 ..stmt.clone()
@@ -63,17 +58,15 @@ pub fn resolve_statement(
     }
 }
 
-fn resolve_value(value: &Value, module: &Module, global_store: &GlobalStore) -> Value {
+fn resolve_value(value: &Value, module: &Module, global_store: &mut GlobalStore) -> Value {
     match value {
         Value::Identifier(name) => {
             if let Some(original_val) = module.variable_table.get(name) {
                 return resolve_value(original_val, module, global_store);
             }
 
-            for other_mod in global_store.modules.values() {
-                if let Some(original_val) = other_mod.export_table.get_export(name) {
-                    return resolve_value(original_val, other_mod, global_store);
-                }
+            if let Some(export_val) = find_export_value(name, global_store) {
+                return resolve_value(&export_val, module, global_store);
             }
 
             eprintln!("⚠️ Unresolved identifier '{}'", name);
@@ -91,27 +84,22 @@ fn resolve_value(value: &Value, module: &Module, global_store: &GlobalStore) -> 
         Value::Block(stmts) => {
             let resolved_stmts = stmts
                 .iter()
-                .flat_map(|stmt| {
-                    let resolved = resolve_statement(stmt, module, &module.path, global_store);
-
-                    // Résout les blocs imbriqués dans des Call vers des Group
-                    if let StatementKind::Call = resolved.kind {
-                        if let Value::Block(nested) = &resolved.value {
-                            return nested
-                                .iter()
-                                .map(|s| resolve_statement(s, module, &module.path, global_store))
-                                .collect::<Vec<_>>();
-                        }
-                    }
-
-                    vec![resolved]
-                })
+                .map(|stmt| resolve_statement(stmt, module, &module.path, global_store))
                 .collect();
             Value::Block(resolved_stmts)
         }
 
         other => other.clone(),
     }
+}
+
+fn find_export_value(name: &str, global_store: &GlobalStore) -> Option<Value> {
+    for (_path, module) in &global_store.modules {
+        if let Some(val) = module.export_table.get_export(name) {
+            return Some(val.clone());
+        }
+    }
+    None
 }
 
 pub fn resolve_imports(module_loader: &ModuleLoader, global_store: &mut GlobalStore) {
@@ -183,9 +171,7 @@ pub fn resolve_and_flatten_all_modules(
 
     // 2. Statements resolution
     let mut resolved_map: HashMap<String, Vec<Statement>> = HashMap::new();
-    let store_snapshot = global_store.clone();
-
-    for (path, module) in &store_snapshot.modules {
+    for (path, module) in global_store.modules.clone() {
         let mut resolved = Vec::new();
 
         for stmt in &module.statements {
@@ -199,23 +185,23 @@ pub fn resolve_and_flatten_all_modules(
                         &mut duration.clone(),
                         &module,
                         &path,
-                        &store_snapshot
+                        global_store
                     );
                     resolved.push(resolved_stmt);
                 }
 
                 StatementKind::Loop => {
-                    let resolved_stmt = resolve_loop(&stmt, &module, &path, &store_snapshot);
+                    let resolved_stmt = resolve_loop(&stmt, &module, &path, global_store);
                     resolved.push(resolved_stmt);
                 }
 
                 StatementKind::Bank => {
-                    let resolved_stmt = resolve_bank(&stmt, &module, &path, &store_snapshot);
+                    let resolved_stmt = resolve_bank(&stmt, &module, &path, global_store);
                     resolved.push(resolved_stmt);
                 }
 
                 StatementKind::Tempo => {
-                    let resolved_stmt = resolve_tempo(&stmt, &module, &path, &store_snapshot);
+                    let resolved_stmt = resolve_tempo(&stmt, &module, &path, global_store);
                     resolved.push(resolved_stmt);
                 }
 
@@ -224,7 +210,7 @@ pub fn resolve_and_flatten_all_modules(
                 }
 
                 StatementKind::Group => {
-                    let resolved_stmt = resolve_group(&stmt, &module, &path, &store_snapshot);
+                    let resolved_stmt = resolve_group(&stmt, &module, &path, global_store);
                     resolved.push(resolved_stmt);
                 }
 

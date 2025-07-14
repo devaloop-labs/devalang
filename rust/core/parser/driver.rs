@@ -2,6 +2,7 @@ use crate::core::{
     lexer::token::{ Token, TokenKind },
     parser::{
         handler::{
+            arrow_call::parse_arrow_call,
             at::parse_at_token,
             bank::parse_bank_token,
             condition::parse_condition_token,
@@ -10,7 +11,7 @@ use crate::core::{
             loop_::parse_loop_token,
             tempo::parse_tempo_token,
         },
-        statement::{ Statement },
+        statement::Statement,
     },
     shared::value::Value,
     store::global::GlobalStore,
@@ -45,7 +46,7 @@ impl Parser {
             return None;
         }
 
-        self.previous = self.tokens.get(self.token_index).cloned(); // mémorise avant de bouger
+        self.previous = self.tokens.get(self.token_index).cloned();
         self.token_index += 1;
 
         self.tokens.get(self.token_index - 1)
@@ -53,6 +54,14 @@ impl Parser {
 
     pub fn peek_is(&self, expected: &str) -> bool {
         self.peek().map_or(false, |t| t.lexeme == expected)
+    }
+
+    pub fn peek_nth(&self, n: usize) -> Option<&Token> {
+        if self.token_index + n < self.tokens.len() {
+            self.tokens.get(self.token_index + n)
+        } else {
+            None
+        }
     }
 
     pub fn advance_if(&mut self, kind: TokenKind) -> bool {
@@ -109,7 +118,17 @@ impl Parser {
 
             let statement = match &token.kind {
                 TokenKind::At => parse_at_token(self, global_store),
-                TokenKind::Identifier => parse_identifier_token(self, global_store),
+                TokenKind::Identifier => {
+                    if let Some(next) = self.peek_nth(1).cloned() {
+                        if next.kind == TokenKind::Arrow {
+                            parse_arrow_call(self, global_store)
+                        } else {
+                            parse_identifier_token(self, global_store)
+                        }
+                    } else {
+                        parse_identifier_token(self, global_store)
+                    }
+                }
                 TokenKind::Dot => parse_dot_token(self, global_store),
                 TokenKind::Tempo => parse_tempo_token(self, global_store),
                 TokenKind::Bank => parse_bank_token(self, global_store),

@@ -27,12 +27,12 @@ Compose loops, control samples, render and play audio — all in clean, readable
 
 From studio sketches to live sets, Devalang gives you rhythmic control — with the elegance of code.
 
-> 🚧 **v0.0.1-alpha.8 Notice** 🚧
+> 🚧 **v0.0.1-alpha.9 Notice** 🚧
 >
 > NEW: Devalang VSCode extension is now available !
 > [Get it here](https://marketplace.visualstudio.com/items?itemName=devaloop.devalang-vscode).
 >
-> NEW: Devalang supports conditional statements (`if`, `else`, `else if`) for more dynamic compositions !
+> Includes synthesis, playback, and rendering features, but is still in early development.
 >
 > Currently, Devalang CLI is only available for **Windows**.  
 > Linux and macOS binaries will be added in future releases via cross-platform builds.
@@ -181,24 +181,20 @@ bpm globalBpm
 bank globalBank
 # Will declare a custom instrument bank using the globalBank variable
 
-# Loops
-
 loop 5:
     .customKick kickDuration {reverb=50, drive=25}
     # Will play 5 times a custom sample for 500ms with reverb and overdrive effects
-
-# Groups
 
 group myGroup:
     .customKick kickDuration {reverb=50, drive=25}
     # Will play the same sample in a group, allowing for more complex patterns
 
-# Will be executed line by line (sequentially)
 call myGroup
+# Will be executed line by line (sequentially)
 
+# spawn myGroup
 # Will be executed in parallel (concurrently)
 # ⚠️ Note: `spawn` runs the entire group in parallel, but the group’s internal logic remains sequential unless it uses `spawn` internally.
-# spawn myGroup
 ```
 
 > 🧠 Note: `call` and `spawn` only work with `group` blocks. They do not apply to individual samples or other statements.

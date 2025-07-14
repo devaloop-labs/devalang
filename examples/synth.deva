@@ -1,0 +1,14 @@
+# This file defines a simple synth lead using Devalang's syntax.
+
+group myLead:
+    let mySynth = synth sine
+    
+    mySynth -> note(C4, { duration: 400 })
+    mySynth -> note(G4, { duration: 400 })
+    mySynth -> note(E4, { duration: 600 })
+    mySynth -> note(A4, { duration: 400 })
+    mySynth -> note(F4, { duration: 800 })
+    mySynth -> note(D4, { duration: 400 })
+    mySynth -> note(B3, { duration: 600 })
+
+@export { myLead }

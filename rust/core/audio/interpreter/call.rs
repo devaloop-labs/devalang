@@ -27,6 +27,7 @@ pub fn interprete_call_statement(
                         max_end_time,
                         cursor_time
                     );
+
                     return (eng, max_end_time.max(end_time), end_time);
                 } else {
                     eprintln!("❌ Group '{}' has no 'body' block", identifier);
@@ -47,6 +48,7 @@ pub fn interprete_call_statement(
                     max_end_time,
                     cursor_time
                 );
+
                 return (eng, max_end_time.max(end_time), end_time);
             } else {
                 eprintln!("❌ Call map has no 'body' block");

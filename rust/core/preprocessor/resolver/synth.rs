@@ -1,16 +1,14 @@
-use std::collections::HashMap;
-
 use crate::{
     core::{
         parser::statement::{ Statement, StatementKind },
         preprocessor::{ module::Module, resolver::driver::resolve_statement },
         shared::value::Value,
-        store::{ global::GlobalStore, variable::VariableTable },
+        store::global::GlobalStore,
     },
     utils::logger::{ LogLevel, Logger },
 };
 
-pub fn resolve_group(
+pub fn resolve_synth(
     stmt: &Statement,
     module: &Module,
     path: &str,
@@ -18,35 +16,26 @@ pub fn resolve_group(
 ) -> Statement {
     let logger = Logger::new();
 
-    let Value::Map(group_map) = &stmt.value else {
-        return type_error(&logger, module, stmt, "Expected a map in group statement".to_string());
+    let Value::Map(synth_map) = &stmt.value else {
+        return type_error(&logger, module, stmt, "Expected a map in synth statement".to_string());
     };
 
-    let mut resolved_map = group_map.clone();
+    let mut resolved_map = synth_map.clone();
 
-    if let Some(Value::Block(body)) = group_map.get("body") {
-        let resolved_body = resolve_block_statements(body, module, path, global_store);
+    if let Some(Value::Block(body)) = synth_map.get("body") {
+        let resolved_body = body.iter()
+            .map(|s| resolve_statement(s, module, path, global_store))
+            .collect::<Vec<_>>();
         resolved_map.insert("body".to_string(), Value::Block(resolved_body));
     } else {
-        logger.log_message(LogLevel::Warning, "group without a body");
+        logger.log_message(LogLevel::Warning, "synth without a body");
     }
 
     Statement {
-        kind: StatementKind::Group,
+        kind: StatementKind::Synth,
         value: Value::Map(resolved_map),
         ..stmt.clone()
     }
-}
-
-fn resolve_block_statements(
-    body: &[Statement],
-    module: &Module,
-    path: &str,
-    global_store: &mut GlobalStore
-) -> Vec<Statement> {
-    body.iter()
-        .map(|stmt| resolve_statement(stmt, module, path, global_store))
-        .collect()
 }
 
 fn type_error(logger: &Logger, module: &Module, stmt: &Statement, message: String) -> Statement {

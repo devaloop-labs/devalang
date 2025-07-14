@@ -44,6 +44,14 @@ pub enum StatementKind {
     Let {
         name: String,
     },
+    ArrowCall {
+        target: String,
+        method: String,
+        args: Vec<Value>,
+    },
+
+    // ───── Instruments ─────
+    Synth,
 
     // ───── Playback / Scheduling ─────
     Trigger {

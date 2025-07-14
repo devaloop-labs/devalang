@@ -1,6 +1,6 @@
 use crate::core::lexer::token::{ Token, TokenKind };
 
-pub fn handle_identifier_lexer(
+pub fn handle_arrow_lexer(
     char: char,
     chars: &mut std::iter::Peekable<std::str::Chars>,
     current_indent: &mut usize,
@@ -9,31 +9,21 @@ pub fn handle_identifier_lexer(
     line: &mut usize,
     column: &mut usize
 ) {
-    let mut ident = char.to_string();
+    let mut arrow_call = char.to_string();
 
     while let Some(&c) = chars.peek() {
-        if c.is_ascii_alphanumeric() || c == '_' {
-            ident.push(c);
+        if c == '>' {
             chars.next();
+            arrow_call.push(c);
             *column += 1;
         } else {
             break;
         }
     }
 
-    let kind = match ident.as_str() {
-        "if" => TokenKind::If,
-        "else" => TokenKind::Else,
-        "bank" => TokenKind::Bank,
-        "bpm" => TokenKind::Tempo,
-        "loop" => TokenKind::Loop,
-        "synth" => TokenKind::Synth,
-        _ => TokenKind::Identifier,
-    };
-
     tokens.push(Token {
-        kind: kind.clone(),
-        lexeme: ident,
+        kind: TokenKind::Arrow,
+        lexeme: arrow_call,
         line: *line,
         column: *column,
         indent: *current_indent,

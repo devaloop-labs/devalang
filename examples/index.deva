@@ -1,8 +1,8 @@
 # This file demonstrates the use of main features in Devalang.
 
 @import { duration, default_bank, params, loopCount, tempo } from "./variables.deva"
-@import { conditionBlock } from "./condition.deva"
-@import { myGroup } from "./group.deva"
+@import { myLead } from "./synth.deva"
+@import { myLoop } from "./loop.deva"
 
 @load "./samples/kick-808.wav" as kickCustom
 @load "./samples/hat-808.wav" as hatCustom
@@ -11,8 +11,8 @@ bpm tempo
 
 bank default_bank
 
-# This will call the group sequentially (line by line)
-call myGroup
+group myTrack:
+    spawn myLoop
+    spawn myLead
 
-# This will call the group in parallel (all lines at once)
-# spawn myGroup
+call myTrack

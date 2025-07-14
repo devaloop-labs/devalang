@@ -1,5 +1,9 @@
 use crate::core::{
-    audio::{ engine::AudioEngine, evaluator::evaluate_condition_string, interpreter::driver::execute_audio_block },
+    audio::{
+        engine::AudioEngine,
+        evaluator::evaluate_condition_string,
+        interpreter::driver::execute_audio_block,
+    },
     parser::statement::Statement,
     shared::value::Value,
     store::variable::VariableTable,

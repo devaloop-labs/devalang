@@ -2,6 +2,7 @@ use crate::core::{
     audio::{
         engine::AudioEngine,
         interpreter::{
+            arrow_call::interprete_call_arrow_statement,
             call::interprete_call_statement,
             condition::interprete_condition_statement,
             let_::interprete_let_statement,
@@ -29,7 +30,7 @@ pub fn run_audio_program(
     let variable_table = audio_engine.variables.clone();
 
     let (updated_audio_engine, base_bpm, max_end_time) = execute_audio_block(
-        audio_engine.clone(),
+        audio_engine,
         variable_table.clone(),
         statements.clone(),
         base_bpm.clone(),
@@ -50,6 +51,8 @@ pub fn execute_audio_block(
     mut max_end_time: f32,
     mut cursor_time: f32
 ) -> (AudioEngine, f32, f32) {
+    let initial_cursor_time = cursor_time;
+
     for stmt in statements {
         match &stmt.kind {
             StatementKind::Load { .. } => {
@@ -108,24 +111,35 @@ pub fn execute_audio_block(
             }
 
             StatementKind::Spawn => {
+                let mut temp_engine = AudioEngine::new(audio_engine.module_name.clone());
+
                 if
-                    let Some((new_cursor_time, new_max_end_time, updated_engine)) =
-                        interprete_spawn_statement(
-                            &stmt,
-                            &mut audio_engine,
-                            &variable_table,
-                            base_bpm,
-                            base_duration,
-                            cursor_time,
-                            max_end_time
-                        )
+                    let Some((_cur, _max, updated_engine)) = interprete_spawn_statement(
+                        &stmt,
+                        temp_engine,
+                        &variable_table,
+                        base_bpm,
+                        base_duration,
+                        initial_cursor_time,
+                        max_end_time
+                    )
                 {
-                    cursor_time = new_cursor_time;
-                    max_end_time = new_max_end_time;
-                    audio_engine = updated_engine;
-                } else {
-                    eprintln!("❌ Failed to interpret spawn statement: {:?}", stmt);
+                    audio_engine.merge_with(updated_engine);
                 }
+            }
+
+            StatementKind::Call => {
+                let (call_engine, new_max, new_cursor) = interprete_call_statement(
+                    &stmt,
+                    audio_engine.clone(),
+                    variable_table.clone(),
+                    base_bpm,
+                    base_duration,
+                    max_end_time,
+                    cursor_time
+                );
+
+                audio_engine.merge_with(call_engine);
             }
 
             StatementKind::Sleep => {
@@ -153,21 +167,6 @@ pub fn execute_audio_block(
                 max_end_time = new_max;
             }
 
-            StatementKind::Call => {
-                let (call_engine, new_max, new_cursor) = interprete_call_statement(
-                    &stmt,
-                    audio_engine.clone(),
-                    variable_table.clone(),
-                    base_bpm,
-                    base_duration,
-                    max_end_time,
-                    cursor_time
-                );
-                audio_engine = call_engine;
-                cursor_time = new_cursor;
-                max_end_time = new_max;
-            }
-
             StatementKind::If | StatementKind::ElseIf | StatementKind::Else => {
                 let (condition_engine, new_max, new_cursor) = interprete_condition_statement(
                     &stmt,
@@ -182,6 +181,19 @@ pub fn execute_audio_block(
                 audio_engine = condition_engine;
                 cursor_time = new_cursor;
                 max_end_time = new_max;
+            }
+
+            StatementKind::ArrowCall { .. } => {
+                interprete_call_arrow_statement(
+                    &stmt,
+                    &mut audio_engine,
+                    &variable_table,
+                    base_bpm,
+                    base_duration,
+                    &mut max_end_time,
+                    Some(&mut cursor_time),
+                    true
+                );
             }
 
             | StatementKind::Bank
