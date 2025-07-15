@@ -9,9 +9,8 @@ group myLoop:
     loop loopCount:
         .kickCustom duration params
 
-        # Uncomment the next line (.hat) while executing "play" command
+        # Uncomment the next line (.hatCustom) while executing "play" command
         # with `--repeat` option to see magic happen !
-
-        .hatCustom duration params
+        # .hatCustom duration params
 
 @export { myLoop }

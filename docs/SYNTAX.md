@@ -208,3 +208,23 @@ This runs the entire group in a separate execution thread, allowing it to play a
 ```deva
 spawn myGroup
 ```
+
+### Synthesizers
+
+Synthesizers are defined using the `synth` keyword, followed by the synthesizer type. You can create a synthesizer instance and use it to play notes.
+
+```deva
+let mySynth = synth sine
+
+mySynth -> note(C4, { duration: 400 })
+mySynth -> note(G4, { duration: 400 })
+mySynth -> note(E4, { duration: 600 })
+mySynth -> note(A4, { duration: 400 })
+mySynth -> note(F4, { duration: 800 })
+mySynth -> note(D4, { duration: 400 })
+mySynth -> note(B3, { duration: 600 })
+
+# You can use call or spawn to execute the synthesizer actions in sequence or parallel.
+
+call mySynth
+```
