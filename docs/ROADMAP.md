@@ -21,11 +21,10 @@ Devalang is a work in progress. Here’s what we’re planning next:
 - ✅ **Let assignments**: Implement `let` assignments for storing reusable values.
 - ✅ **Sample loading**: Add `@load` assignment to load samples (.mp3, .wav) for use as values.
 - ✅ **WASM support**: Compile Devalang to WebAssembly for use in web applications and other environments.
+- ✅ **VSCode extension**: Create a VSCode extension for syntax highlighting and code completion.
 
 ## Upcoming
 
 - ⏳ **Smart modules**: Let Devalang detect and use groups, samples, and variables without needing to import them manually.
-- ⏳ **VSCode extension**: Create a VSCode extension for syntax highlighting and code completion.
 - ⏳ **Other statements**: Implement `pattern`, `function`, and other control structures.
-- ⏳ **Functions**: Add support for defining and calling functions.
 - ⏳ **Testing**: Expand test coverage for all features.

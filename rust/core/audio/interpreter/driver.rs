@@ -20,21 +20,35 @@ use crate::core::{
 
 pub fn run_audio_program(
     statements: &Vec<Statement>,
-    audio_engine: AudioEngine,
+    mut audio_engine: AudioEngine,
     entry: String,
     output: String
 ) -> (AudioEngine, f32, f32) {
     let mut base_bpm = 120.0;
     let mut base_duration = 60.0 / base_bpm;
 
-    let variable_table = audio_engine.variables.clone();
+    let mut variable_table = audio_engine.variables.clone();
+
+    for stmt in statements {
+        if let StatementKind::Let { .. } = stmt.kind {
+            if
+                let Some(new_table) =
+                    interprete_let_statement(
+                        stmt,
+                        &mut variable_table
+                    )
+            {
+                variable_table = new_table;
+            }
+        }
+    }
 
     let (updated_audio_engine, base_bpm, max_end_time) = execute_audio_block(
         audio_engine,
-        variable_table.clone(),
+        variable_table,
         statements.clone(),
-        base_bpm.clone(),
-        base_duration.clone(),
+        base_bpm,
+        base_duration,
         0.0,
         0.0
     );
@@ -53,7 +67,7 @@ pub fn execute_audio_block(
 ) -> (AudioEngine, f32, f32) {
     let initial_cursor_time = cursor_time;
 
-    for stmt in statements {
+    for stmt in statements.clone() {
         match &stmt.kind {
             StatementKind::Load { .. } => {
                 if
@@ -129,17 +143,20 @@ pub fn execute_audio_block(
             }
 
             StatementKind::Call => {
-                let (call_engine, new_max, new_cursor) = interprete_call_statement(
+                let (call_engine, new_max, end_time, new_cursor) = interprete_call_statement(
                     &stmt,
                     audio_engine.clone(),
                     variable_table.clone(),
                     base_bpm,
                     base_duration,
                     max_end_time,
-                    cursor_time
+                    cursor_time,
+                    &statements 
                 );
 
                 audio_engine.merge_with(call_engine);
+                cursor_time = new_cursor;
+                max_end_time = new_max;
             }
 
             StatementKind::Sleep => {
@@ -184,7 +201,7 @@ pub fn execute_audio_block(
             }
 
             StatementKind::ArrowCall { .. } => {
-                interprete_call_arrow_statement(
+                let (new_max_end_time, new_cursor_time) = interprete_call_arrow_statement(
                     &stmt,
                     &mut audio_engine,
                     &variable_table,
@@ -194,6 +211,9 @@ pub fn execute_audio_block(
                     Some(&mut cursor_time),
                     true
                 );
+
+                cursor_time = new_cursor_time;
+                max_end_time = new_max_end_time;
             }
 
             | StatementKind::Bank

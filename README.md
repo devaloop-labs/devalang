@@ -27,7 +27,9 @@ Compose loops, control samples, render and play audio — all in clean, readable
 
 From studio sketches to live sets, Devalang gives you rhythmic control — with the elegance of code.
 
-> 🚧 **v0.0.1-alpha.9 Notice** 🚧
+> 🚧 **v0.0.1-alpha.10 Notice** 🚧
+>
+> NEW: Online documentation is now available at [docs.devalang.com](https://docs.devalang.com).
 >
 > NEW: Devalang VSCode extension is now available !
 > [Get it here](https://marketplace.visualstudio.com/items?itemName=devaloop.devalang-vscode).
@@ -41,7 +43,7 @@ From studio sketches to live sets, Devalang gives you rhythmic control — with 
 
 ## 📚 Quick Access
 
-- [📖 Documentation](./docs/)
+- [📖 Documentation](https://docs.devalang.com)
 - [💡 Examples](./examples/)
 - [🧩 VSCode Extension](https://marketplace.visualstudio.com/items?itemName=devaloop.devalang-vscode)
 - [🎨 Prettier Plugin](https://www.npmjs.com/package/@devaloop/prettier-plugin-devalang)
@@ -71,24 +73,27 @@ From studio sketches to live sets, Devalang gives you rhythmic control — with 
 
 ### For users
 
-> - ⚠️ Requires [Node.js 18+](https://nodejs.org/en/download)
+> ⚠️ Requires [Node.js 18+](https://nodejs.org/en/download)
 
-Install the package globally (NPM)
+For Node users (NPM)
 
 ```bash
 npm install -g @devaloop/devalang@latest
 ```
 
-Usage without install (NPX)
+> ⚠️ Requires [Rust 1.70+](https://www.rust-lang.org/learn/get-started#installing-rust)
+
+For Rust users (Cargo)
 
 ```bash
-npx @devaloop/devalang@latest
+cargo install devalang
 ```
 
 ### For contributors
 
-> - ⚠️ Requires [Node.js 18+](https://nodejs.org/en/download)
-> - ⚠️ Requires [Rust 1.70+](https://www.rust-lang.org/learn/get-started#installing-rust)
+> ⚠️ Requires [Node.js 18+](https://nodejs.org/en/download)
+
+> ⚠️ Requires [Rust 1.70+](https://www.rust-lang.org/learn/get-started#installing-rust)
 
 ```bash
 git clone https://github.com/devaloop-labs/devalang.git

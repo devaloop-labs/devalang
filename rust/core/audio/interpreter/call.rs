@@ -12,12 +12,20 @@ pub fn interprete_call_statement(
     base_bpm: f32,
     base_duration: f32,
     max_end_time: f32,
-    cursor_time: f32
-) -> (AudioEngine, f32, f32) {
+    cursor_time: f32,
+    all_statements: &Vec<Statement>
+) -> (AudioEngine, f32, f32, f32) {
     match &stmt.value {
         Value::String(identifier) | Value::Identifier(identifier) => {
-            if let Some(Value::Map(map)) = variable_table.clone().get(identifier) {
-                if let Some(Value::Block(block)) = map.get("body") {
+            if
+                let Some(group_stmt) = all_statements
+                    .iter()
+                    .find(|s| {
+                        matches!(s.kind, StatementKind::Group) &&
+                            s.value.get("identifier") == Some(&Value::String(identifier.clone()))
+                    })
+            {
+                if let Some(Value::Block(block)) = group_stmt.value.get("body") {
                     let (eng, _, end_time) = execute_audio_block(
                         audio_engine,
                         variable_table,
@@ -27,13 +35,12 @@ pub fn interprete_call_statement(
                         max_end_time,
                         cursor_time
                     );
-
-                    return (eng, max_end_time.max(end_time), end_time);
+                    return (eng, max_end_time.max(end_time), end_time, cursor_time);
                 } else {
-                    eprintln!("❌ Group '{}' has no 'body' block", identifier);
+                    eprintln!("❌ Group '{}' found but no valid body block", identifier);
                 }
             } else {
-                eprintln!("❌ Group '{}' not found or not a map", identifier);
+                eprintln!("❌ Group '{}' not found in statements", identifier);
             }
         }
 
@@ -48,8 +55,7 @@ pub fn interprete_call_statement(
                     max_end_time,
                     cursor_time
                 );
-
-                return (eng, max_end_time.max(end_time), end_time);
+                return (eng, max_end_time.max(end_time), end_time, cursor_time);
             } else {
                 eprintln!("❌ Call map has no 'body' block");
             }
@@ -60,5 +66,5 @@ pub fn interprete_call_statement(
         }
     }
 
-    (audio_engine, max_end_time, cursor_time)
+    (audio_engine, base_bpm, max_end_time, cursor_time)
 }

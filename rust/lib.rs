@@ -7,6 +7,7 @@ use wasm_bindgen::prelude::*;
 use serde_wasm_bindgen::to_value;
 
 use crate::core::{
+    audio::{ engine::AudioEngine, interpreter::driver::{ run_audio_program } },
     parser::statement::{ Statement, StatementKind },
     preprocessor::loader::ModuleLoader,
     shared::value::Value,
@@ -41,6 +42,49 @@ pub fn parse(entry_path: &str, source: &str) -> Result<JsValue, JsValue> {
         }
         Err(e) => { Err(JsValue::from_str(&format!("Error: {}", e))) }
     }
+}
+
+#[wasm_bindgen]
+pub fn render_audio(user_code: &str) -> Result<js_sys::Float32Array, JsValue> {
+    let entry_path = normalize_path("playground.deva");
+    let output_path = normalize_path("./temp");
+
+    let mut global_store = GlobalStore::new();
+
+    let loader = ModuleLoader::from_raw_source(
+        &entry_path,
+        &output_path,
+        user_code,
+        &mut global_store
+    );
+
+    loader
+        .load_wasm_module(&mut global_store)
+        .map_err(|e| JsValue::from_str(&format!("Module loading error: {}", e)))?;
+
+    let all_statements_map = loader.extract_statements_map(&global_store);
+
+    let main_statements = all_statements_map
+        .get(&entry_path)
+        .ok_or(JsValue::from_str("❌ No statements found for entry module"))?
+        .clone();
+
+    let audio_engine = AudioEngine::new("wasm_output".to_string());
+
+    let (final_engine, _, _) = run_audio_program(
+        &main_statements,
+        audio_engine,
+        "playground".to_string(),
+        "wasm_output".to_string()
+    );
+
+    let samples = final_engine.get_normalized_buffer();
+
+    if samples.is_empty() {
+        return Err(JsValue::from_str("❌ Audio buffer is empty"));
+    }
+
+    Ok(js_sys::Float32Array::from(samples.as_slice()))
 }
 
 fn parse_internal_from_string(virtual_path: &str, source: &str) -> Result<ParseResult, String> {

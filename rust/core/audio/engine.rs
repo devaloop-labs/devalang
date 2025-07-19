@@ -28,6 +28,17 @@ impl AudioEngine {
         }
     }
 
+    pub fn get_buffer(&self) -> &[i16] {
+        &self.buffer
+    }
+
+    pub fn get_normalized_buffer(&self) -> Vec<f32> {
+        self.buffer
+            .iter()
+            .map(|&s| (s as f32) / 32768.0)
+            .collect()
+    }
+
     pub fn mix(&mut self, other: &AudioEngine) {
         let max_len = self.buffer.len().max(other.buffer.len());
         self.buffer.resize(max_len, 0);

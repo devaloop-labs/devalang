@@ -94,6 +94,42 @@ impl ModuleLoader {
 
         Ok(module)
     }
+    
+    pub fn load_wasm_module(&self, global_store: &mut GlobalStore) -> Result<(), String> {
+        // Step one : Load the module from the global store
+        let module = {
+            let module_ref = global_store.modules
+                .get(&self.entry)
+                .ok_or_else(|| format!("❌ Module not found for path: {}", self.entry))?;
+
+            Module::from_existing(&self.entry, module_ref.content.clone())
+        };
+
+        // Step two : lexing
+        let lexer = Lexer::new();
+        let tokens = lexer
+            .lex_from_source(&module.content)
+            .map_err(|e| format!("Lexer failed: {}", e))?;
+
+        // Step three : parsing
+        let mut parser = Parser::new();
+        parser.set_current_module(self.entry.clone());
+
+        let statements = parser.parse_tokens(tokens.clone(), global_store);
+
+        let mut updated_module = module;
+        updated_module.tokens = tokens;
+        updated_module.statements = statements;
+
+        // Step four : error handling
+        let mut error_handler = ErrorHandler::new();
+        error_handler.detect_from_statements(&mut parser, &updated_module.statements);
+
+        // Final step : insert the updated module back into the global store
+        global_store.modules.insert(self.entry.clone(), updated_module);
+
+        Ok(())
+    }
 
     #[cfg(feature = "cli")]
     pub fn load_all_modules(

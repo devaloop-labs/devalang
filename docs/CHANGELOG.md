@@ -4,6 +4,24 @@
 
 # Changelog
 
+## Version 0.0.1-alpha.10 (2025-07-19)
+
+### 📖 Documentation
+
+- Updated [new documentation website](https://docs.devalang.com) with new features and examples.
+
+### 🧠 Core Engine
+
+- Patched `call`, `spawn` to handle correct cursor time.
+- Patched `advance_char` to handle correct indentation and dedentation.
+- Patched `bank` resolver to handle numbers in bank names.
+- Patched `spawn` calls that was not calling a variable.
+
+### 🧩 Web Assembly
+
+- Added `load_wasm_module` function to the WASM module to load Devalang modules dynamically.
+- Added `render_audio` function to the WASM module to render audio files.
+
 ## Version 0.0.1-alpha.9 (2025-07-14)
 
 ### ✨ Syntax

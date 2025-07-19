@@ -10,13 +10,17 @@ fn advance_char<I: Iterator<Item = char>>(
     line: &mut usize,
     column: &mut usize
 ) -> Option<char> {
-    let c = chars.next()?;
-    if c == '\n' {
-        // Do not increment column on newline here
-    } else {
-        *column += 1;
+    while let Some(c) = chars.next() {
+        if c == '\r' {
+            continue;
+        } else if c == '\n' {
+            // newline: don't increment column
+        } else {
+            *column += 1;
+        }
+        return Some(c);
     }
-    Some(c)
+    None
 }
 
 pub fn handle_content_lexing(content: String) -> Result<Vec<Token>, String> {

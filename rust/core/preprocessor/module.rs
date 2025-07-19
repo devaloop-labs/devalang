@@ -47,4 +47,10 @@ impl Module {
     pub fn add_statement(&mut self, statement: Statement) {
         self.statements.push(statement);
     }
+
+    pub fn from_existing(path: &str, content: String) -> Self {
+        let mut module = Module::new(path);
+        module.content = content;
+        module
+    }
 }

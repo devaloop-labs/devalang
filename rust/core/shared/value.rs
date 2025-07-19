@@ -16,3 +16,13 @@ pub enum Value {
     Unknown,
     Null,
 }
+
+impl Value {
+    pub fn get(&self, key: &str) -> Option<&Value> {
+        if let Value::Map(map) = self {
+            map.get(key)
+        } else {
+            None
+        }
+    }
+}

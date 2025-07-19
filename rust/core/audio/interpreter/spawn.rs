@@ -27,6 +27,24 @@ pub fn interprete_spawn_statement(
             )
         }
 
+        Value::Map(map) => {
+            if let Some(Value::Block(block)) = map.get("body") {
+                let (eng, _, end_time) = execute_audio_block(
+                    audio_engine.clone(),
+                    variable_table.clone(),
+                    block.clone(),
+                    base_bpm,
+                    base_duration,
+                    max_end_time,
+                    cursor_time
+                );
+                return Some((max_end_time.max(end_time), end_time, eng));
+            } else {
+                eprintln!("❌ Spawn map has no 'body' block");
+            }
+            None
+        }
+
         _ => {
             eprintln!("❌ Invalid spawn statement: expected identifier, found {:?}", stmt.value);
             None

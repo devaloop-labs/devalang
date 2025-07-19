@@ -65,6 +65,5 @@ This is a list of tasks and features to be implemented in Devalang. Note that th
 
 ## Other TODOs
 
-- [ ] Patch path handling to support relative paths
 - [ ] Comment all core components
 - [ ] Add unit tests for all core components

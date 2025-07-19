@@ -33,6 +33,8 @@ pub fn resolve_bank(
 
         Value::String(_) => {}
 
+        Value::Number(_) => {}
+
         other => {
             let message = format!("Expected a string or identifier for bank, found {:?}", other);
             logger.log_error_with_stacktrace(&message, &module.path);
