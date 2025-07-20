@@ -9,8 +9,6 @@
 
 bpm tempo
 
-bank default_bank
-
 group myTrack:
     spawn myLoop
     spawn myLead

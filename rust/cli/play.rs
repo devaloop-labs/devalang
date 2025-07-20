@@ -1,5 +1,4 @@
 use crate::{
-    config::Config,
     core::{
         builder::Builder,
         debugger::{ lexer::write_lexer_log_file, preprocessor::write_preprocessor_log_file },
@@ -7,6 +6,7 @@ use crate::{
         store::global::GlobalStore,
         utils::path::{ find_entry_file, normalize_path },
     },
+    config::driver::Config,
     utils::{ logger::{ LogLevel, Logger }, spinner::with_spinner, watcher::watch_directory },
 };
 

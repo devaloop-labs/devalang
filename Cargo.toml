@@ -1,6 +1,6 @@
 [package]
 name = "devalang"
-version = "0.0.1-alpha.10"
+version = "0.0.1-alpha.11"
 authors = ["Devaloop <contact@devaloop.com>"]
 description = "Write music like code. Devalang is a domain-specific language (DSL) for sound designers and music hackers. Compose, automate, and control sound — in plain text."
 license = "MIT"
@@ -47,3 +47,8 @@ crossterm =  { version = "0.27", optional = true }
 indicatif = { version = "0.17", optional = true }
 inquire = { version = "0.7.5", optional = true }
 js-sys = "0.3"
+reqwest = { version = "0.12.22", features = ["json"] }
+flate2 = "1.0"
+tar = "0.4"
+tokio = { version = "1", features = ["full"] }
+zip = "4.3.0"

@@ -1,7 +1,14 @@
+# Rust specific
 /target
-/output
+Cargo.lock
+
+# Node specific
 /node_modules
+package-lock.json
+
+# WASM specific
 /pkg
 
-package-lock.json
-Cargo.lock
+# Devalang specific
+/.deva
+/output

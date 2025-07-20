@@ -1,4 +1,4 @@
-use std::{ collections::HashMap, fs::File, io::BufReader };
+use std::{ collections::HashMap, fs::File, io::BufReader, path::Path };
 use hound::{ SampleFormat, WavSpec, WavWriter };
 use rodio::{ Decoder, Source };
 
@@ -169,9 +169,37 @@ impl AudioEngine {
         dur_sec: f32,
         effects: Option<HashMap<String, f32>>
     ) {
-        let resolved = resolve_relative_path(&self.module_name.clone(), filepath);
+        if filepath.is_empty() {
+            eprintln!("❌ Empty file path provided for audio sample.");
+            return;
+        }
 
-        let file = BufReader::new(File::open(resolved).expect("Failed to open audio file"));
+        let mut resolved_path = String::new();
+
+        if filepath.starts_with("devalang://") {
+            let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+            let parts = filepath.split("devalang://").collect::<Vec<&str>>();
+            let object_parts = parts.get(1).unwrap_or(&"").split("/").collect::<Vec<&str>>();
+            let object_type = object_parts.get(0).unwrap_or(&"").to_lowercase();
+            let object_dir = object_parts.get(1).unwrap_or(&"").to_string();
+            let object_name = object_parts.get(2).unwrap_or(&"").to_string();
+
+            if object_type.contains("bank") {
+                resolved_path = root
+                    .join(".deva")
+                    .join("bank")
+                    .join(object_dir)
+                    .join(format!("{}.wav", object_name))
+                    .to_str()
+                    .unwrap_or("")
+                    .to_string();
+            } else {
+                eprintln!("❌ Unsupported devalang:// object type: {}", object_type);
+                return;
+            }
+        }
+
+        let file = BufReader::new(File::open(resolved_path).expect("Failed to open audio file"));
         let decoder = Decoder::new(file).expect("Failed to decode audio file");
 
         // Mono or stereo reading possible here, we will duplicate in L/R

@@ -64,6 +64,10 @@ impl Parser {
         }
     }
 
+    pub fn peek_nth_kind(&self, n: usize) -> Option<TokenKind> {
+        self.peek_nth(n).map(|t| t.kind.clone())
+    }
+
     pub fn advance_if(&mut self, kind: TokenKind) -> bool {
         if self.match_token(kind) { true } else { false }
     }

@@ -1,5 +1,5 @@
 use crate::{
-    config::Config,
+    config::driver::Config,
     core::{
         builder::Builder,
         debugger::{

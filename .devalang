@@ -2,3 +2,8 @@
 entry = "./examples"
 output = "./output"
 watch = false
+
+[[banks]]
+path = "devalang://bank/808"
+version = "0.0.1"
+author = "devaloop"

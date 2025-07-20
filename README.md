@@ -1,5 +1,5 @@
 <div align="center">
-    <img src="https://firebasestorage.googleapis.com/v0/b/devaloop-labs.firebasestorage.app/o/devalang-teal-logo.svg?alt=media&token=d2a5705a-1eba-4b49-88e6-895a761fb7f7" alt="Devalang Logo">
+    <img src="https://devalang.com/images/devalang-logo-cyan.svg" alt="Devalang Logo" width="300" />
 </div>
 
 ![Rust](https://img.shields.io/badge/Made%20with-Rust-orange?logo=rust)
@@ -16,9 +16,9 @@
 
 [![VSCode Extension](https://img.shields.io/visual-studio-marketplace/v/devaloop.devalang-vscode?label=VSCode%20Extension)](https://marketplace.visualstudio.com/items?itemName=devaloop.devalang-vscode)
 
-## 🎼 Devalang, by **Devaloop Labs**
+# 🎶 Devalang
 
-🎶 Compose music with code — structured, expressive, and fast.
+Compose music with code — structured, expressive, and fast.
 
 Devalang is a tiny domain-specific language (DSL) for music makers, sound designers, and audio hackers.
 Compose loops, control samples, render and play audio — all in clean, readable text.
@@ -27,27 +27,73 @@ Compose loops, control samples, render and play audio — all in clean, readable
 
 From studio sketches to live sets, Devalang gives you rhythmic control — with the elegance of code.
 
-> 🚧 **v0.0.1-alpha.10 Notice** 🚧
+> 🚧 **v0.0.1-alpha.11 Notice** 🚧
 >
-> NEW: Online documentation is now available at [docs.devalang.com](https://docs.devalang.com).
+> NEW: Devalang is available in your browser at [playground.devalang.com](https://playground.devalang.com) !
 >
-> NEW: Devalang VSCode extension is now available !
-> [Get it here](https://marketplace.visualstudio.com/items?itemName=devaloop.devalang-vscode).
+> NEW: Online documentation is now available at [docs.devalang.com](https://docs.devalang.com)
 >
 > Includes synthesis, playback, and rendering features, but is still in early development.
 >
 > Currently, Devalang CLI is only available for **Windows**.  
 > Linux and macOS binaries will be added in future releases via cross-platform builds.
 
----
-
 ## 📚 Quick Access
 
+- [▶️ Playground](https://playground.devalang.com)
 - [📖 Documentation](https://docs.devalang.com)
-- [💡 Examples](./examples/)
 - [🧩 VSCode Extension](https://marketplace.visualstudio.com/items?itemName=devaloop.devalang-vscode)
 - [🎨 Prettier Plugin](https://www.npmjs.com/package/@devaloop/prettier-plugin-devalang)
+- [📜 Changelog](./docs/CHANGELOG.md)
+- [💡 Examples](./examples/)
 - [🌐 Project Website](https://devalang.com)
+- [📦 Devalang CLI on npm](https://www.npmjs.com/package/@devaloop/devalang)
+
+## ⏱️ Try it now !
+
+### You can also have a look at the [Playground](https://playground.devalang.com) to try Devalang directly in your browser
+
+```bash
+# Install Devalang CLI globally
+npm install -g @devaloop/devalang
+
+# Create a new Devalang project
+devalang init --name my-project --template minimal
+cd my-project
+```
+
+Create a new Devalang file `src/index.deva` in the project directory:
+
+```deva
+# src/index.deva
+
+group myLead:
+    let mySynth = synth sine
+
+    mySynth -> note(C4, { duration: 400 })
+    mySynth -> note(G4, { duration: 600 })
+
+# Play the lead
+
+call myLead
+```
+
+And the best part ? You can play it directly from the command line:
+
+```bash
+# Play the Devalang file
+devalang play
+
+# Play the Devalang file with watch mode
+devalang play --watch
+
+# LIVE mode (repeat the playback + watch mode)
+devalang play --repeat
+```
+
+### 🎉 You can now hear your Devalang code in action!
+
+> For more examples, check out the [examples directory](./examples/).
 
 ## ❓ Why Devalang?
 
@@ -69,150 +115,21 @@ From studio sketches to live sets, Devalang gives you rhythmic control — with 
 - 🎛️ **Custom samples**: easily load and trigger your own audio files
 - 🔄 **Looping and grouping**: create complex patterns with ease
 
-## 📆 Installation
+## 📄 Documentation
 
-### For users
+### Please refer to the [online documentation](https://docs.devalang.com) for detailed information on syntax, features, and usage examples.
 
-> ⚠️ Requires [Node.js 18+](https://nodejs.org/en/download)
+## 📜 Changelog Highlights
 
-For Node users (NPM)
+For a complete list of changes, see [docs/CHANGELOG.md](./docs/CHANGELOG.md)
 
-```bash
-npm install -g @devaloop/devalang@latest
-```
-
-> ⚠️ Requires [Rust 1.70+](https://www.rust-lang.org/learn/get-started#installing-rust)
-
-For Rust users (Cargo)
-
-```bash
-cargo install devalang
-```
-
-### For contributors
-
-> ⚠️ Requires [Node.js 18+](https://nodejs.org/en/download)
-
-> ⚠️ Requires [Rust 1.70+](https://www.rust-lang.org/learn/get-started#installing-rust)
-
-```bash
-git clone https://github.com/devaloop-labs/devalang.git
-
-cd devalang
-
-npm install
-```
-
-Development usage (you can customize arguments in package.json)
-
-```bash
-# For syntax checking test
-npm run rust:dev:check
-
-# For building test
-npm run rust:dev:build
-```
-
-## ❔ Usage
-
-NOTE: Commands are available via `devalang` or `npx @devaloop/devalang`.
-
-NOTE: Arguments can be passed to commands using `--<argument>` syntax. You can also use a configuration file to set default values for various settings, making it easier to manage your Devalang project.
-
-NOTE: Some commands require a mandatory `--entry` argument to specify the input folder, and a `--output` argument to specify the output folder. If not specified, they default to `./src` and `./output` respectively.
-
-For more examples, see [docs/COMMANDS.md](./docs/COMMANDS.md)
-
-### Initialize a new project
-
-In the current directory
-
-```bash
-devalang init
-```
-
-Or use optional arguments to specify a directory name and a template
-
-```bash
-devalang init --name <project-name> --template <template-name>
-```
-
-### Checking syntax only
-
-```bash
-devalang check --watch
-```
-
-### Building output files
-
-```bash
-devalang build --watch
-```
-
-### Playing audio files (once by file change)
-
-```bash
-devalang play --watch
-```
-
-### Playing audio files (continuous playback, even without file changes)
-
-```bash
-devalang play --repeat
-```
-
-## ⚙️ Configuration
-
-You can use a configuration file to set default values for various settings, making it easier to manage your Devalang project.
-
-To do this, create a `.devalang` file in the root of your project directory.
-
-See [docs/CONFIG.md](./docs/CONFIG.md) for more information.
-
-## 📄 Syntax example
-
-For more examples, see [docs/SYNTAX.md](./docs/SYNTAX.md)
-
-```deva
-# index.deva
-
-@import { globalBpm, globalBank, kickDuration } from "global.deva"
-
-@load "./examples/samples/kick-808.wav" as customKick
-
-bpm globalBpm
-# Will declare the tempo at the globalBpm variable beats per minute
-
-bank globalBank
-# Will declare a custom instrument bank using the globalBank variable
-
-loop 5:
-    .customKick kickDuration {reverb=50, drive=25}
-    # Will play 5 times a custom sample for 500ms with reverb and overdrive effects
-
-group myGroup:
-    .customKick kickDuration {reverb=50, drive=25}
-    # Will play the same sample in a group, allowing for more complex patterns
-
-call myGroup
-# Will be executed line by line (sequentially)
-
-# spawn myGroup
-# Will be executed in parallel (concurrently)
-# ⚠️ Note: `spawn` runs the entire group in parallel, but the group’s internal logic remains sequential unless it uses `spawn` internally.
-```
-
-> 🧠 Note: `call` and `spawn` only work with `group` blocks. They do not apply to individual samples or other statements.
-
-```deva
-# variables.deva
-
-let globalBpm = 120
-let globalBank = 808
-let kickDuration = 500
-
-@export { globalBpm, globalBank, kickDuration }
-```
+- Implemented beat durations in `triggers` and `arrow_calls` statements
+- Implemented `bank` resolver to resolve banks of sounds in the code
+  - Support for namespaced banks of sounds (e.g. `.808.myTrigger`)
+- Implemented multiple commands for `bank` management
+  - `bank list`, `bank available`, `bank info <bank_name>`, `bank remove <bank_name>`, `bank update`, `bank update <bank_name>`
+- Implemented `install` command to install banks of sounds
+  - `install bank <bank_name>`
 
 ## 🧯 Known issues
 

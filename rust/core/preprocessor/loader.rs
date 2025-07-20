@@ -1,10 +1,11 @@
-use std::{ collections::HashMap, path::Path };
+use std::{ collections::{ HashMap, HashSet }, path::Path };
 use crate::{
     core::{
         error::ErrorHandler,
         lexer::{ token::Token, Lexer },
-        parser::{ statement::{ Statement, StatementKind }, driver::Parser },
+        parser::{ driver::Parser, statement::{ Statement, StatementKind } },
         preprocessor::{ module::Module, processor::process_modules },
+        shared::{ bank::BankFile, value::Value },
         store::global::GlobalStore,
         utils::path::normalize_path,
     },
@@ -86,15 +87,20 @@ impl ModuleLoader {
         let statements = parser.parse_tokens(tokens, global_store);
         module.statements = statements;
 
+        // SECTION Injecting bank triggers if any
+        if let Err(e) = self.inject_bank_triggers(&mut module, "808") {
+            return Err(format!("Failed to inject bank triggers: {}", e));
+        }
+
+        global_store.modules.insert(self.entry.clone(), module.clone());
+
         // SECTION Error handling
         let mut error_handler = ErrorHandler::new();
         error_handler.detect_from_statements(&mut parser, &module.statements);
 
-        global_store.modules.insert(self.entry.clone(), module.clone());
-
         Ok(module)
     }
-    
+
     pub fn load_wasm_module(&self, global_store: &mut GlobalStore) -> Result<(), String> {
         // Step one : Load the module from the global store
         let module = {
@@ -170,6 +176,23 @@ impl ModuleLoader {
 
         let statements = parser.parse_tokens(tokens.clone(), global_store);
 
+        // Insert module into store
+        let mut module = Module::new(&path);
+        module.tokens = tokens.clone();
+        module.statements = statements.clone();
+
+        // Inject triggers for each bank used in module
+        for bank_name in ModuleLoader::extract_bank_names(&statements) {
+            if let Err(e) = self.inject_bank_triggers(&mut module, &bank_name) {
+                return HashMap::new(); // Return empty map on error
+            }
+        }
+
+        global_store.insert_module(path.clone(), module);
+
+        // Load dependencies
+        self.load_module_imports(&path, global_store);
+
         // Error handling
         let mut error_handler = ErrorHandler::new();
         error_handler.detect_from_statements(&mut parser, &statements);
@@ -181,15 +204,6 @@ impl ModuleLoader {
                 logger.log_error_with_stacktrace(&error.message, &trace);
             }
         }
-
-        // Insert module into store
-        let mut module = Module::new(&path);
-        module.tokens = tokens.clone();
-        module.statements = statements.clone();
-        global_store.insert_module(path.clone(), module);
-
-        // Load dependencies
-        self.load_module_imports(&path, global_store);
 
         // Return tokens per module
         global_store.modules
@@ -225,5 +239,70 @@ impl ModuleLoader {
             let resolved = resolve_relative_path(path, &import_path);
             self.load_module_recursively(&resolved, global_store);
         }
+    }
+
+    pub fn inject_bank_triggers(&self, module: &mut Module, bank_name: &str) -> Result<(), String> {
+        let bank_path = Path::new("./.deva/bank").join(bank_name);
+        let bank_file_path = bank_path.join("bank.toml");
+
+        if !bank_file_path.exists() {
+            return Ok(()); // Pas d'erreur si la banque n'existe pas encore
+        }
+
+        let content = std::fs
+            ::read_to_string(&bank_file_path)
+            .map_err(|e| format!("Failed to read '{}': {}", bank_file_path.display(), e))?;
+
+        let parsed: BankFile = toml
+            ::from_str(&content)
+            .map_err(|e| format!("Failed to parse '{}': {}", bank_file_path.display(), e))?;
+
+        let mut bank_map = HashMap::new();
+
+        for bank_trigger in parsed.triggers.unwrap_or_default() {
+            let trigger_name = bank_trigger.name.clone().replace("./", "");
+            let bank_trigger_path = format!("devalang://bank/{}/{}", bank_name, trigger_name);
+
+            bank_map.insert(bank_trigger.name.clone(), Value::String(bank_trigger_path.clone()));
+
+            if module.variable_table.variables.contains_key(bank_name) {
+                eprintln!(
+                    "⚠️ Trigger '{}' already defined in module '{}', skipping injection.",
+                    bank_name, module.path
+                );
+                continue;
+            }
+
+            module.variable_table.set(
+                format!("{}.{}", bank_name, bank_trigger.name),
+                Value::String(bank_trigger_path.clone())
+            );
+        }
+
+        // Inject the map under the bank name
+        module.variable_table.set(bank_name.to_string(), Value::Map(bank_map));
+
+        Ok(())
+    }
+
+    fn extract_bank_names(statements: &[Statement]) -> HashSet<String> {
+        let mut banks = HashSet::new();
+
+        for stmt in statements {
+            if let StatementKind::Trigger { entity, .. } = &stmt.kind {
+                let parts: Vec<&str> = entity.split('.').collect();
+                if parts.len() >= 2 {
+                    banks.insert(parts[0].to_string()); // "808.kick" → "808"
+                }
+            }
+
+            if let StatementKind::Bank = &stmt.kind {
+                if let Value::String(name) = &stmt.value {
+                    banks.insert(name.clone());
+                }
+            }
+        }
+
+        banks
     }
 }

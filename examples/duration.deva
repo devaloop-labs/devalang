@@ -1,0 +1,9 @@
+# This file demonstrates the use of duration in Devalang.
+
+@load "./samples/kick-808.wav" as kickCustom
+@load "./samples/hat-808.wav" as hatCustom
+
+.kickCustom 1/4
+.hatCustom 1/8
+.kickCustom 1/4
+.hatCustom 1/8

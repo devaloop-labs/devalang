@@ -1,0 +1,9 @@
+# This file demonstrates the use of banks in Devalang.
+
+let default_bank = 808
+
+bank default_bank
+
+.808.kick auto
+.808.snare auto
+.808.hat auto

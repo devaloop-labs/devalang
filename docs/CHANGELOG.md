@@ -1,21 +1,49 @@
 <div align="center">
-    <img src="https://firebasestorage.googleapis.com/v0/b/devaloop-labs.firebasestorage.app/o/devalang-teal-logo.svg?alt=media&token=d2a5705a-1eba-4b49-88e6-895a761fb7f7" alt="Devalang Logo">
+    <img src="https://devalang.com/images/devalang-logo-cyan.svg" alt="Devalang Logo" width="300" />
 </div>
 
 # Changelog
 
 ## Version 0.0.1-alpha.11 (2025-07-20)
 
+### 📖 Documentation
+
+- Removed old documentation, please refer to the [new documentation website](https://docs.devalang.com) for the latest information.
+
 ### ✨ Syntax
 
-- Added support for beat durations for `triggers`, allowing for more precise timing control.
+- Added namespaced banks of sounds, allowing for better organization and management of sound banks.
+  - Example: `.808.myTrigger` to access a specific trigger in the `808` bank.
+- Added support for beat durations in `triggers` statements, allowing for more precise timing control.
   - Example: `.myTrigger 1/4 { ... }` to trigger the sound every quarter beat.
-- Added support for beat durations for `arrow_calls`, allowing for more precise timing control.
+- Added support for beat durations in `arrow_calls` statements, allowing for more precise timing control.
   - Example: `mySynth -> note(C4, { duration: 1/8 })` to play a note for an eighth beat.
 
 ### 🧠 Core Engine
 
-- Implemented ``
+- Implemented `bank` resolver to resolve banks of sounds in the code.
+  - Example: `bank 808` will resolve to a bank of sounds named `808` if exists (check bank available command).
+
+### 🧰 Commands
+
+> Use the `bank 808` statement to access the default sounds and triggers !
+> Then you can use `808.myTrigger` to access a specific trigger in the `808` bank.
+
+- Added `bank` command to manage banks of sounds.
+
+  - `bank list` to list installed banks of sounds.
+  - `bank available` to list available banks of sounds for installation.
+  - `bank info <bank_name>` to show information about a specific bank.
+  - `bank remove <bank_name>` to remove a bank.
+  - `bank update` to update all banks of sounds.
+  - `bank update <bank_name>` to update a specific bank.
+
+- Added `install` command to install banks of sounds.
+  - `install bank <bank_name>` to install a specific bank of sounds.
+
+### 🧪 Experimental
+
+- Introduced lazy loading and namespace-based resolution of installed sound banks.
 
 ## Version 0.0.1-alpha.10 (2025-07-19)
 
