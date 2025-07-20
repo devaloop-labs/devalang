@@ -2,7 +2,7 @@ use std::path::{ Path, PathBuf };
 use crate::{
     common::cdn::get_cdn_url,
     config::loader::{ add_bank_to_config, load_config },
-    utils::installer::{ download_file, extract_archive },
+    installer::utils::{ download_file, extract_archive },
 };
 
 pub async fn install_bank(name: &str, target_dir: &Path) -> Result<(), String> {

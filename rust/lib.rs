@@ -1,7 +1,6 @@
 pub mod core;
 pub mod utils;
 pub mod config;
-pub mod common;
 
 use serde::{ Deserialize, Serialize };
 use wasm_bindgen::prelude::*;

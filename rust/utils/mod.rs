@@ -4,4 +4,3 @@ pub mod spinner;
 pub mod watcher;
 pub mod file;
 pub mod logger;
-pub mod installer;
