@@ -40,6 +40,20 @@ pub fn interprete_trigger_statement(
                         }
                     }
                 }
+                
+                Duration::Beat(beat_str) => {
+                    // Assuming beat_str is in the format "numerator/denominator"
+                    let parts: Vec<&str> = beat_str.split('/').collect();
+                    
+                    if parts.len() != 2 {
+                        eprintln!("❌ Invalid beat duration format: {}", beat_str);
+                        return None;
+                    }
+
+                    let numerator: f32 = parts[0].parse().unwrap_or(1.0);
+                    let denominator: f32 = parts[1].parse().unwrap_or(1.0);
+                    numerator / denominator
+                }
 
                 Duration::Auto => 1.0,
             };

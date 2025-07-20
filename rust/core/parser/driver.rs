@@ -172,6 +172,10 @@ impl Parser {
         self.peek().map_or(false, |t| t.kind == kind)
     }
 
+    pub fn peek_kind(&self) -> Option<TokenKind> {
+        self.peek().map(|t| t.kind.clone())
+    }
+
     pub fn parse_map_value(&mut self) -> Option<Value> {
         if !self.match_token(TokenKind::LBrace) {
             return None;

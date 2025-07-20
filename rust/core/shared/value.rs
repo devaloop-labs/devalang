@@ -13,6 +13,7 @@ pub enum Value {
     Map(HashMap<String, Value>),
     Block(Vec<Statement>),
     Sample(String),
+    Beat(String),
     Unknown,
     Null,
 }

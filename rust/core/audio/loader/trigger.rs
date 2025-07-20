@@ -43,6 +43,18 @@ pub fn load_trigger(
             duration_as_secs = base_duration;
         }
 
+        Duration::Beat(beat_str) => {
+            let parts: Vec<&str> = beat_str.split('/').collect();
+            
+            if parts.len() == 2 {
+                let numerator: f32 = parts[0].parse().unwrap_or(1.0);
+                let denominator: f32 = parts[1].parse().unwrap_or(1.0);
+                duration_as_secs = numerator / denominator * base_duration;
+            } else {
+                eprintln!("❌ Invalid beat duration format: {}", beat_str);
+            }
+        }
+
         _ => {
             eprintln!("❌ Invalid duration type. Expected an identifier.");
         }

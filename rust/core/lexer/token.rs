@@ -49,6 +49,7 @@ pub enum TokenKind {
     Comma,
     Equals,
     Dot,
+    Slash,
 
     // ───── Operators ─────
     DoubleEquals,

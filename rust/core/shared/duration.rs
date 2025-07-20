@@ -4,5 +4,6 @@ use serde::{ Deserialize, Serialize };
 pub enum Duration {
     Number(f32),
     Identifier(String),
+    Beat(String),
     Auto,
 }

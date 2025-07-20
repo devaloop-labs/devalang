@@ -4,6 +4,19 @@
 
 # Changelog
 
+## Version 0.0.1-alpha.11 (2025-07-20)
+
+### ✨ Syntax
+
+- Added support for beat durations for `triggers`, allowing for more precise timing control.
+  - Example: `.myTrigger 1/4 { ... }` to trigger the sound every quarter beat.
+- Added support for beat durations for `arrow_calls`, allowing for more precise timing control.
+  - Example: `mySynth -> note(C4, { duration: 1/8 })` to play a note for an eighth beat.
+
+### 🧠 Core Engine
+
+- Implemented ``
+
 ## Version 0.0.1-alpha.10 (2025-07-19)
 
 ### 📖 Documentation

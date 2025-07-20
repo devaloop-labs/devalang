@@ -73,6 +73,11 @@ fn resolve_value(value: &Value, module: &Module, global_store: &mut GlobalStore)
             Value::Null
         }
 
+        Value::Beat(beat_str) => {
+            println!("[warn] '{:?}': unresolved beat '{}'", module.path, beat_str);
+            Value::Beat(beat_str.clone())
+        }
+
         Value::Map(map) => {
             let mut resolved = HashMap::new();
             for (k, v) in map {

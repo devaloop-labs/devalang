@@ -89,14 +89,39 @@ pub fn parse_arrow_call(parser: &mut Parser, global_store: &mut GlobalStore) -> 
                                     TokenKind::Identifier =>
                                         Value::Identifier(value_token.lexeme.clone()),
                                     TokenKind::String => Value::String(value_token.lexeme.clone()),
-                                    TokenKind::Number =>
-                                        Value::Number(
-                                            value_token.lexeme.parse::<f32>().unwrap_or(0.0)
-                                        ),
+                                    TokenKind::Number => {
+                                        if let Some(TokenKind::Slash) = parser.peek_kind() {
+                                            parser.advance(); // consume slash
+                                            if let Some(denominator_token) = parser.peek_clone() {
+                                                if denominator_token.kind == TokenKind::Number {
+                                                    parser.advance(); // consume denominator
+                                                    let denominator =
+                                                        denominator_token.lexeme.clone();
+                                                    Value::Beat(
+                                                        format!(
+                                                            "{}/{}",
+                                                            value_token.lexeme,
+                                                            denominator
+                                                        )
+                                                    )
+                                                } else {
+                                                    Value::Unknown
+                                                }
+                                            } else {
+                                                Value::Unknown
+                                            }
+                                        } else {
+                                            // Regular number without slash
+                                            Value::Number(
+                                                value_token.lexeme.parse::<f32>().unwrap_or(0.0)
+                                            )
+                                        }
+                                    }
                                     TokenKind::Boolean =>
                                         Value::Boolean(
                                             value_token.lexeme.parse::<bool>().unwrap_or(false)
                                         ),
+
                                     _ => Value::Unknown,
                                 };
                                 map.insert(key, value);

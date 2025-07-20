@@ -53,8 +53,8 @@ pub fn interprete_call_arrow_statement(
             return (*max_end_time, cursor_copy);
         };
 
-        let freq = extract_f32(params, "freq").unwrap_or(440.0);
-        let amp = extract_f32(params, "amp").unwrap_or(1.0);
+        let freq = extract_f32(params, "freq", base_bpm).unwrap_or(440.0);
+        let amp = extract_f32(params, "amp", base_bpm).unwrap_or(1.0);
 
         if method == "note" {
             let Some(Value::Identifier(note_name)) = args.get(0) else {
@@ -69,7 +69,9 @@ pub fn interprete_call_arrow_statement(
                 }
             }
 
-            let duration_ms = extract_f32(&final_note_params, "duration").unwrap_or(base_duration);
+            let duration_ms = extract_f32(&final_note_params, "duration", base_bpm).unwrap_or(
+                base_duration
+            );
             let duration_secs = duration_ms / 1000.0;
 
             let final_freq = note_to_freq(note_name);
@@ -101,10 +103,21 @@ pub fn interprete_call_arrow_statement(
     (*max_end_time, cursor_copy)
 }
 
-fn extract_f32(map: &HashMap<String, Value>, key: &str) -> Option<f32> {
+fn extract_f32(map: &HashMap<String, Value>, key: &str, base_bpm: f32) -> Option<f32> {
     map.get(key).and_then(|v| {
         match v {
             Value::Number(n) => Some(*n),
+            Value::Beat(beat_str) => {
+                let parts: Vec<&str> = beat_str.split('/').collect();
+                if parts.len() == 2 {
+                    let numerator = parts[0].parse::<f32>().ok()?;
+                    let denominator = parts[1].parse::<f32>().ok()?;
+
+                    Some((numerator / denominator) * ((60.0 / base_bpm) * 1000.0))
+                } else {
+                    None
+                }
+            }
             _ => None,
         }
     })
