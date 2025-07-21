@@ -3,6 +3,7 @@ use hound::{ SampleFormat, WavSpec, WavWriter };
 use rodio::{ Decoder, Source };
 
 use crate::core::{
+    shared::value::Value,
     store::variable::VariableTable,
     utils::path::{ normalize_path, resolve_relative_path },
 };
@@ -167,7 +168,7 @@ impl AudioEngine {
         filepath: &str,
         time_secs: f32,
         dur_sec: f32,
-        effects: Option<HashMap<String, f32>>
+        effects: Option<HashMap<String, Value>>
     ) {
         if filepath.is_empty() {
             eprintln!("❌ Empty file path provided for audio sample.");
@@ -197,9 +198,26 @@ impl AudioEngine {
                 eprintln!("❌ Unsupported devalang:// object type: {}", object_type);
                 return;
             }
+        } else {
+            let module_path = &self.module_name;
+            let root = Path::new(module_path).parent();
+
+            if let Some(root_path) = root {
+                resolved_path = root_path.join(filepath).to_str().unwrap_or("").to_string();
+            } else {
+                eprintln!("❌ Could not resolve root path for module: {}", module_path);
+                return;
+            }
         }
 
-        let file = BufReader::new(File::open(resolved_path).expect("Failed to open audio file"));
+        if !Path::new(&resolved_path).exists() {
+            eprintln!("❌ Audio file not found at: {}", resolved_path);
+            return;
+        }
+
+        let file = BufReader::new(
+            File::open(&resolved_path).expect(&format!("Failed to open audio file {}", filepath))
+        );
         let decoder = Decoder::new(file).expect("Failed to decode audio file");
 
         // Mono or stereo reading possible here, we will duplicate in L/R
@@ -211,7 +229,7 @@ impl AudioEngine {
             return;
         }
 
-        // TODO Apply effects here if needed
+        // Pad the buffer to ensure it can accommodate the new samples
         let offset = (time_secs * (SAMPLE_RATE as f32) * (CHANNELS as f32)) as usize;
         let required_len = offset + samples.len() * (CHANNELS as usize);
         let padded_required_len = if required_len % 2 == 1 {
@@ -221,21 +239,116 @@ impl AudioEngine {
         };
 
         self.buffer.resize(padded_required_len, 0);
-        self.pad_samples(&samples, time_secs);
+
+        // Apply effects
+        if let Some(effects_map) = effects {
+            self.pad_samples(&samples, time_secs, Some(effects_map));
+        } else {
+            self.pad_samples(&samples, time_secs, None);
+        }
     }
 
-    fn pad_samples(&mut self, samples: &[i16], time_secs: f32) {
+    fn pad_samples(
+        &mut self,
+        samples: &[i16],
+        time_secs: f32,
+        effects_map: Option<HashMap<String, Value>>
+    ) {
         let offset = (time_secs * (SAMPLE_RATE as f32) * (CHANNELS as f32)) as usize;
+        let total_samples = samples.len();
+
+        // Default values
+        let mut gain = 1.0;
+        let mut pan = 0.0;
+        let mut fade_in = 0.0;
+        let mut fade_out = 0.0;
+        let mut pitch = 1.0;
+        let mut drive = 0.0; 
+        let mut reverb = 0.0;
+
+        if let Some(map) = &effects_map {
+            for (key, val) in map {
+                match (key.as_str(), val) {
+                    ("gain", Value::Number(v)) => {
+                        gain = *v;
+                    }
+                    ("pan", Value::Number(v)) => {
+                        pan = *v;
+                    }
+                    ("fadeIn", Value::Number(v)) => {
+                        fade_in = *v;
+                    }
+                    ("fadeOut", Value::Number(v)) => {
+                        fade_out = *v;
+                    }
+                    ("pitch", Value::Number(v)) => {
+                        pitch = *v;
+                    }
+                    ("drive", Value::Number(v)) => {
+                        // Drive effect can be implemented here if needed
+                        drive = *v;
+                    }
+                    ("reverb", Value::Number(v)) => {
+                        reverb = *v;
+                    }
+                    _ => eprintln!("⚠️ Unknown or invalid effect '{}'", key),
+                }
+            }
+        }
+
+        let fade_in_samples = (fade_in * (SAMPLE_RATE as f32)) as usize;
+        let fade_out_samples = (fade_out * (SAMPLE_RATE as f32)) as usize;
 
         for (i, &sample) in samples.iter().enumerate() {
-            let adjusted_sample = ((sample as f32) * self.volume).round() as i16;
+            // Gain
+            let mut adjusted = (sample as f32) * gain;
+
+            // Fade in
+            if fade_in_samples > 0 && i < fade_in_samples {
+                adjusted *= (i as f32) / (fade_in_samples as f32);
+            }
+
+            // Fade out
+            if fade_out_samples > 0 && i >= total_samples.saturating_sub(fade_out_samples) {
+                adjusted *= ((total_samples - i) as f32) / (fade_out_samples as f32);
+            }
+
+            // Pitch adjustment
+            if pitch != 1.0 {
+                let pitch_adjusted_index = ((i as f32) / pitch) as usize;
+                if pitch_adjusted_index < total_samples {
+                    adjusted = (samples[pitch_adjusted_index] as f32) * gain;
+                } else {
+                    adjusted = 0.0; // Out of bounds, set to zero
+                }
+            }
+
+            // Drive effect
+            if drive > 0.0 {
+                adjusted = adjusted.tanh() * (1.0 + drive);
+            }
+
+            // Reverb effect
+            if reverb > 0.0 {
+                let reverb_delay = (reverb * (SAMPLE_RATE as f32)) as usize;
+                if i >= reverb_delay {
+                    adjusted += self.buffer[offset + i - reverb_delay] as f32 * 0.5; // Simple feedback
+                }
+            }
+
+            // Clamp
+            let adjusted_sample = adjusted.round().clamp(i16::MIN as f32, i16::MAX as f32) as i16;
+
+            // Pan (L/R split)
+            let left = ((adjusted_sample as f32) * (1.0 - pan.clamp(0.0, 1.0))) as i16;
+            let right = ((adjusted_sample as f32) * (1.0 + pan.clamp(-1.0, 0.0)).abs()) as i16;
 
             let left_pos = offset + i * 2;
             let right_pos = left_pos + 1;
 
             if right_pos < self.buffer.len() {
-                self.buffer[left_pos] = self.buffer[left_pos].saturating_add(adjusted_sample); // gauche
-                self.buffer[right_pos] = self.buffer[right_pos].saturating_add(adjusted_sample); // droite
+                self.buffer[left_pos] = self.buffer[left_pos].saturating_add(left);
+                self.buffer[right_pos] = self.buffer[right_pos].saturating_add(right);
             }
         }
     }

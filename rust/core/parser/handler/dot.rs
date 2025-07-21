@@ -15,15 +15,10 @@ pub fn parse_dot_token(parser: &mut Parser, _global_store: &mut GlobalStore) -> 
     // Parse namespaced identifier: .808.kick.snare
     let mut parts = Vec::new();
 
-    loop {
-        let Some(token) = parser.peek_clone() else {
-            break;
-        };
-
+    while let Some(token) = parser.peek_clone() {
         match token.kind {
-            // Stop if we encounter a likely duration keyword
             TokenKind::Number => {
-                // If there's a slash after the number, it's probably a fraction (1/4)
+                // Stop if it's part of a duration
                 if let Some(TokenKind::Slash) = parser.peek_nth_kind(1) {
                     break;
                 }
@@ -33,7 +28,11 @@ pub fn parse_dot_token(parser: &mut Parser, _global_store: &mut GlobalStore) -> 
             }
 
             TokenKind::Identifier => {
-                // Stop if it's the duration keyword "auto"
+                // Stop parsing entity name if next token is ':' or if already have one ident and current might be a param
+                if parts.len() >= 1 {
+                    break; // we've already got the entity
+                }
+
                 if token.lexeme == "auto" {
                     break;
                 }
@@ -43,7 +42,7 @@ pub fn parse_dot_token(parser: &mut Parser, _global_store: &mut GlobalStore) -> 
             }
 
             TokenKind::Dot => {
-                parser.advance(); // consume dot
+                parser.advance(); // continue chaining
             }
 
             _ => {
@@ -52,7 +51,7 @@ pub fn parse_dot_token(parser: &mut Parser, _global_store: &mut GlobalStore) -> 
         }
     }
 
-    let entity = parts.join(".");
+    let entity = if parts.len() == 1 { parts[0].clone() } else { parts[..=1].join(".") };
 
     if entity.is_empty() {
         return Statement {

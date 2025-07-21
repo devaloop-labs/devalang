@@ -7,10 +7,12 @@
 @load "./samples/kick-808.wav" as kickCustom
 @load "./samples/hat-808.wav" as hatCustom
 
-bpm tempo
+# bpm tempo
 
-group myTrack:
-    spawn myLoop
-    spawn myLead
+# group myTrack:
+#     spawn myLoop
+#     spawn myLead
 
-call myTrack
+# call myTrack
+
+.kickCustom duration { gain: 1, pitch: 1.25 }

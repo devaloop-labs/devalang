@@ -4,6 +4,24 @@
 
 # Changelog
 
+## Version 0.0.1-alpha.12 (2025-07-21)
+
+### 🧩 Language Features
+
+- Implemented `trigger` effects to apply effects to triggers, allowing for more dynamic sound manipulation.
+  - Example: `.myTrigger auto { reverb: 1.0, pitch: 1.5, gain: 0.8 }`
+
+### 🧠 Core Engine
+
+- Moved `utils::installer` to `installer::utils` to better organize the project structure.
+- Set CLI dependencies as optional in `Cargo.toml` to allow for a cleaner build without CLI features.
+- Patched `@load` relative path resolution to ensure correct loading of external resources.
+- Patched `trigger` statement that was not correctly parsed when using namespaced banks of sounds.
+
+### 🧩 Web Assembly
+
+- Patched `lib.rs` dependencies to ensure compatibility with the latest Rust and WASM standards.
+
 ## Version 0.0.1-alpha.11 (2025-07-20)
 
 ### 📖 Documentation

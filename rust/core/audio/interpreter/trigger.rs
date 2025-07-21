@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::core::{
     audio::{ engine::AudioEngine, loader::trigger::load_trigger },
     parser::statement::{ Statement, StatementKind },
@@ -67,8 +69,13 @@ pub fn interprete_trigger_statement(
                 variable_table.clone()
             );
 
+            if let Some(effects) = extract_effects(stmt.value.clone()) {
+                audio_engine.insert_sample(&src, cursor_time, duration_final, Some(effects));
+            } else {
+                audio_engine.insert_sample(&src, cursor_time, duration_final, None);
+            }
+
             let mut updated_engine = audio_engine.clone();
-            updated_engine.insert_sample(&src, cursor_time, duration_final, None);
 
             let new_cursor_time = cursor_time + duration_final;
             let new_max_end_time = new_cursor_time.max(max_end_time);
@@ -99,4 +106,18 @@ fn resolve_namespaced_variable<'a>(path: &str, variables: &'a VariableTable) -> 
     }
 
     current
+}
+
+fn extract_effects(value: Value) -> Option<HashMap<String, Value>> {
+    if let Value::Map(map) = value.clone() {
+        let mut effects = HashMap::new();
+
+        for (key, val) in map {
+            effects.insert(key.clone(), val);
+        }
+
+        Some(effects)
+    } else {
+        None
+    }
 }

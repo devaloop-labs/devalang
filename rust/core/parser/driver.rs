@@ -206,9 +206,35 @@ impl Parser {
                         Value::String(token.lexeme.clone())
                     }
                     TokenKind::Number => {
-                        self.advance();
-                        Value::Number(token.lexeme.parse().unwrap_or(0.0))
+                        let mut number_str = token.lexeme.clone();
+                        self.advance(); // consume the first number
+
+                        if let Some(dot_token) = self.peek_clone() {
+                            if dot_token.kind == TokenKind::Dot {
+                                self.advance(); // consume the dot
+
+                                if let Some(decimal_token) = self.peek_clone() {
+                                    if decimal_token.kind == TokenKind::Number {
+                                        self.advance(); // consume the number after the dot
+                                        number_str.push('.');
+                                        number_str.push_str(&decimal_token.lexeme);
+                                    } else {
+                                        println!(
+                                            "Expected number after dot, got {:?}",
+                                            decimal_token
+                                        );
+                                        return Some(Value::Null);
+                                    }
+                                } else {
+                                    println!("Expected number after dot, but reached EOF");
+                                    return Some(Value::Null);
+                                }
+                            }
+                        }
+
+                        Value::Number(number_str.parse::<f32>().unwrap_or(0.0))
                     }
+
                     TokenKind::Identifier => {
                         self.advance();
                         Value::Identifier(token.lexeme.clone())
