@@ -1,25 +1,39 @@
-use std::{ collections::HashMap, fs::create_dir_all };
-use crate::core::{ debugger::Debugger, preprocessor::module::Module };
+use std::{ fs::create_dir_all };
+use crate::core::{
+    debugger::Debugger,
+    store::{ function::FunctionTable, variable::VariableTable },
+};
 
-pub fn write_store_log_file(output_dir: &str, file_name: &str, modules: HashMap<String, Module>) {
+pub fn write_variables_log_file(output_dir: &str, file_name: &str, variables: VariableTable) {
     let debugger = Debugger::new();
     let mut content = String::new();
 
     let log_directory = format!("{}/logs", output_dir);
     create_dir_all(&log_directory).expect("Failed to create log directory");
 
-    for (path, module) in modules {
-        content.push_str(&format!("--- Module: {} ---\n", path));
-
-        for (index, var_value) in module.variable_table.variables.iter().enumerate() {
-            let var_name = var_value.0.clone();
-            let var_data = var_value.1;
-
-            content.push_str(&format!("{}: {:?} = {:?}\n", index + 1, var_name, var_data));
-        }
-
-        content.push_str("\n");
+    for (var_name, var_data) in variables.variables {
+        content.push_str(&format!("{:?} = {:?}\n", var_name, var_data));
     }
+
+    content.push_str("\n");
+
+    debugger.write_log_file(&log_directory, file_name, &content);
+}
+
+pub fn write_function_log_file(output_dir: &str, file_name: &str, functions: FunctionTable) {
+    let debugger = Debugger::new();
+    let mut content = String::new();
+
+    let log_directory = format!("{}/logs", output_dir);
+    create_dir_all(&log_directory).expect("Failed to create log directory");
+
+    for (index, function) in functions.functions {
+        content.push_str(
+            &format!("'{}' = [{:?}] => {:?}\n", function.name, function.parameters, function.body)
+        );
+    }
+
+    content.push_str("\n");
 
     debugger.write_log_file(&log_directory, file_name, &content);
 }

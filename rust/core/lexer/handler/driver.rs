@@ -1,6 +1,6 @@
 use crate::core::lexer::{
     handler::{
-        arrow::handle_arrow_lexer, at::handle_at_lexer, brace::{ handle_lbrace_lexer, handle_rbrace_lexer }, colon::handle_colon_lexer, comment::handle_comment_lexer, dot::handle_dot_lexer, identifier::handle_identifier_lexer, indent::handle_indent_lexer, newline::handle_newline_lexer, number::handle_number_lexer, operator::handle_operator_lexer, slash::handle_slash_lexer, string::handle_string_lexer
+        arrow::handle_arrow_lexer, at::handle_at_lexer, brace::{ handle_lbrace_lexer, handle_rbrace_lexer }, colon::handle_colon_lexer, comment::handle_comment_lexer, dot::handle_dot_lexer, identifier::handle_identifier_lexer, indent::handle_indent_lexer, newline::handle_newline_lexer, number::handle_number_lexer, operator::handle_operator_lexer, parenthesis::{handle_lparen_lexer, handle_rparen_lexer}, slash::handle_slash_lexer, string::handle_string_lexer
     },
     token::{ Token, TokenKind },
 };
@@ -136,6 +136,28 @@ pub fn handle_content_lexing(content: String) -> Result<Vec<Token>, String> {
             }
             '}' => {
                 handle_rbrace_lexer(
+                    ch,
+                    &mut chars,
+                    &mut current_indent,
+                    &mut indent_stack,
+                    &mut tokens,
+                    &mut line,
+                    &mut column
+                );
+            }
+            '(' => {
+                handle_lparen_lexer(
+                    ch,
+                    &mut chars,
+                    &mut current_indent,
+                    &mut indent_stack,
+                    &mut tokens,
+                    &mut line,
+                    &mut column
+                );
+            }
+            ')' => {
+                handle_rparen_lexer(
                     ch,
                     &mut chars,
                     &mut current_indent,

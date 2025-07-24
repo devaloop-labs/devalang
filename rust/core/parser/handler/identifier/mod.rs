@@ -4,6 +4,7 @@ pub mod call;
 pub mod spawn;
 pub mod sleep;
 pub mod synth;
+pub mod function;
 
 use crate::core::{
     parser::{

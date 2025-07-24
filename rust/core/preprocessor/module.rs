@@ -1,7 +1,7 @@
 use crate::core::{
     lexer::token::Token,
     parser::statement::Statement,
-    store::{ export::ExportTable, import::ImportTable, variable::VariableTable },
+    store::{ export::ExportTable, function::FunctionTable, import::ImportTable, variable::VariableTable },
 };
 
 #[derive(Debug, Clone)]
@@ -11,6 +11,7 @@ pub struct Module {
     pub tokens: Vec<Token>,
     pub statements: Vec<Statement>,
     pub variable_table: VariableTable,
+    pub functions: FunctionTable,
     pub export_table: ExportTable,
     pub import_table: ImportTable,
     pub content: String,
@@ -24,6 +25,7 @@ impl Module {
             tokens: Vec::new(),
             statements: Vec::new(),
             variable_table: VariableTable::new(),
+            functions: FunctionTable::new(),
             export_table: ExportTable::new(),
             import_table: ImportTable::new(),
             resolved: false,

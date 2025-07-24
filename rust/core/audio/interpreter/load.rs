@@ -9,7 +9,7 @@ pub fn interprete_load_statement(
     variable_table: &mut VariableTable
 ) -> Option<VariableTable> {
     if let StatementKind::Load { source, alias } = &stmt.kind {
-        variable_table.set(alias.to_string(), Value::String(source.clone()));
+        variable_table.set(alias.to_string(), Value::Sample(source.clone()));
 
         return Some(variable_table.clone());
     }

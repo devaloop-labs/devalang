@@ -1,12 +1,7 @@
 use std::{ collections::HashMap, fs::File, io::BufReader, path::Path };
 use hound::{ SampleFormat, WavSpec, WavWriter };
 use rodio::{ Decoder, Source };
-
-use crate::core::{
-    shared::value::Value,
-    store::variable::VariableTable,
-    utils::path::{ normalize_path, resolve_relative_path },
-};
+use crate::core::{ shared::value::Value };
 
 const SAMPLE_RATE: u32 = 44100;
 const CHANNELS: u16 = 2;
@@ -14,7 +9,6 @@ const CHANNELS: u16 = 2;
 #[derive(Debug, Clone, PartialEq)]
 pub struct AudioEngine {
     pub volume: f32,
-    pub variables: VariableTable,
     pub buffer: Vec<i16>,
     pub module_name: String,
 }
@@ -24,7 +18,6 @@ impl AudioEngine {
         AudioEngine {
             volume: 1.0,
             buffer: vec![],
-            variables: VariableTable::new(),
             module_name,
         }
     }
@@ -57,12 +50,10 @@ impl AudioEngine {
 
         if self.buffer.iter().all(|&s| s == 0) {
             self.buffer = other.buffer;
-            self.variables.variables.extend(other.variables.variables);
             return;
         }
 
         self.mix(&other);
-        self.variables.variables.extend(other.variables.variables);
     }
 
     pub fn set_duration(&mut self, duration_secs: f32) {
@@ -71,10 +62,6 @@ impl AudioEngine {
         if self.buffer.len() < total_samples {
             self.buffer.resize(total_samples, 0);
         }
-    }
-
-    pub fn set_variables(&mut self, variables: VariableTable) {
-        self.variables = variables;
     }
 
     pub fn generate_wav_file(&mut self, output_dir: &String) -> Result<(), String> {
@@ -183,13 +170,15 @@ impl AudioEngine {
             let object_parts = parts.get(1).unwrap_or(&"").split("/").collect::<Vec<&str>>();
             let object_type = object_parts.get(0).unwrap_or(&"").to_lowercase();
             let object_dir = object_parts.get(1).unwrap_or(&"").to_string();
-            let object_name = object_parts.get(2).unwrap_or(&"").to_string();
+            let object_path = object_dir.split(".").collect::<Vec<&str>>();
+            let object_type_name = object_path.get(0).unwrap_or(&"").to_string();
+            let object_name = object_path.get(1).unwrap_or(&"").to_string();
 
             if object_type.contains("bank") {
                 resolved_path = root
                     .join(".deva")
                     .join("bank")
-                    .join(object_dir)
+                    .join(object_type_name)
                     .join(format!("{}.wav", object_name))
                     .to_str()
                     .unwrap_or("")
@@ -263,8 +252,10 @@ impl AudioEngine {
         let mut fade_in = 0.0;
         let mut fade_out = 0.0;
         let mut pitch = 1.0;
-        let mut drive = 0.0; 
+        let mut drive = 0.0;
         let mut reverb = 0.0;
+        let mut delay = 0.0; // delay time in seconds
+        let delay_feedback = 0.35; // default feedback
 
         if let Some(map) = &effects_map {
             for (key, val) in map {
@@ -285,11 +276,13 @@ impl AudioEngine {
                         pitch = *v;
                     }
                     ("drive", Value::Number(v)) => {
-                        // Drive effect can be implemented here if needed
                         drive = *v;
                     }
                     ("reverb", Value::Number(v)) => {
                         reverb = *v;
+                    }
+                    ("delay", Value::Number(v)) => {
+                        delay = *v;
                     }
                     _ => eprintln!("⚠️ Unknown or invalid effect '{}'", key),
                 }
@@ -299,49 +292,64 @@ impl AudioEngine {
         let fade_in_samples = (fade_in * (SAMPLE_RATE as f32)) as usize;
         let fade_out_samples = (fade_out * (SAMPLE_RATE as f32)) as usize;
 
-        for (i, &sample) in samples.iter().enumerate() {
-            // Gain
-            let mut adjusted = (sample as f32) * gain;
+        let delay_samples = if delay > 0.0 { (delay * (SAMPLE_RATE as f32)) as usize } else { 0 };
+        let mut delay_buffer: Vec<f32> = vec![0.0; total_samples + delay_samples];
 
-            // Fade in
+        for i in 0..total_samples {
+            // PITCH FIRST
+            let pitch_index = if pitch != 1.0 { ((i as f32) / pitch) as usize } else { i };
+
+            let mut adjusted = if pitch_index < total_samples {
+                samples[pitch_index] as f32
+            } else {
+                0.0
+            };
+
+            // GAIN
+            adjusted *= gain;
+
+            // FADE IN/OUT
             if fade_in_samples > 0 && i < fade_in_samples {
                 adjusted *= (i as f32) / (fade_in_samples as f32);
             }
-
-            // Fade out
             if fade_out_samples > 0 && i >= total_samples.saturating_sub(fade_out_samples) {
                 adjusted *= ((total_samples - i) as f32) / (fade_out_samples as f32);
             }
 
-            // Pitch adjustment
-            if pitch != 1.0 {
-                let pitch_adjusted_index = ((i as f32) / pitch) as usize;
-                if pitch_adjusted_index < total_samples {
-                    adjusted = (samples[pitch_adjusted_index] as f32) * gain;
-                } else {
-                    adjusted = 0.0; // Out of bounds, set to zero
-                }
-            }
-
-            // Drive effect
+            // DRIVE (soft)
             if drive > 0.0 {
-                adjusted = adjusted.tanh() * (1.0 + drive);
+                let normalized = adjusted / (i16::MAX as f32);
+                let pre_gain = (10f32).powf(drive / 20.0); // dB mapping
+                let driven = (normalized * pre_gain).tanh();
+                adjusted = driven * (i16::MAX as f32);
             }
 
-            // Reverb effect
+            // DELAY
+            if delay_samples > 0 && i >= delay_samples {
+                let echo = delay_buffer[i - delay_samples] * delay_feedback;
+                adjusted += echo;
+            }
+            if delay_samples > 0 {
+                delay_buffer[i] = adjusted;
+            }
+
+            // REVERB
             if reverb > 0.0 {
-                let reverb_delay = (reverb * (SAMPLE_RATE as f32)) as usize;
+                let reverb_delay = (0.03 * (SAMPLE_RATE as f32)) as usize;
                 if i >= reverb_delay {
-                    adjusted += self.buffer[offset + i - reverb_delay] as f32 * 0.5; // Simple feedback
+                    adjusted += (self.buffer[offset + i - reverb_delay] as f32) * reverb;
                 }
             }
 
-            // Clamp
+            // CLAMP
             let adjusted_sample = adjusted.round().clamp(i16::MIN as f32, i16::MAX as f32) as i16;
 
-            // Pan (L/R split)
-            let left = ((adjusted_sample as f32) * (1.0 - pan.clamp(0.0, 1.0))) as i16;
-            let right = ((adjusted_sample as f32) * (1.0 + pan.clamp(-1.0, 0.0)).abs()) as i16;
+            // PAN
+            let left_gain = 1.0 - pan.max(0.0); // Pan > 0 => reduce left
+            let right_gain = 1.0 + pan.min(0.0); // Pan < 0 => reduce right
+
+            let left = ((adjusted_sample as f32) * left_gain) as i16;
+            let right = ((adjusted_sample as f32) * right_gain) as i16;
 
             let left_pos = offset + i * 2;
             let right_pos = left_pos + 1;

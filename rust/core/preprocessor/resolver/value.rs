@@ -16,11 +16,18 @@ fn find_export_value(name: &str, global_store: &GlobalStore) -> Option<Value> {
             return Some(val.clone());
         }
     }
+
     None
 }
 
 pub fn resolve_value(value: &Value, module: &Module, global_store: &mut GlobalStore) -> Value {
     match value {
+        Value::String(s) => {
+            println!("Resolving value: {}", s);
+
+            Value::String(s.clone())
+        },
+
         Value::Identifier(name) => {
             if let Some(original_val) = module.variable_table.get(name) {
                 return resolve_value(original_val, module, global_store);
@@ -30,7 +37,8 @@ pub fn resolve_value(value: &Value, module: &Module, global_store: &mut GlobalSt
                 return resolve_value(&export_val, module, global_store);
             }
 
-            eprintln!("⚠️ Unresolved identifier '{}'", name);
+            println!("⚠️ Unresolved identifier '{}'", name);
+
             Value::Null
         }
 
@@ -62,6 +70,7 @@ pub fn resolve_value(value: &Value, module: &Module, global_store: &mut GlobalSt
             for (k, v) in map {
                 resolved.insert(k.clone(), resolve_value(v, module, global_store));
             }
+
             Value::Map(resolved)
         }
 

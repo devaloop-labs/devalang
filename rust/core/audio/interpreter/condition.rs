@@ -6,20 +6,19 @@ use crate::core::{
     },
     parser::statement::Statement,
     shared::value::Value,
-    store::variable::VariableTable,
+    store::{ function::FunctionTable, variable::VariableTable },
 };
 
 pub fn interprete_condition_statement(
     stmt: &Statement,
-    audio_engine: AudioEngine,
-    variable_table: VariableTable,
+    audio_engine: &mut AudioEngine,
+    variable_table: &mut VariableTable,
+    functions_table: &mut FunctionTable,
     base_bpm: f32,
     base_duration: f32,
     max_end_time: f32,
     cursor_time: f32
-) -> (AudioEngine, f32, f32) {
-    let mut engine = audio_engine.clone();
-    let mut vars = variable_table.clone();
+) -> (f32, f32) {
     let mut cur_time = cursor_time;
     let mut max_time = max_end_time;
 
@@ -32,23 +31,24 @@ pub fn interprete_condition_statement(
 
         let should_execute = match map.get("condition") {
             Some(Value::Boolean(b)) => *b,
-            Some(Value::String(expr)) => evaluate_condition_string(expr, &vars),
+            Some(Value::String(expr)) => evaluate_condition_string(expr, &variable_table.clone()),
             Some(_) => false,
             None => true,
         };
 
         if should_execute {
             if let Some(Value::Block(block)) = map.get("body") {
-                let (new_engine, _, new_max) = execute_audio_block(
-                    engine,
-                    vars,
+                let (new_max, cursor_time) = execute_audio_block(
+                    audio_engine,
+                    variable_table.clone(),
+                    functions_table.clone(),
                     block.clone(),
                     base_bpm,
                     base_duration,
                     max_time,
                     cur_time
                 );
-                return (new_engine, new_max, new_max);
+                return (new_max, cursor_time);
             } else {
                 break;
             }
@@ -65,5 +65,5 @@ pub fn interprete_condition_statement(
         }
     }
 
-    (audio_engine, max_end_time, cursor_time)
+    (max_end_time, cursor_time)
 }

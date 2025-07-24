@@ -18,12 +18,6 @@ pub fn interprete_sleep_statement(
                 0.0
             })
         }
-        Value::String(s) if s.ends_with("s") => {
-            s.trim_end_matches("s").parse::<f32>().unwrap_or_else(|_| {
-                eprintln!("❌ Invalid sleep value (s): {}", s);
-                0.0
-            })
-        }
         other => {
             eprintln!("❌ Invalid sleep value: {:?}", other);
             0.0

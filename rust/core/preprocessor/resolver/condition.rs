@@ -1,7 +1,7 @@
 use crate::{
     core::{
-        parser::statement::{Statement, StatementKind},
-        preprocessor::{module::Module, resolver::driver::resolve_statement},
+        parser::statement::{ Statement, StatementKind },
+        preprocessor::{ module::Module, resolver::driver::resolve_statement },
         shared::value::Value,
         store::global::GlobalStore,
     },
@@ -12,12 +12,17 @@ pub fn resolve_condition(
     stmt: &Statement,
     module: &Module,
     path: &str,
-    global_store: &mut GlobalStore,
+    global_store: &mut GlobalStore
 ) -> Statement {
     let logger = Logger::new();
 
     let Value::Map(condition_map) = &stmt.value else {
-        return type_error(&logger, module, stmt, "Expected a map in condition statement".to_string());
+        return type_error(
+            &logger,
+            module,
+            stmt,
+            "Expected a map in condition statement".to_string()
+        );
     };
 
     let mut resolved_map = condition_map.clone();
@@ -60,13 +65,13 @@ fn resolve_block_statements(
     body: &[Statement],
     module: &Module,
     path: &str,
-    global_store: &mut GlobalStore,
+    global_store: &mut GlobalStore
 ) -> Vec<Statement> {
     body.iter()
         .flat_map(|stmt| {
             let resolved = resolve_statement(stmt, module, path, global_store);
 
-            if let StatementKind::Call = resolved.kind {
+            if let StatementKind::Call { .. } = resolved.kind {
                 if let Value::Block(inner) = &resolved.value {
                     return inner
                         .iter()

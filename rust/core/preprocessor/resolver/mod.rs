@@ -12,3 +12,4 @@ pub mod spawn;
 pub mod call;
 pub mod synth;
 pub mod let_;
+pub mod function;

@@ -5,7 +5,7 @@ use crate::{
         debugger::{
             lexer::write_lexer_log_file,
             preprocessor::write_preprocessor_log_file,
-            store::write_store_log_file,
+            store::{ write_function_log_file, write_variables_log_file },
         },
         preprocessor::loader::ModuleLoader,
         store::global::GlobalStore,
@@ -117,7 +117,8 @@ fn begin_build(entry: String, output: String) {
         "resolved_statements.log",
         modules_statements.clone()
     );
-    write_store_log_file(&normalized_output_dir, "global_store.log", global_store.modules.clone());
+    write_variables_log_file(&normalized_output_dir, "global_variables.log", global_store.variables.clone());
+    write_function_log_file(&normalized_output_dir, "global_functions.log", global_store.functions.clone());
 
     // SECTION Building AST and Audio
     let builder = Builder::new();

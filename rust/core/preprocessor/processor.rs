@@ -5,7 +5,7 @@ use crate::core::{
     preprocessor::{ loader::ModuleLoader, resolver::group },
     shared::value::Value,
     store::global::GlobalStore,
-    utils::path::{normalize_path, resolve_relative_path},
+    utils::path::{ normalize_path, resolve_relative_path },
 };
 
 pub fn process_modules(module_loader: &ModuleLoader, global_store: &mut GlobalStore) {
@@ -13,6 +13,31 @@ pub fn process_modules(module_loader: &ModuleLoader, global_store: &mut GlobalSt
         for stmt in &module.statements {
             match &stmt.kind {
                 StatementKind::Let { name } => {
+                    if let Value::Null = stmt.value {
+                        eprintln!("❌ Variable '{}' is declared but not initialized.", name);
+                        
+                        module.variable_table.variables.insert(
+                            name.clone(),
+                            Value::StatementKind(Box::new(stmt.kind.clone()))
+                        );
+
+                        continue;
+                    }
+
+                    if module.variable_table.get(name).is_some() {
+                        eprintln!("❌ Variable '{}' is already defined in this scope.", name);
+                        continue;
+                    }
+
+                    if let Some(module_variable) = module.variable_table.variables.get(name) {
+                        eprintln!(
+                            "❌ Variable '{}' is already defined globally with value: {:?}",
+                            name,
+                            module_variable
+                        );
+                        continue;
+                    }
+
                     module.variable_table.variables.insert(name.clone(), stmt.value.clone());
                 }
 

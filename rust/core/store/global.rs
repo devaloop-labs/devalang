@@ -1,23 +1,22 @@
 use std::collections::HashMap;
-use crate::core::preprocessor::module::Module;
+use crate::core::{
+    preprocessor::module::Module,
+    store::{ function::FunctionTable, variable::VariableTable },
+};
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct GlobalStore {
     pub modules: HashMap<String, Module>,
+    pub variables: VariableTable,
+    pub functions: FunctionTable,
 }
 
 impl GlobalStore {
     pub fn new() -> Self {
         GlobalStore {
             modules: HashMap::new(),
-        }
-    }
-
-    pub fn resolve_all_imports(&mut self) {
-        for module in self.modules.values_mut() {
-            for (name, source_path) in &module.import_table.imports {
-                println!("Resolving import: {} from {:?}", name, source_path);
-            }
+            functions: FunctionTable::new(),
+            variables: VariableTable::new(),
         }
     }
 

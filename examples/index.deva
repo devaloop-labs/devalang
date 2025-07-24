@@ -1,18 +1,44 @@
-# This file demonstrates the use of main features in Devalang.
+# # This file demonstrates the use of main features in Devalang.
 
-@import { duration, default_bank, params, loopCount, tempo } from "./variables.deva"
-@import { myLead } from "./synth.deva"
-@import { myLoop } from "./loop.deva"
+# @import { duration, default_bank, params, loopCount, tempo } from "./variables.deva"
+# @import { myLead } from "./synth.deva"
+# @import { myLoop } from "./loop.deva"
 
 @load "./samples/kick-808.wav" as kickCustom
 @load "./samples/hat-808.wav" as hatCustom
 
-# bpm tempo
+# # bpm tempo
 
-# group myTrack:
-#     spawn myLoop
-#     spawn myLead
+# # group myTrack:
+# #     spawn myLoop
+# #     spawn myLead
 
-# call myTrack
+# # call myTrack
 
-.kickCustom duration { gain: 1, pitch: 1.25 }
+# bank 808
+
+# group myGroove:
+#     .808.kick duration { pitch: 1 }
+#     .808.clap duration { pitch: 1 }
+
+# call myGroove
+
+# # Warehouse Techno Demo Track
+# bpm 135
+
+# # Load a bank of 808 samples
+# bank 808
+
+# let entityT = .808.kick auto
+# let test = 5
+
+# # Define functions
+# fn myFirstGroup(entityS):
+#     .entityS 1/2
+#     .entityS 1/4
+#     .entityS 1/8
+#     .entityS 1/16
+
+# call myFirstGroup(entityT)
+
+.kickCustom 1/2

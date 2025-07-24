@@ -1,12 +1,13 @@
 use std::collections::HashMap;
 use serde::{ Deserialize, Serialize };
 
-use crate::core::parser::statement::Statement;
+use crate::core::{parser::statement::{Statement, StatementKind}, shared::duration::Duration};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum Value {
     Boolean(bool),
     Number(f32),
+    Duration(Duration),
     Identifier(String),
     String(String),
     Array(Vec<Value>),
@@ -14,6 +15,7 @@ pub enum Value {
     Block(Vec<Statement>),
     Sample(String),
     Beat(String),
+    StatementKind(Box<StatementKind>),
     Unknown,
     Null,
 }

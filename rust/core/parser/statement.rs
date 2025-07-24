@@ -49,6 +49,11 @@ pub enum StatementKind {
         method: String,
         args: Vec<Value>,
     },
+    Function {
+        name: String,
+        parameters: Vec<String>,
+        body: Vec<Statement>,
+    },
 
     // ───── Instruments ─────
     Synth,
@@ -57,9 +62,13 @@ pub enum StatementKind {
     Trigger {
         entity: String,
         duration: Duration,
+        effects: Option<Value>,
     },
     Sleep,
-    Call,
+    Call {
+        name: String,
+        args: Vec<Value>,
+    },
     Spawn,
     Loop,
     

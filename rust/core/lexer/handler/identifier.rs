@@ -28,6 +28,7 @@ pub fn handle_identifier_lexer(
         "bpm" => TokenKind::Tempo,
         "loop" => TokenKind::Loop,
         "synth" => TokenKind::Synth,
+        "fn" => TokenKind::Function,
         _ => TokenKind::Identifier,
     };
 

@@ -4,7 +4,7 @@ use crate::core::{
     lexer::token::{ Token, TokenKind },
     parser::{
         driver::Parser,
-        handler::identifier::synth::parse_synth_token,
+        handler::{ dot::parse_dot_token, identifier::synth::parse_synth_token },
         statement::{ Statement, StatementKind },
     },
     shared::value::Value,
@@ -33,21 +33,15 @@ pub fn parse_let_token(
         return Statement::error(current_token, "Expected '=' after identifier".to_string());
     }
 
-    if let Some(token) = parser.peek_clone() {
-        if token.kind == TokenKind::Synth {
-            let synth_stmt = parse_synth_token(parser, token.clone(), global_store);
-
-            return Statement {
-                kind: StatementKind::Let { name: identifier },
-                value: synth_stmt.value,
-                indent: current_token.indent,
-                line: current_token.line,
-                column: current_token.column,
-            };
-        }
-    }
-
     let value = match parser.peek_clone() {
+        Some(token) if token.kind == TokenKind::Dot => {
+            let dot_stmt = parse_dot_token(parser, global_store);
+            Value::StatementKind(Box::new(dot_stmt.kind))
+        }
+        Some(token) if token.kind == TokenKind::Synth => {
+            let synth_stmt = parse_synth_token(parser, token.clone(), global_store);
+            Value::StatementKind(Box::new(synth_stmt.kind))
+        }
         Some(token) if token.kind == TokenKind::Identifier => {
             parser.advance();
             Value::Identifier(token.lexeme.clone())
@@ -65,7 +59,8 @@ pub fn parse_let_token(
             Value::Boolean(token.lexeme.parse().unwrap_or(false))
         }
         Some(token) if token.kind == TokenKind::LBrace => {
-            parser.advance(); // consume '{'
+            parser.advance();
+
             let mut map = HashMap::new();
 
             while let Some(key_token) = parser.peek_clone() {
@@ -117,15 +112,14 @@ pub fn parse_let_token(
 
             Value::Map(map)
         }
-        other => {
-            let message = format!("Unexpected value token in let: {:?}", other);
-            return Statement::error(current_token, message);
+        _ => {
+            return Statement::error(current_token, "Unhandled value type after '='".to_string());
         }
     };
 
     Statement {
         kind: StatementKind::Let { name: identifier },
-        value,
+        value: value,
         indent: current_token.indent,
         line: current_token.line,
         column: current_token.column,

@@ -127,6 +127,11 @@ impl ModuleLoader {
         updated_module.tokens = tokens;
         updated_module.statements = statements;
 
+        // Step four : Injecting bank triggers if any
+        if let Err(e) = self.inject_bank_triggers(&mut updated_module, "808") {
+            return Err(format!("Failed to inject bank triggers: {}", e));
+        }
+
         // Step four : error handling
         let mut error_handler = ErrorHandler::new();
         error_handler.detect_from_statements(&mut parser, &updated_module.statements);
@@ -143,16 +148,16 @@ impl ModuleLoader {
         global_store: &mut GlobalStore
     ) -> (HashMap<String, Vec<Token>>, HashMap<String, Vec<Statement>>) {
         // SECTION Load the entry module and its dependencies
-
         let tokens_by_module = self.load_module_recursively(&self.entry, global_store);
 
         // SECTION Process and resolve modules
         process_modules(self, global_store);
         resolve_all_modules(self, global_store);
 
-        let statemnts_by_module = resolve_and_flatten_all_modules(global_store);
+        // SECTION Flatten all modules to get statements (+ injects)
+        let statements_by_module = resolve_and_flatten_all_modules(global_store);
 
-        (tokens_by_module, statemnts_by_module)
+        (tokens_by_module, statements_by_module)
     }
 
     #[cfg(feature = "cli")]
@@ -181,13 +186,32 @@ impl ModuleLoader {
         module.tokens = tokens.clone();
         module.statements = statements.clone();
 
+        let mut module_variables = module.variable_table.clone();
+
         // Inject triggers for each bank used in module
-        for bank_name in ModuleLoader::extract_bank_names(&statements) {
-            if let Err(e) = self.inject_bank_triggers(&mut module, &bank_name) {
-                return HashMap::new(); // Return empty map on error
+        for bank_name in self.extract_bank_names(&statements) {
+            let module_updated = self
+                .inject_bank_triggers(&mut module, &bank_name)
+                .map_err(|e| format!("Failed to inject bank triggers: {}", e));
+
+            if let Err(e) = module_updated {
+                eprintln!("[warn] {}", e);
+            }
+
+            // Update the variable table with the bank variables
+            if let Some(bank_variables) = module.variable_table.get(&bank_name) {
+                if let Value::Map(bank_map) = bank_variables {
+                    for (key, value) in bank_map {
+                        module_variables.set(format!("{}.{}", bank_name, key), value.clone());
+                    }
+                }
             }
         }
 
+        // Update the module's variable table
+        // module.variable_table = module_variables;
+
+        // Inject the module into the global store
         global_store.insert_module(path.clone(), module);
 
         // Load dependencies
@@ -246,7 +270,7 @@ impl ModuleLoader {
         let bank_file_path = bank_path.join("bank.toml");
 
         if !bank_file_path.exists() {
-            return Ok(()); // Pas d'erreur si la banque n'existe pas encore
+            return Ok(());
         }
 
         let content = std::fs
@@ -268,7 +292,8 @@ impl ModuleLoader {
             if module.variable_table.variables.contains_key(bank_name) {
                 eprintln!(
                     "⚠️ Trigger '{}' already defined in module '{}', skipping injection.",
-                    bank_name, module.path
+                    bank_name,
+                    module.path
                 );
                 continue;
             }
@@ -285,21 +310,61 @@ impl ModuleLoader {
         Ok(())
     }
 
-    fn extract_bank_names(statements: &[Statement]) -> HashSet<String> {
+    fn extract_bank_names(&self, statements: &[Statement]) -> HashSet<String> {
         let mut banks = HashSet::new();
 
         for stmt in statements {
-            if let StatementKind::Trigger { entity, .. } = &stmt.kind {
-                let parts: Vec<&str> = entity.split('.').collect();
-                if parts.len() >= 2 {
-                    banks.insert(parts[0].to_string()); // "808.kick" → "808"
+            match &stmt.kind {
+                StatementKind::Trigger { entity, .. } => {
+                    let parts: Vec<&str> = entity.split('.').collect();
+                    if parts.len() >= 2 {
+                        banks.insert(parts[0].to_string());
+                    }
                 }
-            }
 
-            if let StatementKind::Bank = &stmt.kind {
-                if let Value::String(name) = &stmt.value {
-                    banks.insert(name.clone());
+                StatementKind::Bank => {
+                    if let Value::String(name) = &stmt.value {
+                        banks.insert(name.clone());
+                    }
                 }
+
+                StatementKind::Group { .. } => {
+                    let group_body = match &stmt.value {
+                        Value::Map(map) => {
+                            if let Some(Value::Block(body)) = map.get("body") {
+                                body
+                            } else {
+                                continue;
+                            }
+                        }
+                        _ => {
+                            continue;
+                        }
+                    };
+
+                    let inner_banks = self.extract_bank_names(&group_body);
+                    banks.extend(inner_banks);
+                }
+
+                StatementKind::If { .. } => {
+                    let if_body = match &stmt.value {
+                        Value::Map(map) => {
+                            if let Some(Value::Block(body)) = map.get("body") {
+                                body
+                            } else {
+                                continue;
+                            }
+                        }
+                        _ => {
+                            continue;
+                        }
+                    };
+
+                    let inner_banks = self.extract_bank_names(&if_body);
+                    banks.extend(inner_banks);
+                }
+
+                _ => {}
             }
         }
 

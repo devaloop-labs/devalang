@@ -7,11 +7,11 @@ use wasm_bindgen::prelude::*;
 use serde_wasm_bindgen::to_value;
 
 use crate::core::{
-    audio::{ engine::AudioEngine, interpreter::driver::{ run_audio_program } },
+    audio::{ engine::AudioEngine, interpreter::driver::run_audio_program },
     parser::statement::{ Statement, StatementKind },
     preprocessor::loader::ModuleLoader,
     shared::value::Value,
-    store::global::GlobalStore,
+    store::{ function::FunctionTable, global::GlobalStore, variable::VariableTable },
     utils::path::normalize_path,
 };
 
@@ -69,16 +69,19 @@ pub fn render_audio(user_code: &str) -> Result<js_sys::Float32Array, JsValue> {
         .ok_or(JsValue::from_str("❌ No statements found for entry module"))?
         .clone();
 
-    let audio_engine = AudioEngine::new("wasm_output".to_string());
+    let mut audio_engine = AudioEngine::new("wasm_output".to_string());
 
-    let (final_engine, _, _) = run_audio_program(
+    let _ = run_audio_program(
         &main_statements,
-        audio_engine,
+        &mut audio_engine,
         "playground".to_string(),
-        "wasm_output".to_string()
+        "wasm_output".to_string(),
+        VariableTable::new(),
+        FunctionTable::new(),
+        &mut global_store
     );
 
-    let samples = final_engine.get_normalized_buffer();
+    let samples = audio_engine.get_normalized_buffer();
 
     if samples.is_empty() {
         return Err(JsValue::from_str("❌ Audio buffer is empty"));

@@ -1,70 +1,59 @@
 use crate::core::{
-    audio::{ engine::AudioEngine, interpreter::{ driver::execute_audio_block } },
+    audio::{ engine::AudioEngine, interpreter::driver::execute_audio_block },
     parser::statement::{ Statement, StatementKind },
-    shared::{ duration::Duration, value::Value },
-    store::variable::VariableTable,
+    store::{ function::{ FunctionTable }, variable::VariableTable },
 };
 
 pub fn interprete_call_statement(
     stmt: &Statement,
-    audio_engine: AudioEngine,
-    variable_table: VariableTable,
+    audio_engine: &mut AudioEngine,
+    variable_table: &VariableTable,
+    functions: &FunctionTable,
     base_bpm: f32,
     base_duration: f32,
     max_end_time: f32,
-    cursor_time: f32,
-    all_statements: &Vec<Statement>
-) -> (AudioEngine, f32, f32, f32) {
-    match &stmt.value {
-        Value::String(identifier) | Value::Identifier(identifier) => {
-            if
-                let Some(group_stmt) = all_statements
-                    .iter()
-                    .find(|s| {
-                        matches!(s.kind, StatementKind::Group) &&
-                            s.value.get("identifier") == Some(&Value::String(identifier.clone()))
-                    })
-            {
-                if let Some(Value::Block(block)) = group_stmt.value.get("body") {
-                    let (eng, _, end_time) = execute_audio_block(
-                        audio_engine,
-                        variable_table,
-                        block.clone(),
-                        base_bpm,
-                        base_duration,
-                        max_end_time,
-                        cursor_time
+    cursor_time: f32
+) -> (f32, f32) {
+    match &stmt.kind {
+        StatementKind::Call { name, args } => {
+            if let Some(func) = functions.functions.get(name) {
+                if func.parameters.len() != args.len() {
+                    eprintln!(
+                        "❌ Function '{}' expects {} args, got {}",
+                        name,
+                        func.parameters.len(),
+                        args.len()
                     );
-                    return (eng, max_end_time.max(end_time), end_time, cursor_time);
-                } else {
-                    eprintln!("❌ Group '{}' found but no valid body block", identifier);
+                    return (max_end_time, cursor_time);
                 }
-            } else {
-                eprintln!("❌ Group '{}' not found in statements", identifier);
-            }
-        }
 
-        Value::Map(map) => {
-            if let Some(Value::Block(block)) = map.get("body") {
-                let (eng, _, end_time) = execute_audio_block(
+                let mut local_vars = VariableTable::with_parent(variable_table.clone());
+
+                for (param, arg) in func.parameters.iter().zip(args) {
+                    local_vars.set(param.clone(), arg.clone());
+                }
+
+                let (new_max, new_cursor) = execute_audio_block(
                     audio_engine,
-                    variable_table,
-                    block.clone(),
+                    local_vars,
+                    functions.clone(),
+                    func.body.clone(),
                     base_bpm,
                     base_duration,
                     max_end_time,
                     cursor_time
                 );
-                return (eng, max_end_time.max(end_time), end_time, cursor_time);
+
+                return (new_max, new_cursor);
             } else {
-                eprintln!("❌ Call map has no 'body' block");
+                eprintln!("❌ Function '{}' not found", name);
             }
         }
 
-        other => {
-            eprintln!("❌ Invalid call statement: expected identifier or map, found {:?}", other);
+        _ => {
+            eprintln!("❌ interprete_call_statement expected Call, got {:?}", stmt.kind);
         }
     }
 
-    (audio_engine, base_bpm, max_end_time, cursor_time)
+    (max_end_time, cursor_time)
 }

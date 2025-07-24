@@ -29,6 +29,7 @@ pub enum TokenKind {
     Tempo,
     Bank,
     Loop,
+    Function,
 
     // ───── Instruments ─────
     Synth,
@@ -64,6 +65,8 @@ pub enum TokenKind {
     RBrace, // }
     LBracket, // [
     RBracket, // ]
+    LParen, // (
+    RParen, // )
 
     // ───── Quotes ─────
     Quote, // '

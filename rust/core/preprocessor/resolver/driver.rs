@@ -9,6 +9,7 @@ use crate::{
                 bank::resolve_bank,
                 call::resolve_call,
                 condition::resolve_condition,
+                function::resolve_function,
                 group::resolve_group,
                 let_::resolve_let,
                 loop_::resolve_loop,
@@ -36,11 +37,19 @@ pub fn resolve_statement(
     global_store: &mut GlobalStore
 ) -> Statement {
     match &stmt.kind {
-        StatementKind::Trigger { entity, duration } =>
-            resolve_trigger(stmt, entity, &mut duration.clone(), module, path, global_store),
+        StatementKind::Trigger { entity, duration, effects } =>
+            resolve_trigger(
+                stmt,
+                entity,
+                &mut duration.clone(),
+                effects.clone(),
+                module,
+                path,
+                global_store
+            ),
         StatementKind::If => resolve_condition(stmt, module, path, global_store),
         StatementKind::Group => resolve_group(stmt, module, path, global_store),
-        StatementKind::Call => resolve_call(stmt, module, path, global_store),
+        StatementKind::Call { .. } => resolve_call(stmt, module, path, global_store),
         StatementKind::Spawn => resolve_spawn(stmt, module, path, global_store),
         StatementKind::Bank => resolve_bank(stmt, module, path, global_store),
         StatementKind::Tempo => resolve_tempo(stmt, module, path, global_store),
@@ -180,14 +189,20 @@ pub fn resolve_and_flatten_all_modules(
         let mut resolved = Vec::new();
 
         for stmt in &module.statements {
-            let mut stmt = stmt.clone();
+            let stmt = stmt.clone();
 
             match &stmt.kind {
-                StatementKind::Trigger { entity, duration } => {
+                StatementKind::Let { name } => {
+                    let resolved_stmt = resolve_let(&stmt, name, &module, &path, global_store);
+                    resolved.push(resolved_stmt);
+                }
+
+                StatementKind::Trigger { entity, duration, effects } => {
                     let resolved_stmt = resolve_trigger(
                         &stmt,
                         entity.as_str(),
                         &mut duration.clone(),
+                        effects.clone(),
                         &module,
                         &path,
                         global_store
@@ -214,9 +229,19 @@ pub fn resolve_and_flatten_all_modules(
                     resolved.push(stmt.clone());
                 }
 
+                StatementKind::Call { name, args } => {
+                    let resolved_stmt = resolve_call(&stmt, &module, &path, global_store);
+                    resolved.push(resolved_stmt);
+                }
+
                 StatementKind::Group => {
                     let resolved_stmt = resolve_group(&stmt, &module, &path, global_store);
                     resolved.push(resolved_stmt);
+                }
+
+                StatementKind::Function { name, parameters, body } => {
+                    let resolved_function = resolve_function(&stmt, &module, &path, global_store);
+                    resolved.push(resolved_function);
                 }
 
                 _ => {

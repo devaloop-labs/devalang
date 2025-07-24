@@ -5,6 +5,7 @@ use crate::core::{
             arrow_call::interprete_call_arrow_statement,
             call::interprete_call_statement,
             condition::interprete_condition_statement,
+            function::interprete_function_statement,
             let_::interprete_let_statement,
             load::interprete_load_statement,
             loop_::interprete_loop_statement,
@@ -14,38 +15,33 @@ use crate::core::{
             trigger::interprete_trigger_statement,
         },
     },
-    parser::statement::{ Statement, StatementKind },
-    store::variable::VariableTable,
+    parser::statement::{ self, Statement, StatementKind },
+    shared::value::Value,
+    store::{ function::FunctionTable, global::GlobalStore, variable::VariableTable },
 };
 
 pub fn run_audio_program(
     statements: &Vec<Statement>,
-    mut audio_engine: AudioEngine,
+    audio_engine: &mut AudioEngine,
     entry: String,
-    output: String
-) -> (AudioEngine, f32, f32) {
+    output: String,
+    mut module_variables: VariableTable,
+    mut module_functions: FunctionTable,
+    global_store: &mut GlobalStore
+) -> (f32, f32) {
     let mut base_bpm = 120.0;
     let mut base_duration = 60.0 / base_bpm;
 
-    let mut variable_table = audio_engine.variables.clone();
+    // Fill the variable table with global variables
+    module_variables.variables.extend(global_store.variables.variables.clone());
 
-    for stmt in statements {
-        if let StatementKind::Let { .. } = stmt.kind {
-            if
-                let Some(new_table) =
-                    interprete_let_statement(
-                        stmt,
-                        &mut variable_table
-                    )
-            {
-                variable_table = new_table;
-            }
-        }
-    }
+    // Fill the functions table with global functions
+    module_functions.functions.extend(global_store.functions.functions.clone());
 
-    let (updated_audio_engine, base_bpm, max_end_time) = execute_audio_block(
+    let (max_end_time, cursor_time) = execute_audio_block(
         audio_engine,
-        variable_table,
+        module_variables,
+        module_functions,
         statements.clone(),
         base_bpm,
         base_duration,
@@ -53,45 +49,36 @@ pub fn run_audio_program(
         0.0
     );
 
-    (updated_audio_engine, base_bpm, max_end_time)
+    (max_end_time, cursor_time)
 }
 
 pub fn execute_audio_block(
-    mut audio_engine: AudioEngine,
+    audio_engine: &mut AudioEngine,
     mut variable_table: VariableTable,
-    mut statements: Vec<Statement>,
+    mut functions_table: FunctionTable,
+    statements: Vec<Statement>,
     mut base_bpm: f32,
     mut base_duration: f32,
     mut max_end_time: f32,
     mut cursor_time: f32
-) -> (AudioEngine, f32, f32) {
-    let initial_cursor_time = cursor_time;
-
-    for stmt in statements.clone() {
+) -> (f32, f32) {
+    for stmt in &statements {
         match &stmt.kind {
             StatementKind::Load { .. } => {
-                if
-                    let Some(new_variable_table) = interprete_load_statement(
-                        &stmt,
-                        &mut variable_table
-                    )
-                {
-                    variable_table = new_variable_table;
-                } else {
-                    eprintln!("❌ Failed to interpret load statement: {:?}", stmt);
+                if let Some(new_table) = interprete_load_statement(&stmt, &mut variable_table) {
+                    variable_table.variables.extend(new_table.variables);
                 }
             }
 
             StatementKind::Let { .. } => {
-                if
-                    let Some(new_variable_table) = interprete_let_statement(
-                        &stmt,
-                        &mut variable_table
-                    )
-                {
-                    variable_table = new_variable_table;
-                } else {
-                    eprintln!("❌ Failed to interpret let statement: {:?}", stmt);
+                if let Some(new_table) = interprete_let_statement(&stmt, &mut variable_table) {
+                    variable_table.variables.extend(new_table.variables);
+                }
+            }
+
+            StatementKind::Function { name, parameters, body } => {
+                if let Some(new_table) = interprete_function_statement(&stmt, &mut functions_table) {
+                    functions_table.functions.extend(new_table.functions);
                 }
             }
 
@@ -99,64 +86,23 @@ pub fn execute_audio_block(
                 if let Some((new_bpm, new_duration)) = interprete_tempo_statement(&stmt) {
                     base_bpm = new_bpm;
                     base_duration = new_duration;
-                } else {
-                    eprintln!("❌ Failed to interpret tempo statement: {:?}", stmt);
                 }
             }
 
             StatementKind::Trigger { .. } => {
                 if
-                    let Some((new_cursor_time, new_max_end_time, updated_engine)) =
-                        interprete_trigger_statement(
-                            &stmt,
-                            &mut audio_engine,
-                            &variable_table,
-                            base_duration,
-                            cursor_time,
-                            max_end_time
-                        )
-                {
-                    cursor_time = new_cursor_time;
-                    max_end_time = new_max_end_time;
-                    audio_engine = updated_engine;
-                } else {
-                    eprintln!("❌ Failed to interpret trigger statement: {:?}", stmt);
-                }
-            }
-
-            StatementKind::Spawn => {
-                let mut temp_engine = AudioEngine::new(audio_engine.module_name.clone());
-
-                if
-                    let Some((_cur, _max, updated_engine)) = interprete_spawn_statement(
+                    let Some((new_cursor, new_max, _)) = interprete_trigger_statement(
                         &stmt,
-                        temp_engine,
+                        audio_engine,
                         &variable_table,
-                        base_bpm,
                         base_duration,
-                        initial_cursor_time,
+                        cursor_time,
                         max_end_time
                     )
                 {
-                    audio_engine.merge_with(updated_engine);
+                    cursor_time = new_cursor;
+                    max_end_time = new_max;
                 }
-            }
-
-            StatementKind::Call => {
-                let (call_engine, new_max, end_time, new_cursor) = interprete_call_statement(
-                    &stmt,
-                    audio_engine.clone(),
-                    variable_table.clone(),
-                    base_bpm,
-                    base_duration,
-                    max_end_time,
-                    cursor_time,
-                    &statements 
-                );
-
-                audio_engine.merge_with(call_engine);
-                cursor_time = new_cursor;
-                max_end_time = new_max;
             }
 
             StatementKind::Sleep => {
@@ -170,40 +116,39 @@ pub fn execute_audio_block(
             }
 
             StatementKind::Loop => {
-                let (loop_engine, new_max, new_cursor) = interprete_loop_statement(
+                let (new_max, new_cursor) = interprete_loop_statement(
                     &stmt,
-                    audio_engine.clone(),
-                    variable_table.clone(),
+                    audio_engine,
+                    &variable_table,
+                    &functions_table,
                     base_bpm,
                     base_duration,
                     max_end_time,
                     cursor_time
                 );
-                audio_engine = loop_engine;
                 cursor_time = new_cursor;
                 max_end_time = new_max;
             }
 
-            StatementKind::If | StatementKind::ElseIf | StatementKind::Else => {
-                let (condition_engine, new_max, new_cursor) = interprete_condition_statement(
+            StatementKind::Call { .. } => {
+                let (new_max, new_cursor) = interprete_call_statement(
                     &stmt,
-                    audio_engine.clone(),
-                    variable_table.clone(),
+                    audio_engine,
+                    &variable_table,
+                    &functions_table,
                     base_bpm,
                     base_duration,
                     max_end_time,
                     cursor_time
                 );
-
-                audio_engine = condition_engine;
                 cursor_time = new_cursor;
                 max_end_time = new_max;
             }
 
             StatementKind::ArrowCall { .. } => {
-                let (new_max_end_time, new_cursor_time) = interprete_call_arrow_statement(
+                let (new_max, new_cursor) = interprete_call_arrow_statement(
                     &stmt,
-                    &mut audio_engine,
+                    audio_engine,
                     &variable_table,
                     base_bpm,
                     base_duration,
@@ -211,26 +156,13 @@ pub fn execute_audio_block(
                     Some(&mut cursor_time),
                     true
                 );
-
-                cursor_time = new_cursor_time;
-                max_end_time = new_max_end_time;
+                cursor_time = new_cursor;
+                max_end_time = new_max;
             }
 
-            | StatementKind::Bank
-            | StatementKind::Import { .. }
-            | StatementKind::Export { .. }
-            | StatementKind::Group
-            | StatementKind::Unknown => {
-                // NOTE: Ignoring unsupported statement kinds for now.
-            }
-
-            _ => {
-                eprintln!("Unsupported audio statement kind: {:?}", stmt);
-            }
+            _ => {}
         }
     }
 
-    audio_engine.set_variables(variable_table);
-
-    (audio_engine, base_bpm, max_end_time)
+    (max_end_time.max(cursor_time), cursor_time)
 }

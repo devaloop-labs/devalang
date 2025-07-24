@@ -14,6 +14,7 @@ pub fn resolve_trigger(
     stmt: &Statement,
     entity: &str,
     duration: &mut Duration,
+    effects: Option<Value>,
     module: &Module,
     path: &str,
     global_store: &GlobalStore
@@ -44,6 +45,8 @@ pub fn resolve_trigger(
     // Params value resolution
     final_value = match &stmt.value {
         Value::Identifier(ident) => {
+            println!("Resolving identifier: {}", ident);
+
             resolve_identifier(ident, module, global_store).unwrap_or_else(|| {
                 logger.log_error_with_stacktrace(
                     &format!("'{path}': value identifier '{ident}' not found"),
@@ -71,9 +74,10 @@ pub fn resolve_trigger(
     Statement {
         kind: StatementKind::Trigger {
             entity: entity.to_string(),
-            duration: final_duration,
+            duration: final_duration.clone(),
+            effects: Some(final_value.clone()),
         },
-        value: final_value,
+        value: Value::Null,
         line: stmt.line,
         column: stmt.column,
         indent: stmt.indent,
@@ -86,7 +90,7 @@ fn resolve_identifier(ident: &str, module: &Module, global_store: &GlobalStore) 
     }
 
     for (_, other_mod) in &global_store.modules {
-        if let Some(val) = other_mod.export_table.get_export(ident) {
+        if let Some(val) = other_mod.variable_table.get(ident) {
             return Some(resolve_value(val, other_mod, global_store));
         }
     }

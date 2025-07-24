@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-
 use crate::{
     core::{
         audio::{ engine::AudioEngine, interpreter::driver::run_audio_program },
@@ -18,36 +17,37 @@ pub fn render_audio_with_modules(
 
     for (module_name, statements) in modules {
         let mut global_max_end_time: f32 = 0.0;
-        let mut initial_engine = AudioEngine::new(module_name.clone());
+        let mut audio_engine = AudioEngine::new(module_name.clone());
 
         // Apply global variables to the initial engine
         if let Some(module) = global_store.get_module(&module_name) {
-            initial_engine.set_variables(module.variable_table.clone());
-        }
-
-        // interprete statements to fill the audio buffer
-        let (mut updated_engine, _bpm, module_max_end_time) = run_audio_program(
-            &statements,
-            initial_engine,
-            module_name.clone(),
-            output_dir.to_string()
-        );
-
-        // Verify if the buffer is silent (all samples are zero)
-        if updated_engine.buffer.iter().all(|&s| s == 0) {
-            let logger = Logger::new();
-            logger.log_message(
-                LogLevel::Warning,
-                &format!("Module '{}' ignored: silent buffer (no non-zero samples)", module_name)
+            // interprete statements to fill the audio buffer
+            let (module_max_end_time, cursor_time) = run_audio_program(
+                &statements,
+                &mut audio_engine,
+                module_name.clone(),
+                output_dir.to_string(),
+                module.variable_table.clone(),
+                module.functions.clone(),
+                global_store
             );
-            continue;
+
+            // Verify if the buffer is silent (all samples are zero)
+            if audio_engine.buffer.iter().all(|&s| s == 0) {
+                let logger = Logger::new();
+                logger.log_message(
+                    LogLevel::Warning,
+                    &format!("Module '{}' ignored: silent buffer (no non-zero samples)", module_name)
+                );
+                continue;
+            }
+
+            // Determines the maximum end time for the module
+            global_max_end_time = global_max_end_time.max(module_max_end_time);
+            audio_engine.set_duration(global_max_end_time);
+
+            result.insert(module_name, audio_engine);
         }
-
-        // Determines the maximum end time for the module
-        global_max_end_time = global_max_end_time.max(module_max_end_time);
-        updated_engine.set_duration(global_max_end_time);
-
-        result.insert(module_name, updated_engine);
     }
 
     result

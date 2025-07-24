@@ -15,105 +15,153 @@ pub fn interprete_trigger_statement(
     cursor_time: f32,
     max_end_time: f32
 ) -> Option<(f32, f32, AudioEngine)> {
-    if let StatementKind::Trigger { entity, duration } = &stmt.kind {
-        if let Some(trigger_val) = resolve_namespaced_variable(entity, variable_table) {
-            let duration_secs = match duration {
-                Duration::Number(n) => *n,
+    if let StatementKind::Trigger { entity, duration, effects } = &stmt.kind {
+        let mut trigger_val = Value::String(entity.clone());
+        let mut trigger_src = String::new();
 
-                Duration::Identifier(id) => {
-                    if id == "auto" {
-                        1.0
+        match variable_table.variables.get(entity) {
+            Some(Value::Identifier(id)) => {
+                // Get real value from global variable table
+                if let Some(global_table) = &variable_table.parent {
+                    if let Some(val) = global_table.get(id) {
+                        trigger_val = val.clone();
                     } else {
-                        match variable_table.get(id) {
-                            Some(Value::Number(n)) => *n,
-                            Some(Value::Identifier(other)) if other == "auto" => 1.0,
-                            Some(other) => {
-                                eprintln!(
-                                    "❌ Invalid duration reference '{}': expected number, got {:?}",
-                                    id,
-                                    other
-                                );
-                                return None;
-                            }
-                            None => {
-                                eprintln!("❌ Duration identifier '{}' not found", id);
-                                return None;
-                            }
+                        eprintln!("❌ Trigger entity '{}' not found in global variable table", id);
+                        return None;
+                    }
+                } else if let Some(val) = variable_table.get(id) {
+                    trigger_val = val.clone();
+                } else {
+                    eprintln!("❌ Trigger entity '{}' not found in variable table", id);
+                    return None;
+                }
+            }
+            Some(Value::Sample(sample_src)) => {
+                // If the entity is a sample, we use its path directly
+                trigger_src = sample_src.clone();
+            }
+            Some(Value::Map(map)) => {
+                // If the entity is a map, we assume it contains an "entity" key
+                if let Some(Value::String(src)) = map.get("entity") {
+                    trigger_val = Value::String(src.clone());
+                } else if let Some(Value::Identifier(src)) = map.get("entity") {
+                    trigger_val = Value::Identifier(src.clone());
+                } else {
+                    eprintln!(
+                        "❌ Trigger map must contain an 'entity' key with a string or identifier value."
+                    );
+                    return None;
+                }
+            }
+            _ => {
+                trigger_val = Value::String(entity.clone());
+            }
+        }
+
+        let duration_secs = match duration {
+            Duration::Number(n) => *n,
+
+            Duration::Identifier(id) => {
+                if id == "auto" {
+                    1.0
+                } else {
+                    match variable_table.get(id) {
+                        Some(Value::Number(n)) => *n,
+                        Some(Value::Identifier(other)) if other == "auto" => 1.0,
+                        Some(other) => {
+                            eprintln!(
+                                "❌ Invalid duration reference '{}': expected number, got {:?}",
+                                id,
+                                other
+                            );
+                            return None;
+                        }
+                        None => {
+                            eprintln!("❌ Duration identifier '{}' not found", id);
+                            return None;
                         }
                     }
                 }
-
-                Duration::Beat(beat_str) => {
-                    // Assuming beat_str is in the format "numerator/denominator"
-                    let parts: Vec<&str> = beat_str.split('/').collect();
-
-                    if parts.len() != 2 {
-                        eprintln!("❌ Invalid beat duration format: {}", beat_str);
-                        return None;
-                    }
-
-                    let numerator: f32 = parts[0].parse().unwrap_or(1.0);
-                    let denominator: f32 = parts[1].parse().unwrap_or(1.0);
-                    numerator / denominator
-                }
-
-                Duration::Auto => 1.0,
-            };
-
-            let duration_final = duration_secs * base_duration;
-
-            let (src, _) = load_trigger(
-                trigger_val,
-                duration,
-                base_duration,
-                variable_table.clone()
-            );
-
-            if let Some(effects) = extract_effects(stmt.value.clone()) {
-                audio_engine.insert_sample(&src, cursor_time, duration_final, Some(effects));
-            } else {
-                audio_engine.insert_sample(&src, cursor_time, duration_final, None);
             }
 
-            let mut updated_engine = audio_engine.clone();
+            Duration::Beat(beat_str) => {
+                let parts: Vec<&str> = beat_str.split('/').collect();
+                if parts.len() != 2 {
+                    eprintln!("❌ Invalid beat duration format: {}", beat_str);
+                    return None;
+                }
 
-            let new_cursor_time = cursor_time + duration_final;
-            let new_max_end_time = new_cursor_time.max(max_end_time);
+                let numerator: f32 = parts[0].parse().unwrap_or(1.0);
+                let denominator: f32 = parts[1].parse().unwrap_or(4.0);
 
-            return Some((new_cursor_time, new_max_end_time, updated_engine));
+                let beats = (numerator / denominator) * 4.0;
+
+                beats * base_duration
+            }
+
+            Duration::Auto => base_duration,
+        };
+
+        let (src, sample_length) = load_trigger(
+            &trigger_val,
+            duration,
+            effects,
+            base_duration,
+            variable_table.clone()
+        );
+
+        let effects = extract_effects(stmt.value.clone());
+        let one_shot = effects
+            .as_ref()
+            .and_then(|map| map.get("one_shot"))
+            .and_then(|v| {
+                match v {
+                    Value::Identifier(id) if id == "true" => Some(true),
+                    Value::String(s) if s == "true" => Some(true),
+                    _ => None,
+                }
+            })
+            .unwrap_or(false);
+
+        let play_length = if one_shot {
+            sample_length // play entire sample
         } else {
-            eprintln!("❌ Unknown trigger entity: {}", entity);
+            duration_secs.min(sample_length)
+        };
+
+        if let Some(effects_map) = effects {
+            audio_engine.insert_sample(&trigger_src, cursor_time, play_length, Some(effects_map));
+        } else {
+            audio_engine.insert_sample(&trigger_src, cursor_time, play_length, None);
         }
+
+        let new_cursor_time = cursor_time + duration_secs; // advance by beat duration
+        let new_max_end_time = (cursor_time + play_length).max(max_end_time);
+
+        let updated_engine = audio_engine.clone();
+
+        return Some((new_cursor_time, new_max_end_time, updated_engine));
     }
 
     None
 }
 
-fn resolve_namespaced_variable<'a>(path: &str, variables: &'a VariableTable) -> Option<&'a Value> {
-    let mut current: Option<&Value> = None;
-
-    for (i, part) in path.split('.').enumerate() {
-        if i == 0 {
-            current = variables.get(part);
-        } else {
-            current = match current {
-                Some(Value::Map(map)) => map.get(part),
-                _ => {
-                    return None;
-                }
-            };
-        }
-    }
-
-    current
-}
-
 fn extract_effects(value: Value) -> Option<HashMap<String, Value>> {
-    if let Value::Map(map) = value.clone() {
+    if let Value::Map(map) = value {
         let mut effects = HashMap::new();
 
         for (key, val) in map {
-            effects.insert(key.clone(), val);
+            if key == "effects" {
+                if let Value::Map(effect_map) = val {
+                    for (effect_key, effect_val) in effect_map {
+                        effects.insert(effect_key, effect_val);
+                    }
+                } else {
+                    return None; // effects must be a map
+                }
+            } else {
+                return Some(effects);
+            }
         }
 
         Some(effects)

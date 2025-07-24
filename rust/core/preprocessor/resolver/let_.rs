@@ -1,13 +1,8 @@
-use crate::
-    core::{
-        parser::statement:: Statement ,
-        preprocessor::{
-            module::Module,
-            resolver:: value::resolve_value ,
-        },
-        store:: global::GlobalStore ,
-    }
-;
+use crate::core::{
+    parser::statement::Statement,
+    preprocessor::{ module::Module, resolver::value::resolve_value },
+    store::global::GlobalStore,
+};
 
 pub fn resolve_let(
     stmt: &Statement,
@@ -17,6 +12,8 @@ pub fn resolve_let(
     global_store: &mut GlobalStore
 ) -> Statement {
     let resolved_value = resolve_value(&stmt.value, module, global_store);
+
+    global_store.variables.set(name.to_string(), resolved_value.clone());
 
     if let Some(current_mod) = global_store.modules.get_mut(path) {
         current_mod.variable_table.set(name.to_string(), resolved_value.clone());

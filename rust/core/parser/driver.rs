@@ -7,7 +7,7 @@ use crate::core::{
             bank::parse_bank_token,
             condition::parse_condition_token,
             dot::parse_dot_token,
-            identifier::parse_identifier_token,
+            identifier::{function::parse_function_token, parse_identifier_token},
             loop_::parse_loop_token,
             tempo::parse_tempo_token,
         },
@@ -138,6 +138,7 @@ impl Parser {
                 TokenKind::Bank => parse_bank_token(self, global_store),
                 TokenKind::Loop => parse_loop_token(self, global_store),
                 TokenKind::If => parse_condition_token(self, global_store),
+                TokenKind::Function => parse_function_token(self, global_store),
 
                 | TokenKind::Else // Ignore else, already handled in `parse_condition_token`
                 | TokenKind::Comment
@@ -303,6 +304,7 @@ impl Parser {
             }
             collected.push(self.advance().unwrap().clone());
         }
+        
         collected
     }
 

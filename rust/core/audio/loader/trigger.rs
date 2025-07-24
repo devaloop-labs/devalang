@@ -1,8 +1,13 @@
-use crate::core::{ shared::{ duration::Duration, value::Value }, store::variable::VariableTable };
+use crate::core::{
+    parser::statement::StatementKind,
+    shared::{ duration::Duration, value::Value },
+    store::variable::VariableTable,
+};
 
 pub fn load_trigger(
     trigger: &Value,
     duration: &Duration,
+    effects: &Option<Value>,
     base_duration: f32,
     variable_table: VariableTable
 ) -> (String, f32) {
@@ -13,8 +18,35 @@ pub fn load_trigger(
         Value::String(src) => {
             trigger_path = src.to_string();
         }
+        Value::Identifier(src) => {
+            trigger_path = src.to_string();
+        }
+        Value::StatementKind(stmt_kind) => {
+            if let StatementKind::Trigger { entity, duration, effects } = &**stmt_kind {
+                trigger_path = format!("devalang://bank/{}", entity);
+            } else {
+                eprintln!("❌ Trigger statement must be of type 'Trigger', found: {:?}", stmt_kind);
+            }
+        }
+        Value::Map(map) => {
+            if let Some(Value::String(src)) = map.get("entity") {
+                trigger_path = format!("devalang://bank/{}", src.to_string());
+            } else if let Some(Value::Identifier(src)) = map.get("entity") {
+                trigger_path = format!("devalang://bank/{}", src.to_string());
+            } else {
+                eprintln!(
+                    "❌ Trigger map must contain an 'entity' key with a string or identifier value."
+                );
+            }
+        }
+        Value::Sample(src) => {
+            trigger_path = src.to_string();
+        }
         _ => {
-            eprintln!("❌ Invalid trigger type. Expected a text variable.");
+            eprintln!(
+                "❌ Invalid trigger type. Expected a string or identifier variable, found: {:?}",
+                trigger
+            );
         }
     }
 
@@ -45,11 +77,11 @@ pub fn load_trigger(
 
         Duration::Beat(beat_str) => {
             let parts: Vec<&str> = beat_str.split('/').collect();
-            
+
             if parts.len() == 2 {
                 let numerator: f32 = parts[0].parse().unwrap_or(1.0);
                 let denominator: f32 = parts[1].parse().unwrap_or(1.0);
-                duration_as_secs = numerator / denominator * base_duration;
+                duration_as_secs = (numerator / denominator) * base_duration;
             } else {
                 eprintln!("❌ Invalid beat duration format: {}", beat_str);
             }
