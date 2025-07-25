@@ -4,6 +4,12 @@ pub struct ErrorHandler {
     errors: Vec<Error>,
 }
 
+pub struct ErrorResult {
+    pub message: String,
+    pub line: usize,
+    pub column: usize,
+}
+
 pub struct Error {
     pub message: String,
     pub line: usize,

@@ -127,7 +127,7 @@ pub fn handle_play_command(
     } else {
         // Single execution
         begin_play(&config, &entry_file, &output_path);
-        
+
         logger.log_message(LogLevel::Info, "🎵 Playback started (once mode)...");
 
         audio_player.play_file_once(&audio_file);

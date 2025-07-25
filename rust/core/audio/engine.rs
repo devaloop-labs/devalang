@@ -1,7 +1,11 @@
 use std::{ collections::HashMap, fs::File, io::BufReader, path::Path };
 use hound::{ SampleFormat, WavSpec, WavWriter };
 use rodio::{ Decoder, Source };
-use crate::core::{ shared::value::Value };
+use crate::core::{
+    shared::value::Value,
+    store::variable::VariableTable,
+    utils::path::normalize_path,
+};
 
 const SAMPLE_RATE: u32 = 44100;
 const CHANNELS: u16 = 2;
@@ -155,81 +159,122 @@ impl AudioEngine {
         filepath: &str,
         time_secs: f32,
         dur_sec: f32,
-        effects: Option<HashMap<String, Value>>
+        effects: Option<HashMap<String, Value>>,
+        variable_table: &VariableTable
     ) {
         if filepath.is_empty() {
             eprintln!("❌ Empty file path provided for audio sample.");
             return;
         }
 
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let module_root = Path::new(&self.module_name);
         let mut resolved_path = String::new();
 
-        if filepath.starts_with("devalang://") {
-            let root = Path::new(env!("CARGO_MANIFEST_DIR"));
-            let parts = filepath.split("devalang://").collect::<Vec<&str>>();
-            let object_parts = parts.get(1).unwrap_or(&"").split("/").collect::<Vec<&str>>();
-            let object_type = object_parts.get(0).unwrap_or(&"").to_lowercase();
-            let object_dir = object_parts.get(1).unwrap_or(&"").to_string();
-            let object_path = object_dir.split(".").collect::<Vec<&str>>();
-            let object_type_name = object_path.get(0).unwrap_or(&"").to_string();
-            let object_name = object_path.get(1).unwrap_or(&"").to_string();
+        // Get the variable path from the variable table
+        let mut var_path = filepath.to_string();
+        if let Some(Value::String(variable_path)) = variable_table.variables.get(filepath) {
+            var_path = variable_path.clone();
+        } else if let Some(Value::Sample(sample_path)) = variable_table.variables.get(filepath) {
+            var_path = sample_path.clone();
+        }
 
-            if object_type.contains("bank") {
+        // If it's a namespace
+        if var_path.contains(".") {
+            let parts: Vec<&str> = var_path.trim_start_matches('.').split('.').collect();
+            if parts.len() == 2 {
+                let bank_name = parts[0];
+                let entity_name = parts[1];
+
+                // Verifies if the bank is declared
+                if !variable_table.variables.contains_key(bank_name) {
+                    eprintln!(
+                        "❌ Bank '{}' not declared. Please declare it first using : 'bank {}'",
+                        bank_name,
+                        bank_name
+                    );
+                    return;
+                }
+
                 resolved_path = root
                     .join(".deva")
                     .join("bank")
-                    .join(object_type_name)
-                    .join(format!("{}.wav", object_name))
-                    .to_str()
-                    .unwrap_or("")
+                    .join(bank_name)
+                    .join(format!("{}.wav", entity_name))
+                    .to_string_lossy()
                     .to_string();
             } else {
-                eprintln!("❌ Unsupported devalang:// object type: {}", object_type);
+                eprintln!("❌ Invalid namespace format: {}", var_path);
                 return;
             }
-        } else {
-            let module_path = &self.module_name;
-            let root = Path::new(module_path).parent();
+        } else if var_path.starts_with("devalang://") {
+            let path_after_protocol = var_path.replace("devalang://", "");
+            let parts: Vec<&str> = path_after_protocol.split('/').collect();
 
-            if let Some(root_path) = root {
-                resolved_path = root_path.join(filepath).to_str().unwrap_or("").to_string();
-            } else {
-                eprintln!("❌ Could not resolve root path for module: {}", module_path);
+            if parts.len() < 3 {
+                eprintln!(
+                    "❌ Invalid devalang:// path format. Expected devalang://<type>/<bank>/<entity>"
+                );
                 return;
             }
+
+            let obj_type = parts[0];
+            let bank_name = parts[1];
+            let entity_name = parts[2];
+
+            resolved_path = root
+                .join(".deva")
+                .join(obj_type)
+                .join(bank_name)
+                .join(format!("{}.wav", entity_name))
+                .to_string_lossy()
+                .to_string();
+        } else {
+            // Else, resolve as a relative path
+            let entry_dir = module_root.parent().unwrap_or(root);
+            let absolute_path = root.join(entry_dir).join(&var_path);
+
+            resolved_path = normalize_path(absolute_path.to_string_lossy().to_string());
         }
 
+        // Verify if the file exists
         if !Path::new(&resolved_path).exists() {
             eprintln!("❌ Audio file not found at: {}", resolved_path);
             return;
         }
 
-        let file = BufReader::new(
-            File::open(&resolved_path).expect(&format!("Failed to open audio file {}", filepath))
-        );
-        let decoder = Decoder::new(file).expect("Failed to decode audio file");
+        let file = match File::open(&resolved_path) {
+            Ok(f) => BufReader::new(f),
+            Err(e) => {
+                eprintln!("❌ Failed to open audio file {}: {}", resolved_path, e);
+                return;
+            }
+        };
 
-        // Mono or stereo reading possible here, we will duplicate in L/R
+        let decoder = match Decoder::new(file) {
+            Ok(d) => d,
+            Err(e) => {
+                eprintln!("❌ Failed to decode audio file {}: {}", resolved_path, e);
+                return;
+            }
+        };
+
         let max_mono_samples = (dur_sec * (SAMPLE_RATE as f32)) as usize;
         let samples: Vec<i16> = decoder.convert_samples().take(max_mono_samples).collect();
 
         if samples.is_empty() {
-            eprintln!("No samples found in the audio file: {}", filepath);
+            eprintln!("❌ No samples read from {}", resolved_path);
             return;
         }
 
-        // Pad the buffer to ensure it can accommodate the new samples
+        // Calculate buffer offset and size
         let offset = (time_secs * (SAMPLE_RATE as f32) * (CHANNELS as f32)) as usize;
         let required_len = offset + samples.len() * (CHANNELS as usize);
-        let padded_required_len = if required_len % 2 == 1 {
-            required_len + 1
-        } else {
-            required_len
-        };
+        if self.buffer.len() < required_len {
+            self.buffer.resize(required_len, 0);
+        }
 
-        self.buffer.resize(padded_required_len, 0);
-
-        // Apply effects
+        // Apply effects and mix
         if let Some(effects_map) = effects {
             self.pad_samples(&samples, time_secs, Some(effects_map));
         } else {

@@ -17,13 +17,23 @@ pub fn resolve_function(
     global_store: &mut GlobalStore
 ) -> Statement {
     if let StatementKind::Function { name, parameters, body } = &stmt.kind {
-        global_store.functions.functions.insert(name.clone(), FunctionDef {
+        let resolved_body = resolve_block_statements(body, &module, path, global_store);
+
+        global_store.functions.add_function(FunctionDef {
             name: name.clone(),
             parameters: parameters.clone(),
-            body: body.clone(),
+            body: resolved_body.clone(),
         });
 
-        let resolved_body = resolve_block_statements(body, &module, path, global_store);
+        if let Some(current_mod) = global_store.modules.get_mut(path) {
+            current_mod.function_table.add_function(FunctionDef {
+                name: name.clone(),
+                parameters: parameters.clone(),
+                body: resolved_body.clone(),
+            });
+        } else {
+            eprintln!("[resolve_statement] ❌ Module path not found: {path}");
+        }
 
         return Statement {
             kind: StatementKind::Function {

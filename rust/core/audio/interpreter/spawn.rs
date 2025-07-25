@@ -1,89 +1,102 @@
 use crate::core::{
-    audio::{ engine::AudioEngine, interpreter::driver::execute_audio_block },
-    parser::statement::Statement,
+    audio::{engine::AudioEngine, interpreter::driver::execute_audio_block},
+    parser::statement::{Statement, StatementKind},
     shared::value::Value,
-    store::{ function::FunctionTable, variable::VariableTable },
+    store::{function::FunctionTable, global::GlobalStore, variable::VariableTable},
 };
 
 pub fn interprete_spawn_statement(
     stmt: &Statement,
     audio_engine: &mut AudioEngine,
-    variable_table: &mut VariableTable,
-    functions_table: &mut FunctionTable,
+    variable_table: &VariableTable,
+    functions: &FunctionTable,
+    global_store: &GlobalStore,
     base_bpm: f32,
     base_duration: f32,
+    max_end_time: f32,
     cursor_time: f32,
-    max_end_time: f32
-) -> Option<(f32, f32)> {
-    match &stmt.value {
-        Value::String(identifier) | Value::Identifier(identifier) => {
-            handle_spawn_identifier(
-                identifier,
-                audio_engine,
-                variable_table,
-                functions_table,
-                base_bpm,
-                base_duration,
-                cursor_time,
-                max_end_time
-            )
-        }
+) -> (f32, f32) {
+    match &stmt.kind {
+        StatementKind::Spawn { name, args } => {
+            let mut local_engine = AudioEngine::new(audio_engine.module_name.clone());
 
-        Value::Map(map) => {
-            if let Some(Value::Block(block)) = map.get("body") {
-                let (end_time, cursor_time) = execute_audio_block(
-                    audio_engine,
-                    variable_table.clone(),
-                    functions_table.clone(),
-                    block.clone(),
+            // ✅ 1. Cas : fonction
+            if let Some(func) = functions.functions.get(name) {
+                if func.parameters.len() != args.len() {
+                    eprintln!(
+                        "❌ Function '{}' expects {} args, got {}",
+                        name,
+                        func.parameters.len(),
+                        args.len()
+                    );
+                    return (max_end_time, cursor_time);
+                }
+
+                let mut local_vars = VariableTable::with_parent(variable_table.clone());
+                for (param, arg) in func.parameters.iter().zip(args) {
+                    local_vars.set(param.clone(), arg.clone());
+                }
+
+                let (spawn_max, _) = execute_audio_block(
+                    &mut local_engine,
+                    global_store,
+                    local_vars,
+                    functions.clone(),
+                    func.body.clone(),
                     base_bpm,
                     base_duration,
-                    max_end_time,
-                    cursor_time
+                    0.0,
+                    0.0,
                 );
-                return Some((max_end_time.max(end_time), cursor_time));
-            } else {
-                eprintln!("❌ Spawn map has no 'body' block");
+
+                audio_engine.merge_with(local_engine);
+                return (spawn_max.max(max_end_time), cursor_time);
             }
-            None
+
+            // ✅ 2. Cas : group dans variable_table ou global_store
+            if let Some(group_stmt) = find_group(name, variable_table, global_store) {
+                if let Value::Map(map) = &group_stmt.value {
+                    if let Some(Value::Block(body)) = map.get("body") {
+                        let (spawn_max, _) = execute_audio_block(
+                            &mut local_engine,
+                            global_store,
+                            variable_table.clone(),
+                            functions.clone(),
+                            body.clone(),
+                            base_bpm,
+                            base_duration,
+                            0.0,
+                            0.0,
+                        );
+                        audio_engine.merge_with(local_engine);
+                        return (spawn_max.max(max_end_time), cursor_time);
+                    }
+                }
+            }
+
+            eprintln!("❌ Function or group '{}' not found", name);
         }
 
-        _ => {
-            eprintln!("❌ Invalid spawn statement: expected identifier, found {:?}", stmt.value);
-            None
-        }
+        _ => eprintln!("❌ interprete_spawn_statement expected Spawn, got {:?}", stmt.kind),
     }
+
+    (max_end_time, cursor_time)
 }
 
-fn handle_spawn_identifier(
-    identifier: &str,
-    audio_engine: &mut AudioEngine,
-    variable_table: &mut VariableTable,
-    functions_table: &mut FunctionTable,
-    base_bpm: f32,
-    base_duration: f32,
-    cursor_time: f32,
-    max_end_time: f32
-) -> Option<(f32, f32)> {
-    if let Some(Value::Map(map)) = variable_table.get(identifier) {
-        if let Some(Value::Block(block)) = map.get("body") {
-            let (end_time, cursor_time) = execute_audio_block(
-                audio_engine,
-                variable_table.clone(),
-                functions_table.clone(),
-                block.clone(),
-                base_bpm,
-                base_duration,
-                max_end_time,
-                cursor_time
-            );
-            return Some((max_end_time.max(end_time), cursor_time));
-        } else {
-            eprintln!("❌ Spawn group '{}' has no 'body' block", identifier);
+fn find_group<'a>(
+    name: &str,
+    variable_table: &'a VariableTable,
+    global_store: &'a GlobalStore,
+) -> Option<&'a Statement> {
+    if let Some(Value::Statement(stmt_box)) = variable_table.get(name) {
+        if let StatementKind::Group = stmt_box.kind {
+            return Some(stmt_box);
         }
-    } else {
-        eprintln!("❌ Spawn group '{}' not found or not a map", identifier);
     }
-
+    if let Some(Value::Statement(stmt_box)) = global_store.variables.variables.get(name) {
+        if let StatementKind::Group = stmt_box.kind {
+            return Some(stmt_box);
+        }
+    }
     None
 }

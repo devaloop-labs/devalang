@@ -102,13 +102,26 @@ pub fn interprete_trigger_statement(
             Duration::Auto => base_duration,
         };
 
+        let final_variable_table = if let Some(parent) = &variable_table.parent {
+            VariableTable {
+                variables: parent.variables.clone(),
+                parent: None,
+            }
+        } else {
+            variable_table.clone()
+        };
+
         let (src, sample_length) = load_trigger(
             &trigger_val,
             duration,
             effects,
             base_duration,
-            variable_table.clone()
+            final_variable_table.clone()
         );
+
+        if trigger_src.is_empty() {
+            trigger_src = src;
+        }
 
         let effects = extract_effects(stmt.value.clone());
         let one_shot = effects
@@ -129,10 +142,36 @@ pub fn interprete_trigger_statement(
             duration_secs.min(sample_length)
         };
 
+        let trigger_src = match trigger_val.get("entity") {
+            Some(Value::String(src)) => src.clone(),
+            Some(Value::Identifier(id)) => id.clone(),
+            Some(Value::Statement(stmt)) => {
+                if let StatementKind::Trigger { entity, .. } = &stmt.kind {
+                    entity.clone()
+                } else {
+                    eprintln!("❌ Invalid trigger statement in map: expected 'Trigger' kind");
+                    return None;
+                }
+            }
+            _ => trigger_src,
+        };
+
         if let Some(effects_map) = effects {
-            audio_engine.insert_sample(&trigger_src, cursor_time, play_length, Some(effects_map));
+            audio_engine.insert_sample(
+                &trigger_src,
+                cursor_time,
+                play_length,
+                Some(effects_map),
+                &final_variable_table
+            );
         } else {
-            audio_engine.insert_sample(&trigger_src, cursor_time, play_length, None);
+            audio_engine.insert_sample(
+                &trigger_src,
+                cursor_time,
+                play_length,
+                None,
+                &final_variable_table
+            );
         }
 
         let new_cursor_time = cursor_time + duration_secs; // advance by beat duration

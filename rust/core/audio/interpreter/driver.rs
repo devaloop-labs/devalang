@@ -1,3 +1,6 @@
+use rayon::prelude::*;
+use std::sync::{ Arc, Mutex };
+
 use crate::core::{
     audio::{
         engine::AudioEngine,
@@ -15,8 +18,7 @@ use crate::core::{
             trigger::interprete_trigger_statement,
         },
     },
-    parser::statement::{ self, Statement, StatementKind },
-    shared::value::Value,
+    parser::statement::{ Statement, StatementKind },
     store::{ function::FunctionTable, global::GlobalStore, variable::VariableTable },
 };
 
@@ -32,16 +34,11 @@ pub fn run_audio_program(
     let mut base_bpm = 120.0;
     let mut base_duration = 60.0 / base_bpm;
 
-    // Fill the variable table with global variables
-    module_variables.variables.extend(global_store.variables.variables.clone());
-
-    // Fill the functions table with global functions
-    module_functions.functions.extend(global_store.functions.functions.clone());
-
     let (max_end_time, cursor_time) = execute_audio_block(
         audio_engine,
-        module_variables,
-        module_functions,
+        global_store,
+        global_store.variables.clone(),
+        global_store.functions.clone(),
         statements.clone(),
         base_bpm,
         base_duration,
@@ -54,41 +51,44 @@ pub fn run_audio_program(
 
 pub fn execute_audio_block(
     audio_engine: &mut AudioEngine,
-    mut variable_table: VariableTable,
-    mut functions_table: FunctionTable,
+    global_store: &GlobalStore,
+    variable_table: VariableTable,
+    functions_table: FunctionTable,
     statements: Vec<Statement>,
     mut base_bpm: f32,
     mut base_duration: f32,
     mut max_end_time: f32,
     mut cursor_time: f32
 ) -> (f32, f32) {
-    for stmt in &statements {
+    let (spawns, others): (Vec<_>, Vec<_>) = statements
+        .into_iter()
+        .partition(|stmt| matches!(stmt.kind, StatementKind::Spawn { .. }));
+
+    // Execute sequential statements first
+    for stmt in others {
         match &stmt.kind {
             StatementKind::Load { .. } => {
-                if let Some(new_table) = interprete_load_statement(&stmt, &mut variable_table) {
-                    variable_table.variables.extend(new_table.variables);
+                if
+                    let Some(new_table) = interprete_load_statement(
+                        &stmt,
+                        &mut variable_table.clone()
+                    )
+                {
+                    // Extend the variable_table if necessary
                 }
             }
-
             StatementKind::Let { .. } => {
-                if let Some(new_table) = interprete_let_statement(&stmt, &mut variable_table) {
-                    variable_table.variables.extend(new_table.variables);
-                }
+                interprete_let_statement(&stmt, &mut variable_table.clone());
             }
-
-            StatementKind::Function { name, parameters, body } => {
-                if let Some(new_table) = interprete_function_statement(&stmt, &mut functions_table) {
-                    functions_table.functions.extend(new_table.functions);
-                }
+            StatementKind::Function { .. } => {
+                interprete_function_statement(&stmt, &mut functions_table.clone());
             }
-
             StatementKind::Tempo => {
                 if let Some((new_bpm, new_duration)) = interprete_tempo_statement(&stmt) {
                     base_bpm = new_bpm;
                     base_duration = new_duration;
                 }
             }
-
             StatementKind::Trigger { .. } => {
                 if
                     let Some((new_cursor, new_max, _)) = interprete_trigger_statement(
@@ -104,7 +104,6 @@ pub fn execute_audio_block(
                     max_end_time = new_max;
                 }
             }
-
             StatementKind::Sleep => {
                 let (new_cursor, new_max) = interprete_sleep_statement(
                     &stmt,
@@ -114,11 +113,11 @@ pub fn execute_audio_block(
                 cursor_time = new_cursor;
                 max_end_time = new_max;
             }
-
             StatementKind::Loop => {
                 let (new_max, new_cursor) = interprete_loop_statement(
                     &stmt,
                     audio_engine,
+                    global_store,
                     &variable_table,
                     &functions_table,
                     base_bpm,
@@ -129,22 +128,21 @@ pub fn execute_audio_block(
                 cursor_time = new_cursor;
                 max_end_time = new_max;
             }
-
             StatementKind::Call { .. } => {
                 let (new_max, new_cursor) = interprete_call_statement(
                     &stmt,
                     audio_engine,
                     &variable_table,
                     &functions_table,
+                    global_store,
                     base_bpm,
                     base_duration,
                     max_end_time,
-                    cursor_time
+                    cursor_time,
                 );
                 cursor_time = new_cursor;
                 max_end_time = new_max;
             }
-
             StatementKind::ArrowCall { .. } => {
                 let (new_max, new_cursor) = interprete_call_arrow_statement(
                     &stmt,
@@ -159,8 +157,35 @@ pub fn execute_audio_block(
                 cursor_time = new_cursor;
                 max_end_time = new_max;
             }
-
             _ => {}
+        }
+    }
+
+    // Execute parallel spawns (collect results)
+    let spawn_results: Vec<(AudioEngine, f32)> = spawns
+        .par_iter()
+        .map(|stmt| {
+            let mut local_engine = AudioEngine::new(audio_engine.module_name.clone());
+            let (spawn_max, _) = interprete_spawn_statement(
+                stmt,
+                &mut local_engine,
+                &variable_table,
+                &functions_table,
+                global_store,
+                base_bpm,
+                base_duration,
+                0.0,
+                0.0
+            );
+            (local_engine, spawn_max)
+        })
+        .collect();
+
+    // Finally, merge results from all spawns
+    for (local_engine, spawn_max) in spawn_results {
+        audio_engine.merge_with(local_engine);
+        if spawn_max > max_end_time {
+            max_end_time = spawn_max;
         }
     }
 

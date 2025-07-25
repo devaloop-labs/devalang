@@ -44,7 +44,7 @@ This is a list of tasks and features to be implemented in Devalang. Note that th
 - [x] @export
 - [x] @load
 - [ ] @include
-- [ ] function
+- [x] function
 - [ ] pattern
 - [x] group
 - [x] call

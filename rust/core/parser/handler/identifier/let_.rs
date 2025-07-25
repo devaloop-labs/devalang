@@ -36,11 +36,11 @@ pub fn parse_let_token(
     let value = match parser.peek_clone() {
         Some(token) if token.kind == TokenKind::Dot => {
             let dot_stmt = parse_dot_token(parser, global_store);
-            Value::StatementKind(Box::new(dot_stmt.kind))
+            Value::Statement(Box::new(dot_stmt))
         }
         Some(token) if token.kind == TokenKind::Synth => {
             let synth_stmt = parse_synth_token(parser, token.clone(), global_store);
-            Value::StatementKind(Box::new(synth_stmt.kind))
+            Value::Statement(Box::new(synth_stmt))
         }
         Some(token) if token.kind == TokenKind::Identifier => {
             parser.advance();

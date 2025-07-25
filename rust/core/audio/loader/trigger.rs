@@ -21,13 +21,7 @@ pub fn load_trigger(
         Value::Identifier(src) => {
             trigger_path = src.to_string();
         }
-        Value::StatementKind(stmt_kind) => {
-            if let StatementKind::Trigger { entity, duration, effects } = &**stmt_kind {
-                trigger_path = format!("devalang://bank/{}", entity);
-            } else {
-                eprintln!("❌ Trigger statement must be of type 'Trigger', found: {:?}", stmt_kind);
-            }
-        }
+
         Value::Map(map) => {
             if let Some(Value::String(src)) = map.get("entity") {
                 trigger_path = format!("devalang://bank/{}", src.to_string());
@@ -41,6 +35,13 @@ pub fn load_trigger(
         }
         Value::Sample(src) => {
             trigger_path = src.to_string();
+        }
+        Value::Statement(stmt) => {
+            if let StatementKind::Trigger { entity, duration, effects } = &stmt.kind {
+                trigger_path = entity.clone();
+            } else {
+                eprintln!("❌ Trigger statement must be of type 'Trigger', found: {:?}", stmt.kind);
+            }
         }
         _ => {
             eprintln!(

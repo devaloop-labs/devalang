@@ -69,9 +69,12 @@ pub enum StatementKind {
         name: String,
         args: Vec<Value>,
     },
-    Spawn,
+    Spawn {
+        name: String,
+        args: Vec<Value>,
+    },
     Loop,
-    
+
     // ───── Structure & Logic ─────
     Group,
 

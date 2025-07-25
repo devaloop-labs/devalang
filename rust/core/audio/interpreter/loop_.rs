@@ -2,12 +2,13 @@ use crate::core::{
     audio::{ engine::AudioEngine, interpreter::driver::execute_audio_block },
     parser::statement::{ Statement, StatementKind },
     shared::{ duration::Duration, value::Value },
-    store::{function::FunctionTable, variable::VariableTable},
+    store::{function::FunctionTable, global::GlobalStore, variable::VariableTable},
 };
 
 pub fn interprete_loop_statement(
     stmt: &Statement,
     audio_engine: &mut AudioEngine,
+    global_store: &GlobalStore,
     variable_table: &VariableTable,
     functions_table: &FunctionTable,
     base_bpm: f32,
@@ -50,6 +51,7 @@ pub fn interprete_loop_statement(
         for i in 0..loop_count {
             let (block_end_time, cursor_time) = execute_audio_block(
                 &mut engine,
+                global_store,
                 variable_table.clone(),
                 functions_table.clone(),
                 loop_body.clone(),

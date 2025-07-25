@@ -28,7 +28,7 @@ pub fn render_audio_with_modules(
                 module_name.clone(),
                 output_dir.to_string(),
                 module.variable_table.clone(),
-                module.functions.clone(),
+                module.function_table.clone(),
                 global_store
             );
 
@@ -39,7 +39,6 @@ pub fn render_audio_with_modules(
                     LogLevel::Warning,
                     &format!("Module '{}' ignored: silent buffer (no non-zero samples)", module_name)
                 );
-                continue;
             }
 
             // Determines the maximum end time for the module

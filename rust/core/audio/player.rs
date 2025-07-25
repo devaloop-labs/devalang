@@ -21,23 +21,33 @@ impl AudioPlayer {
         }
     }
 
-    fn load_source(&self, path: &str) -> impl Source<Item = f32> + Send + 'static {
-        let file = File::open(path).unwrap();
-        let reader = BufReader::new(file);
-
-        Decoder::new(reader).unwrap().convert_samples()
+    fn load_source(&self, path: &str) -> Option<impl Source<Item = f32> + Send + 'static> {
+        if let Ok(file) = File::open(path) {
+            let reader = BufReader::new(file);
+            match Decoder::new(reader) {
+                Ok(decoder) => Some(decoder.convert_samples()),
+                Err(e) => {
+                    eprintln!("❌ Failed to decode audio file '{}': {}", path, e);
+                    None
+                }
+            }
+        } else {
+            eprintln!("❌ Could not open audio file: {}", path);
+            None
+        }
     }
 
     pub fn play_file_once(&mut self, path: &str) {
         self.sink.stop();
         self.sink = Sink::try_new(&self.handle).unwrap();
-
         self.sink.set_volume(1.0);
 
-        let source = self.load_source(path);
-
-        self.sink.append(source);
-        self.last_path = Some(path.to_string());
+        if let Some(source) = self.load_source(path) {
+            self.sink.append(source);
+            self.last_path = Some(path.to_string());
+        } else {
+            eprintln!("⚠️ Skipping playback: failed to load '{}'", path);
+        }
     }
 
     pub fn replay_last(&mut self) {

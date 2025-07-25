@@ -186,30 +186,14 @@ impl ModuleLoader {
         module.tokens = tokens.clone();
         module.statements = statements.clone();
 
-        let mut module_variables = module.variable_table.clone();
-
         // Inject triggers for each bank used in module
         for bank_name in self.extract_bank_names(&statements) {
-            let module_updated = self
-                .inject_bank_triggers(&mut module, &bank_name)
-                .map_err(|e| format!("Failed to inject bank triggers: {}", e));
-
-            if let Err(e) = module_updated {
-                eprintln!("[warn] {}", e);
-            }
-
-            // Update the variable table with the bank variables
-            if let Some(bank_variables) = module.variable_table.get(&bank_name) {
-                if let Value::Map(bank_map) = bank_variables {
-                    for (key, value) in bank_map {
-                        module_variables.set(format!("{}.{}", bank_name, key), value.clone());
-                    }
-                }
-            }
+            self.inject_bank_triggers(&mut module, &bank_name);
         }
 
-        // Update the module's variable table
-        // module.variable_table = module_variables;
+        // Inject module variables and functions into global store
+        global_store.variables.variables.extend(module.variable_table.variables.clone());
+        global_store.functions.functions.extend(module.function_table.functions.clone());
 
         // Inject the module into the global store
         global_store.insert_module(path.clone(), module);
@@ -265,25 +249,29 @@ impl ModuleLoader {
         }
     }
 
-    pub fn inject_bank_triggers(&self, module: &mut Module, bank_name: &str) -> Result<(), String> {
+    pub fn inject_bank_triggers(
+        &self,
+        module: &mut Module,
+        bank_name: &str
+    ) -> Result<Module, String> {
         let bank_path = Path::new("./.deva/bank").join(bank_name);
-        let bank_file_path = bank_path.join("bank.toml");
+        let bank_toml_path = bank_path.join("bank.toml");
 
-        if !bank_file_path.exists() {
-            return Ok(());
+        if !bank_toml_path.exists() {
+            return Ok(module.clone());
         }
 
         let content = std::fs
-            ::read_to_string(&bank_file_path)
-            .map_err(|e| format!("Failed to read '{}': {}", bank_file_path.display(), e))?;
+            ::read_to_string(&bank_toml_path)
+            .map_err(|e| format!("Failed to read '{}': {}", bank_toml_path.display(), e))?;
 
-        let parsed: BankFile = toml
+        let parsed_bankfile: BankFile = toml
             ::from_str(&content)
-            .map_err(|e| format!("Failed to parse '{}': {}", bank_file_path.display(), e))?;
+            .map_err(|e| format!("Failed to parse '{}': {}", bank_toml_path.display(), e))?;
 
         let mut bank_map = HashMap::new();
 
-        for bank_trigger in parsed.triggers.unwrap_or_default() {
+        for bank_trigger in parsed_bankfile.triggers.unwrap_or_default() {
             let trigger_name = bank_trigger.name.clone().replace("./", "");
             let bank_trigger_path = format!("devalang://bank/{}/{}", bank_name, trigger_name);
 
@@ -307,7 +295,7 @@ impl ModuleLoader {
         // Inject the map under the bank name
         module.variable_table.set(bank_name.to_string(), Value::Map(bank_map));
 
-        Ok(())
+        Ok(module.clone())
     }
 
     fn extract_bank_names(&self, statements: &[Statement]) -> HashSet<String> {
@@ -315,55 +303,18 @@ impl ModuleLoader {
 
         for stmt in statements {
             match &stmt.kind {
-                StatementKind::Trigger { entity, .. } => {
-                    let parts: Vec<&str> = entity.split('.').collect();
-                    if parts.len() >= 2 {
-                        banks.insert(parts[0].to_string());
-                    }
-                }
-
+                // Extract only bank declarations
                 StatementKind::Bank => {
                     if let Value::String(name) = &stmt.value {
                         banks.insert(name.clone());
                     }
+                    if let Value::Number(num) = &stmt.value {
+                        banks.insert(num.to_string());
+                    }
+                    if let Value::Identifier(name) = &stmt.value {
+                        banks.insert(name.clone());
+                    }
                 }
-
-                StatementKind::Group { .. } => {
-                    let group_body = match &stmt.value {
-                        Value::Map(map) => {
-                            if let Some(Value::Block(body)) = map.get("body") {
-                                body
-                            } else {
-                                continue;
-                            }
-                        }
-                        _ => {
-                            continue;
-                        }
-                    };
-
-                    let inner_banks = self.extract_bank_names(&group_body);
-                    banks.extend(inner_banks);
-                }
-
-                StatementKind::If { .. } => {
-                    let if_body = match &stmt.value {
-                        Value::Map(map) => {
-                            if let Some(Value::Block(body)) = map.get("body") {
-                                body
-                            } else {
-                                continue;
-                            }
-                        }
-                        _ => {
-                            continue;
-                        }
-                    };
-
-                    let inner_banks = self.extract_bank_names(&if_body);
-                    banks.extend(inner_banks);
-                }
-
                 _ => {}
             }
         }

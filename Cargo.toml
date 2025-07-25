@@ -1,6 +1,6 @@
 [package]
 name = "devalang"
-version = "0.0.1-alpha.12"
+version = "0.0.1-alpha.13"
 authors = ["Devaloop <contact@devaloop.com>"]
 description = "Write music like code. Devalang is a domain-specific language (DSL) for sound designers and music hackers. Compose, automate, and control sound — in plain text."
 license = "MIT"
@@ -20,7 +20,7 @@ required-features = ["cli"]
 
 [lib]
 path = "rust/lib.rs"
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
 
 [profile.release]
 opt-level = "s"
@@ -51,3 +51,4 @@ reqwest = { version = "0.12.22", optional = true, features = ["json"] }
 flate2 = { version = "1.0", optional = true }
 tokio = { version = "1", features = ["full"], optional = true }
 zip = { version = "4.3.0", optional = true }
+rayon = "1.10.0"

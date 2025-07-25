@@ -6,14 +6,15 @@ use crate::core::{
     },
     parser::statement::Statement,
     shared::value::Value,
-    store::{ function::FunctionTable, variable::VariableTable },
+    store::{ function::FunctionTable, global::GlobalStore, variable::VariableTable },
 };
 
 pub fn interprete_condition_statement(
     stmt: &Statement,
     audio_engine: &mut AudioEngine,
-    variable_table: &mut VariableTable,
-    functions_table: &mut FunctionTable,
+    global_store: &GlobalStore,
+    variable_table: &VariableTable,
+    functions_table: &FunctionTable,
     base_bpm: f32,
     base_duration: f32,
     max_end_time: f32,
@@ -40,6 +41,7 @@ pub fn interprete_condition_statement(
             if let Some(Value::Block(block)) = map.get("body") {
                 let (new_max, cursor_time) = execute_audio_block(
                     audio_engine,
+                    global_store,
                     variable_table.clone(),
                     functions_table.clone(),
                     block.clone(),

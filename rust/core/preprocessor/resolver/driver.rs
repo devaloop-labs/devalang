@@ -49,8 +49,10 @@ pub fn resolve_statement(
             ),
         StatementKind::If => resolve_condition(stmt, module, path, global_store),
         StatementKind::Group => resolve_group(stmt, module, path, global_store),
-        StatementKind::Call { .. } => resolve_call(stmt, module, path, global_store),
-        StatementKind::Spawn => resolve_spawn(stmt, module, path, global_store),
+        StatementKind::Call { name, args } =>
+            resolve_call(stmt, name.clone(), args.clone(), module, path, global_store),
+        StatementKind::Spawn { name, args } =>
+            resolve_spawn(stmt, name.clone(), args.clone(), module, path, global_store),
         StatementKind::Bank => resolve_bank(stmt, module, path, global_store),
         StatementKind::Tempo => resolve_tempo(stmt, module, path, global_store),
         StatementKind::Loop => resolve_loop(stmt, module, path, global_store),
@@ -230,7 +232,26 @@ pub fn resolve_and_flatten_all_modules(
                 }
 
                 StatementKind::Call { name, args } => {
-                    let resolved_stmt = resolve_call(&stmt, &module, &path, global_store);
+                    let resolved_stmt = resolve_call(
+                        &stmt,
+                        name.clone(),
+                        args.clone(),
+                        &module,
+                        &path,
+                        global_store
+                    );
+                    resolved.push(resolved_stmt);
+                }
+
+                StatementKind::Spawn { name, args } => {
+                    let resolved_stmt = resolve_spawn(
+                        &stmt,
+                        name.clone(),
+                        args.clone(),
+                        &module,
+                        &path,
+                        global_store
+                    );
                     resolved.push(resolved_stmt);
                 }
 

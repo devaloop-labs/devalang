@@ -27,7 +27,7 @@ Compose loops, control samples, render and play audio — all in clean, readable
 
 From studio sketches to live sets, Devalang gives you rhythmic control — with the elegance of code.
 
-> 🚧 **v0.0.1-alpha.11 Notice** 🚧
+> 🚧 **v0.0.1-alpha.13 Notice** 🚧
 >
 > NEW: Devalang is available in your browser at [playground.devalang.com](https://playground.devalang.com) !
 >
@@ -119,22 +119,9 @@ devalang play --repeat
 
 ### Please refer to the [online documentation](https://docs.devalang.com) for detailed information on syntax, features, and usage examples.
 
-## 📜 Changelog Highlights
-
-For a complete list of changes, see [docs/CHANGELOG.md](./docs/CHANGELOG.md)
-
-- Implemented beat durations in `triggers` and `arrow_calls` statements
-- Implemented `bank` resolver to resolve banks of sounds in the code
-  - Support for namespaced banks of sounds (e.g. `.808.myTrigger`)
-- Implemented multiple commands for `bank` management
-  - `bank list`, `bank available`, `bank info <bank_name>`, `bank remove <bank_name>`, `bank update`, `bank update <bank_name>`
-- Implemented `install` command to install banks of sounds
-  - `install bank <bank_name>`
-
 ## 🧯 Known issues
 
 - No smart modules yet, all groups, variables, and samples must be explicitly imported where used
-- No support yet for `pattern`, `function`, ... statements
 - No support yet for cross-platform builds (Linux, macOS)
 
 ## 🧪 Roadmap Highlights

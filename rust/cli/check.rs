@@ -5,7 +5,12 @@ use crate::{
         store::global::GlobalStore,
         utils::path::{ find_entry_file, normalize_path },
     },
-    utils::{ logger::{ LogLevel, Logger }, spinner::with_spinner, watcher::watch_directory },
+    utils::{
+        collect_errors_recursively,
+        logger::{ LogLevel, Logger },
+        spinner::with_spinner,
+        watcher::watch_directory,
+    },
 };
 use std::{ thread, time::Duration };
 
@@ -104,7 +109,26 @@ fn begin_check(entry: String, output: String) {
     // NOTE: We don't use modules in the check command, but we still need to load them
     let modules = module_loader.load_all_modules(&mut global_store);
 
-    // TODO: Implement debugging
+    // Debugging: Log loaded modules and errors
+    let logger = Logger::new();
+    logger.log_message(LogLevel::Info, "Loaded modules:");
+    for (module_name, _) in &modules.0 {
+        logger.log_message(LogLevel::Info, &format!("- {}", module_name));
+    }
+
+    let mut all_errors = Vec::new();
+    for (_, statements) in &modules.1 {
+        all_errors.extend(collect_errors_recursively(statements));
+    }
+
+    if !all_errors.is_empty() {
+        logger.log_message(LogLevel::Error, "Errors detected during check:");
+        for error in all_errors {
+            logger.log_message(LogLevel::Error, &format!("- {}", error.message));
+        }
+    } else {
+        logger.log_message(LogLevel::Success, "No errors detected.");
+    }
 
     let success_message = format!(
         "Check completed successfully in {:.2?}. Output files written to: '{}'",
@@ -112,6 +136,5 @@ fn begin_check(entry: String, output: String) {
         normalized_output_dir
     );
 
-    let logger = Logger::new();
     logger.log_message(LogLevel::Success, &success_message);
 }

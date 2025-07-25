@@ -4,15 +4,13 @@
 
 # Changelog
 
-## Version 0.0.1-alpha.13 (2025-07-24)
+## Version 0.0.1-alpha.13 (2025-07-26)
 
 ### 🧩 Language Features
 
 - Added support for `fn` directive to define functions in Devalang.
   - Example: `fn myFunction(param1, param2):`
-- Possibility to use triggers inside `let` statements, allowing for more dynamic sound manipulation.
-  - Example: `let myTrigger = .myTrigger auto { reverb: 0.5, pitch: 1.2 }`
-
+  
 ### 🧠 Core Engine
 
 - Patched `trigger`, `call`, and `spawn`, `renderer` to handle correct cursor time in the audio interpreter.
@@ -20,6 +18,17 @@
 - Refactored `trigger` effects to apply more effects to triggers.
   - Example: `.myTrigger auto { reverb: 0.25, pitch: 0.75, gain: 0.8 }`
 - Refactored `preprocessor` to handle correct namespaced banks of sounds and triggers.
+- Refactored `collect_errors_recursively` to provide detailed error reporting across nested statements.
+- Optimized the `renderer` to handle silent buffers and improve performance.
+
+### 🛠️ Utilities
+
+- Added the `extract_loop_body_statements` utility for better loop handling.
+- Improved logging for module variables and functions.
+
+### 🧩 Web Assembly
+
+- Patched `lib.rs` dependencies to ensure compatibility with the latest Rust and WASM standards.
 
 ## Version 0.0.1-alpha.12 (2025-07-21)
 

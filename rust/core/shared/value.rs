@@ -15,6 +15,7 @@ pub enum Value {
     Block(Vec<Statement>),
     Sample(String),
     Beat(String),
+    Statement(Box<Statement>),
     StatementKind(Box<StatementKind>),
     Unknown,
     Null,
