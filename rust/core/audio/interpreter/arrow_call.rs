@@ -67,7 +67,6 @@ pub fn interprete_call_arrow_statement(
         let release = extract_f32(&synth_params, "release", base_bpm).unwrap_or(0.0);
         let freq = extract_f32(&synth_params, "freq", base_bpm).unwrap_or(440.0);
         let amp = extract_f32(&synth_params, "amp", base_bpm).unwrap_or(1.0);
-        let duration_ms = extract_f32(&synth_params, "duration", base_bpm).unwrap_or(base_duration);
 
         if method == "note" {
             let filtered_args: Vec<_> = args

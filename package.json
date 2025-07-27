@@ -9,9 +9,9 @@
   },
   "scripts": {
     "prepublish": "cargo build --release && npm run script:postbuild",
-    "rust:dev:build": "cargo run build --entry examples --output output",
-    "rust:dev:check": "cargo run check --entry examples --output output",
-    "rust:dev:play": "cargo run play --entry examples --output output --repeat",
+    "rust:dev:build": "cargo run build --entry examples --output output --debug",
+    "rust:dev:check": "cargo run check --entry examples --output output --debug",
+    "rust:dev:play": "cargo run play --entry examples --output output --repeat --debug",
     "rust:wasm:web": "wasm-pack build --target=web --no-default-features",
     "rust:wasm:node": "wasm-pack build --target=nodejs --no-default-features",
     "script:postbuild": "tsc && node out-tsc/scripts/postbuild.js",

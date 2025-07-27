@@ -1,0 +1,15 @@
+# This file demonstrates the use of main features in Devalang.
+bpm 135
+
+bank 808
+
+let entityTest1 = .808.kick auto
+let entityTest2 = .808.clap auto
+let entityTest3 = .808.snare auto
+
+fn myFirstGroup(entity1, entity2, entity3):
+    .entity1
+    .entity2
+    .entity3
+
+call myFirstGroup(entityTest1, entityTest2, entityTest3)

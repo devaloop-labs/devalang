@@ -10,13 +10,15 @@
 
 - Added support for ADSR envelopes in synthesizers.
   - Example: `let mySynth = synth sine { attack: 0, decay: 50, sustain: 100, release: 50 }`
+- Added support for `note` parameters in synthesizers.
+  - Example: `mySynth -> note(C4, { duration: 500, velocity: 0.8, glide: true, slide: false })`
 
 ### 🧠 Core Engine
 
 - Patched `arrow_call` to correctly handle argument parsing and improve error reporting.
   - Implemented multi-line argument parsing for `arrow_call`.
   - Patched execution of `arrow_call` to ensure correct timing and execution order.
-- Upgradded indent lexer to handle multi-line statements and improve indentation handling.
+- Upgraded indent lexer to handle multi-line statements and improve indentation handling.
 - Upgraded `parse_map_value` to handle multi-line values and improve parsing logic in Parser.
 
 ### 🧰 Commands

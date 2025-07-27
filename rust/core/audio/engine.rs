@@ -104,6 +104,30 @@ impl AudioEngine {
         synth_params: HashMap<String, Value>,
         note_params: HashMap<String, Value>
     ) {
+        let valid_synth_params = vec!["attack", "decay", "sustain", "release"];
+        let valid_note_params = vec![
+            "duration",
+            "velocity",
+            "glide",
+            "slide",
+            "modulation",
+            "expression"
+        ];
+
+        // Synth params validation
+        for key in synth_params.keys() {
+            if !valid_synth_params.contains(&key.as_str()) {
+                eprintln!("⚠️ Unknown synth parameter: '{}'", key);
+            }
+        }
+
+        // Note params validation
+        for key in note_params.keys() {
+            if !valid_note_params.contains(&key.as_str()) {
+                eprintln!("⚠️ Unknown note parameter: '{}'", key);
+            }
+        }
+
         // Synth parameters
         let attack = self.extract_f32(&synth_params, "attack", 120.0).unwrap_or(0.0);
         let decay = self.extract_f32(&synth_params, "decay", 120.0).unwrap_or(0.0);
@@ -111,16 +135,40 @@ impl AudioEngine {
         let release = self.extract_f32(&synth_params, "release", 120.0).unwrap_or(0.0);
 
         // Note parameters
+        let duration_ms = self.extract_f32(&note_params, "duration", 120.0).unwrap_or(duration_ms);
         let velocity = self.extract_f32(&note_params, "velocity", 120.0).unwrap_or(1.0);
-        let glide = self.extract_f32(&note_params, "glide", 120.0).unwrap_or(0.0);
-        let slide = self.extract_f32(&note_params, "slide", 120.0).unwrap_or(0.0);
+        let glide = self.extract_boolean(&note_params, "glide").unwrap_or(false);
+        let slide = self.extract_boolean(&note_params, "slide").unwrap_or(false);
+
+        let amplitude = (i16::MAX as f32) * amp.clamp(0.0, 1.0) * velocity.clamp(0.0, 1.0);
+
+        // Logic for glide and slide
+        let mut freq_start = freq;
+        let mut freq_end = freq;
+        let mut amp_start = amp * velocity.clamp(0.0, 1.0);
+        let mut amp_end = amp_start;
+
+        if glide {
+            if let Some(Value::Number(target_freq)) = note_params.get("target_freq") {
+                freq_end = *target_freq;
+            } else {
+                freq_end = freq * 1.5; // Par défaut, glide vers une quinte
+            }
+        }
+
+        if slide {
+            if let Some(Value::Number(target_amp)) = note_params.get("target_amp") {
+                amp_end = *target_amp * velocity.clamp(0.0, 1.0);
+            } else {
+                amp_end = amp_start * 0.5; // Par défaut, slide vers la moitié
+            }
+        }
 
         let sample_rate = SAMPLE_RATE as f32;
         let channels = CHANNELS as usize;
 
         let total_samples = ((duration_ms / 1000.0) * sample_rate) as usize;
         let start_sample = ((start_time_ms / 1000.0) * sample_rate) as usize;
-        let amplitude = (i16::MAX as f32) * amp.clamp(0.0, 1.0);
 
         let mut samples = Vec::with_capacity(total_samples);
         let fade_len = (sample_rate * 0.01) as usize; // 10 ms fade
@@ -137,13 +185,28 @@ impl AudioEngine {
 
         for i in 0..total_samples {
             let t = ((start_sample + i) as f32) / sample_rate;
-            let phase = 2.0 * std::f32::consts::PI * freq * t;
+
+            // Glide
+            let current_freq = if glide {
+                freq_start + ((freq_end - freq_start) * (i as f32)) / (total_samples as f32)
+            } else {
+                freq
+            };
+
+            // Slide
+            let current_amp = if slide {
+                amp_start + ((amp_end - amp_start) * (i as f32)) / (total_samples as f32)
+            } else {
+                amp_start
+            };
+
+            let phase = 2.0 * std::f32::consts::PI * current_freq * t;
 
             let mut value = match waveform.as_str() {
                 "sine" => phase.sin(),
                 "square" => if phase.sin() >= 0.0 { 1.0 } else { -1.0 }
-                "saw" => 2.0 * (freq * t - (freq * t + 0.5).floor()),
-                "triangle" => (2.0 * (2.0 * (freq * t).fract() - 1.0)).abs() * 2.0 - 1.0,
+                "saw" => 2.0 * (current_freq * t - (current_freq * t + 0.5).floor()),
+                "triangle" => (2.0 * (2.0 * (current_freq * t).fract() - 1.0)).abs() * 2.0 - 1.0,
                 _ => 0.0,
             };
 
@@ -174,7 +237,8 @@ impl AudioEngine {
             }
 
             value *= envelope;
-            samples.push((value * amplitude) as i16);
+            // Application de l'amplitude dynamique (slide + velocity)
+            samples.push((value * (i16::MAX as f32) * current_amp) as i16);
         }
 
         // Convert to stereo
@@ -455,6 +519,20 @@ impl AudioEngine {
             Some(Value::String(s)) => s.parse::<f32>().ok(),
             Some(Value::Boolean(b)) => Some(if *b { 1.0 } else { 0.0 }),
             _ => Some(default),
+        }
+    }
+
+    fn extract_boolean(&self, map: &HashMap<String, Value>, key: &str) -> Option<bool> {
+        match map.get(key) {
+            Some(Value::Boolean(b)) => Some(*b),
+            Some(Value::Number(n)) => Some(*n != 0.0),
+            Some(Value::Identifier(s)) => {
+                if s == "true" { Some(true) } else if s == "false" { Some(false) } else { None }
+            }
+            Some(Value::String(s)) => {
+                if s == "true" { Some(true) } else if s == "false" { Some(false) } else { None }
+            }
+            _ => None,
         }
     }
 }
