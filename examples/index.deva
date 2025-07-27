@@ -33,7 +33,7 @@ group mySynthGroup:
         duration: 1000
     })
     customSynth -> note(D3, { 
-        duration: 1000
+        duration: 1000,
     })
 
 spawn mySynthGroup

@@ -58,14 +58,16 @@ pub fn interprete_call_arrow_statement(
             return (*max_end_time, cursor_copy);
         };
 
-        let attack = extract_f32(params, "attack", base_bpm).unwrap_or(0.0);
-        let decay = extract_f32(params, "decay", base_bpm).unwrap_or(0.0);
-        let sustain = extract_f32(params, "sustain", base_bpm).unwrap_or(0.0);
-        let release = extract_f32(params, "release", base_bpm).unwrap_or(0.0);
-
-        let freq = extract_f32(params, "freq", base_bpm).unwrap_or(440.0);
-        let duration_ms = extract_f32(params, "duration", base_bpm).unwrap_or(base_duration);
-        let amp = extract_f32(params, "amp", base_bpm).unwrap_or(1.0);
+        // Synth parameters
+        let mut synth_params = params.clone();
+        
+        let attack = extract_f32(&synth_params, "attack", base_bpm).unwrap_or(0.0);
+        let decay = extract_f32(&synth_params, "decay", base_bpm).unwrap_or(0.0);
+        let sustain = extract_f32(&synth_params, "sustain", base_bpm).unwrap_or(0.0);
+        let release = extract_f32(&synth_params, "release", base_bpm).unwrap_or(0.0);
+        let freq = extract_f32(&synth_params, "freq", base_bpm).unwrap_or(440.0);
+        let amp = extract_f32(&synth_params, "amp", base_bpm).unwrap_or(1.0);
+        let duration_ms = extract_f32(&synth_params, "duration", base_bpm).unwrap_or(base_duration);
 
         if method == "note" {
             let filtered_args: Vec<_> = args
@@ -85,10 +87,11 @@ pub fn interprete_call_arrow_statement(
                 }
             }
 
+            // Note parameters and calculations
             let amp_note = extract_f32(&note_params, "amp", base_bpm).unwrap_or(amp);
             let duration_ms = extract_f32(&note_params, "duration", base_bpm).unwrap_or(base_duration);
+            
             let duration_secs = duration_ms / 1000.0;
-
             let final_freq = note_to_freq(note_name);
             let start_time = cursor_copy;
             let end_time = start_time + duration_secs;
@@ -99,10 +102,8 @@ pub fn interprete_call_arrow_statement(
                 amp_note,
                 start_time * 1000.0,
                 duration_ms,
-                attack,
-                decay,
-                sustain,
-                release
+                synth_params,
+                note_params
             );
 
             *max_end_time = (*max_end_time).max(end_time);

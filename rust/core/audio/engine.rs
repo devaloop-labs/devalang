@@ -101,11 +101,20 @@ impl AudioEngine {
         amp: f32,
         start_time_ms: f32,
         duration_ms: f32,
-        attack: f32,
-        decay: f32,
-        sustain: f32,
-        release: f32
+        synth_params: HashMap<String, Value>,
+        note_params: HashMap<String, Value>
     ) {
+        // Synth parameters
+        let attack = self.extract_f32(&synth_params, "attack", 120.0).unwrap_or(0.0);
+        let decay = self.extract_f32(&synth_params, "decay", 120.0).unwrap_or(0.0);
+        let sustain = self.extract_f32(&synth_params, "sustain", 120.0).unwrap_or(0.0);
+        let release = self.extract_f32(&synth_params, "release", 120.0).unwrap_or(0.0);
+
+        // Note parameters
+        let velocity = self.extract_f32(&note_params, "velocity", 120.0).unwrap_or(1.0);
+        let glide = self.extract_f32(&note_params, "glide", 120.0).unwrap_or(0.0);
+        let slide = self.extract_f32(&note_params, "slide", 120.0).unwrap_or(0.0);
+
         let sample_rate = SAMPLE_RATE as f32;
         let channels = CHANNELS as usize;
 
@@ -132,7 +141,7 @@ impl AudioEngine {
 
             let mut value = match waveform.as_str() {
                 "sine" => phase.sin(),
-                "square" => if phase.sin() >= 0.0 { 1.0 } else { -1.0 },
+                "square" => if phase.sin() >= 0.0 { 1.0 } else { -1.0 }
                 "saw" => 2.0 * (freq * t - (freq * t + 0.5).floor()),
                 "triangle" => (2.0 * (2.0 * (freq * t).fract() - 1.0)).abs() * 2.0 - 1.0,
                 _ => 0.0,
@@ -142,12 +151,16 @@ impl AudioEngine {
             let envelope = if i < attack_samples {
                 (i as f32) / (attack_samples as f32)
             } else if i < attack_samples + decay_samples {
-                1.0 - (1.0 - sustain_level) * ((i - attack_samples) as f32 / decay_samples as f32)
+                1.0 -
+                    (1.0 - sustain_level) * (((i - attack_samples) as f32) / (decay_samples as f32))
             } else if i < attack_samples + decay_samples + sustain_samples {
                 sustain_level
             } else {
                 if release_samples > 0 {
-                    sustain_level * (1.0 - ((i - attack_samples - decay_samples - sustain_samples) as f32 / release_samples as f32))
+                    sustain_level *
+                        (1.0 -
+                            ((i - attack_samples - decay_samples - sustain_samples) as f32) /
+                                (release_samples as f32))
                 } else {
                     0.0
                 }
@@ -433,6 +446,15 @@ impl AudioEngine {
                 self.buffer[left_pos] = self.buffer[left_pos].saturating_add(left);
                 self.buffer[right_pos] = self.buffer[right_pos].saturating_add(right);
             }
+        }
+    }
+
+    fn extract_f32(&self, map: &HashMap<String, Value>, key: &str, default: f32) -> Option<f32> {
+        match map.get(key) {
+            Some(Value::Number(n)) => Some(*n),
+            Some(Value::String(s)) => s.parse::<f32>().ok(),
+            Some(Value::Boolean(b)) => Some(if *b { 1.0 } else { 0.0 }),
+            _ => Some(default),
         }
     }
 }
