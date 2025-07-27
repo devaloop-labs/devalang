@@ -17,9 +17,18 @@ use crate::{
             handle_bank_list_command,
             handle_remove_bank_command,
             handle_update_bank_command,
-        }, build::handle_build_command, check::handle_check_command, driver::{ BankCommand, Cli, Commands, InstallCommand, TemplateCommand }, init::handle_init_command, install::handle_install_command, play::handle_play_command, template::{ handle_template_info_command, handle_template_list_command }, update::handle_update_command
+        },
+        build::handle_build_command,
+        check::handle_check_command,
+        driver::{ BankCommand, Cli, Commands, InstallCommand, TemplateCommand },
+        init::handle_init_command,
+        install::handle_install_command,
+        play::handle_play_command,
+        template::{ handle_template_info_command, handle_template_list_command },
+        update::handle_update_command,
     },
-    config::{ driver::Config, loader::load_config }, installer::addon::AddonType,
+    config::{ driver::Config, loader::load_config },
+    installer::addon::AddonType,
 };
 
 #[tokio::main]
@@ -48,16 +57,16 @@ async fn main() -> io::Result<()> {
                 }
             }
 
-        Commands::Check { entry, output, watch, compilation_mode, debug } => {
-            handle_check_command(config, entry, output, watch);
+        Commands::Check { entry, output, watch, debug } => {
+            handle_check_command(config, entry, output, watch, debug);
         }
 
-        Commands::Build { entry, output, watch, compilation_mode, debug, compress } => {
-            handle_build_command(config, entry, output, watch);
+        Commands::Build { entry, output, watch, debug, compress } => {
+            handle_build_command(config, entry, output, watch, debug, compress);
         }
 
-        Commands::Play { entry, output, watch, repeat } => {
-            handle_play_command(config, entry, output, watch, repeat);
+        Commands::Play { entry, output, watch, repeat, debug } => {
+            handle_play_command(config, entry, output, watch, repeat, debug);
         }
 
         Commands::Install { command } =>

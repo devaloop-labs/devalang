@@ -21,7 +21,9 @@ pub fn handle_build_command(
     config: Option<Config>,
     entry: Option<String>,
     output: Option<String>,
-    watch: bool
+    watch: bool,
+    debug: bool,
+    compress: bool
 ) {
     let fetched_entry = if entry.is_none() {
         config
@@ -77,7 +79,7 @@ pub fn handle_build_command(
 
     // SECTION Begin build
     if fetched_watch {
-        begin_build(entry_file.clone(), fetched_output.clone());
+        begin_build(entry_file.clone(), fetched_output.clone(), debug, compress);
 
         logger.log_message(
             LogLevel::Watcher,
@@ -87,14 +89,14 @@ pub fn handle_build_command(
         watch_directory(entry_file.clone(), move || {
             logger.log_message(LogLevel::Watcher, "Detected changes, re-building...");
 
-            begin_build(entry_file.clone(), fetched_output.clone());
+            begin_build(entry_file.clone(), fetched_output.clone(), debug, compress);
         }).unwrap();
     } else {
-        begin_build(entry_file.clone(), fetched_output.clone());
+        begin_build(entry_file.clone(), fetched_output.clone(), debug, compress);
     }
 }
 
-fn begin_build(entry: String, output: String) {
+fn begin_build(entry: String, output: String, debug: bool, compress: bool) {
     let spinner = with_spinner("Building...", || {
         thread::sleep(Duration::from_millis(800));
     });
@@ -112,43 +114,79 @@ fn begin_build(entry: String, output: String) {
     let (modules_tokens, modules_statements) = module_loader.load_all_modules(&mut global_store);
 
     // SECTION Write logs
-    for (module_path, module) in global_store.modules.clone() {
-        write_module_variable_log_file(
+    if debug {
+        for (module_path, module) in global_store.modules.clone() {
+            write_module_variable_log_file(
+                &normalized_output_dir,
+                &module_path,
+                &module.variable_table
+            );
+            write_module_function_log_file(
+                &normalized_output_dir,
+                &module_path,
+                &module.function_table
+            );
+        }
+
+        write_lexer_log_file(&normalized_output_dir, "lexer_tokens.log", modules_tokens.clone());
+        write_preprocessor_log_file(
             &normalized_output_dir,
-            &module_path,
-            &module.variable_table
+            "resolved_statements.log",
+            modules_statements.clone()
         );
-        write_module_function_log_file(
+        write_variables_log_file(
             &normalized_output_dir,
-            &module_path,
-            &module.function_table
+            "global_variables.log",
+            global_store.variables.clone()
+        );
+        write_function_log_file(
+            &normalized_output_dir,
+            "global_functions.log",
+            global_store.functions.clone()
         );
     }
 
-    write_lexer_log_file(&normalized_output_dir, "lexer_tokens.log", modules_tokens.clone());
-    write_preprocessor_log_file(
-        &normalized_output_dir,
-        "resolved_statements.log",
-        modules_statements.clone()
-    );
-    write_variables_log_file(
-        &normalized_output_dir,
-        "global_variables.log",
-        global_store.variables.clone()
-    );
-    write_function_log_file(
-        &normalized_output_dir,
-        "global_functions.log",
-        global_store.functions.clone()
-    );
-
     // SECTION Building AST and Audio
     let builder = Builder::new();
-    builder.build_ast(&modules_statements, &normalized_output_dir);
+    builder.build_ast(&modules_statements, &normalized_output_dir, compress);
     builder.build_audio(&modules_statements, &normalized_output_dir, &mut global_store);
 
     // SECTION Logging
     let logger = Logger::new();
+
+    if debug {
+        let modules_loaded = global_store.modules
+            .iter()
+            .map(|(k, _)| k)
+            .collect::<Vec<_>>();
+        let global_variables_loaded = global_store.variables.variables.keys().collect::<Vec<_>>();
+        let global_functions_loaded = global_store.functions.functions.keys().collect::<Vec<_>>();
+
+        logger.log_message_with_trace(
+            LogLevel::Debug,
+            &format!("Modules loaded: {}", global_store.modules.len()),
+            modules_loaded
+                .iter()
+                .map(|s| s.as_str())
+                .collect()
+        );
+        logger.log_message_with_trace(
+            LogLevel::Debug,
+            &format!("Global variables: {}", global_store.variables.variables.len()),
+            global_variables_loaded
+                .iter()
+                .map(|s| s.as_str())
+                .collect()
+        );
+        logger.log_message_with_trace(
+            LogLevel::Debug,
+            &format!("Global functions: {}", global_store.functions.functions.len()),
+            global_functions_loaded
+                .iter()
+                .map(|s| s.as_str())
+                .collect()
+        );
+    }
 
     let success_message = format!(
         "Build completed successfully in {:.2?}. Output files written to: '{}'",

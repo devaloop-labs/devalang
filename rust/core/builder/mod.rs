@@ -3,7 +3,6 @@ use crate::core::parser::statement::Statement;
 use crate::core::store::global::GlobalStore;
 use std::{ collections::HashMap, fs::create_dir_all };
 use std::io::Write;
-
 use crate::utils::logger::Logger;
 
 pub struct Builder {}
@@ -13,7 +12,12 @@ impl Builder {
         Builder {}
     }
 
-    pub fn build_ast(&self, modules: &HashMap<String, Vec<Statement>>, out_dir: &str) {
+    pub fn build_ast(
+        &self,
+        modules: &HashMap<String, Vec<Statement>>,
+        out_dir: &str,
+        compress: bool
+    ) {
         for (name, statements) in modules {
             let formatted_name = name.split("/").last().unwrap_or(name);
             let formatted_name = formatted_name.replace(".deva", "");
@@ -22,10 +26,11 @@ impl Builder {
 
             let file_path = format!("{}/ast/{}.json", out_dir, formatted_name);
             let mut file = std::fs::File::create(file_path).expect("Failed to create AST file");
-
-            let content = serde_json
-                ::to_string_pretty(&statements)
-                .expect("Failed to serialize AST");
+            let content = if compress {
+                serde_json::to_string(&statements).expect("Failed to serialize AST")
+            } else {
+                serde_json::to_string_pretty(&statements).expect("Failed to serialize AST")
+            };
 
             file.write_all(content.as_bytes()).expect("Failed to write AST to file");
         }

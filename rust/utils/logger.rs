@@ -33,6 +33,22 @@ impl Logger {
         // no-op for WASM
     }
 
+    // --- log_message_with_trace ---
+
+    #[cfg(feature = "cli")]
+    pub fn log_message_with_trace(&self, level: LogLevel, message: &str, trace: Vec<&str>) {
+        let formatted_status = self.format_status(level);
+        println!("🦊 {} {} {}", self.language_signature(), formatted_status, message);
+        for t in trace {
+            println!("     ↳ {}", t);
+        }
+    }
+
+    #[cfg(not(feature = "cli"))]
+    pub fn log_message_with_trace(&self, _level: LogLevel, _message: &str, _trace: Vec<&str>) {
+        // no-op for WASM
+    }
+
     // --- log_error_with_stacktrace ---
 
     #[cfg(feature = "cli")]

@@ -13,10 +13,18 @@
 
 ### 🧰 Commands
 
+- Added `log_message_with_trace` function to log messages with informations when running commands with `debug` flag.
 - Refactored `install` command to support installing banks, presets and plugins.
   - `install bank <bank_name>` to install a specific bank of sounds.
   - `install preset <preset_name>` to install a specific preset.
   - `install plugin <plugin_name>` to install a specific plugin.
+- Implemented `debug` and `compress` arguments for `build`, `check` and `play` commands.
+  - `build --debug` to build the AST with debug information.
+  - `check --debug` to check the syntax with debug information.
+  - `play --debug` to play the audio with debug information.
+  - `build --compress` to compress the output.
+  - `check --compress` to compress the output.
+  - `play --compress` to compress the output.
 
 ## Version 0.0.1-alpha.13 (2025-07-26)
 

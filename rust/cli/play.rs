@@ -1,13 +1,11 @@
 use crate::{
-    core::{
+    config::driver::Config, core::{
         builder::Builder,
-        debugger::{ lexer::write_lexer_log_file, preprocessor::write_preprocessor_log_file },
+        debugger::{ lexer::write_lexer_log_file, module::{write_module_function_log_file, write_module_variable_log_file}, preprocessor::write_preprocessor_log_file, store::{write_function_log_file, write_variables_log_file} },
         preprocessor::loader::ModuleLoader,
         store::global::GlobalStore,
         utils::path::{ find_entry_file, normalize_path },
-    },
-    config::driver::Config,
-    utils::{ logger::{ LogLevel, Logger }, spinner::with_spinner, watcher::watch_directory },
+    }, utils::{ logger::{ LogLevel, Logger }, spinner::with_spinner, watcher::watch_directory }
 };
 
 use std::{ path::Path, sync::mpsc::channel, thread, time::Duration };
@@ -20,7 +18,8 @@ pub fn handle_play_command(
     entry: Option<String>,
     output: Option<String>,
     watch: bool,
-    repeat: bool
+    repeat: bool,
+    debug: bool
 ) {
     use crate::core::audio::player::AudioPlayer;
 
@@ -76,7 +75,7 @@ pub fn handle_play_command(
         });
 
         // Main thread: build + play in a loop
-        begin_play(&config, &entry_file, &output_path);
+        begin_play(&config, &entry_file, &output_path, debug);
         audio_player.play_file_once(&audio_file);
 
         logger.log_message(LogLevel::Watcher, "Watching for changes... Press Ctrl+C to exit.");
@@ -84,7 +83,7 @@ pub fn handle_play_command(
         while let Ok(_) = rx.recv() {
             logger.log_message(LogLevel::Watcher, "Change detected, rebuilding...");
 
-            begin_play(&config, &entry_file, &output_path);
+            begin_play(&config, &entry_file, &output_path, debug);
 
             logger.log_message(LogLevel::Info, "🎵 Playback started (once mode)...");
 
@@ -92,7 +91,7 @@ pub fn handle_play_command(
         }
     } else if fetched_repeat {
         // Initial build to start from a clean slate
-        begin_play(&config, &entry_file, &output_path);
+        begin_play(&config, &entry_file, &output_path, debug);
 
         logger.log_message(LogLevel::Info, "🎵 Playback started (repeat mode)...");
 
@@ -112,7 +111,7 @@ pub fn handle_play_command(
 
                 // Rebuild in a separate thread
                 std::thread::spawn(move || {
-                    begin_play(&config_clone, &entry_file, &output_path);
+                    begin_play(&config_clone, &entry_file, &output_path, debug);
                 });
 
                 last_snapshot = current_snapshot;
@@ -126,7 +125,7 @@ pub fn handle_play_command(
         }
     } else {
         // Single execution
-        begin_play(&config, &entry_file, &output_path);
+        begin_play(&config, &entry_file, &output_path, debug);
 
         logger.log_message(LogLevel::Info, "🎵 Playback started (once mode)...");
 
@@ -135,7 +134,7 @@ pub fn handle_play_command(
     }
 }
 
-fn begin_play(config: &Option<Config>, entry_file: &str, output: &str) {
+fn begin_play(config: &Option<Config>, entry_file: &str, output: &str, debug: bool) {
     let spinner = with_spinner("Building...", || {
         thread::sleep(Duration::from_millis(800));
     });
@@ -149,16 +148,41 @@ fn begin_play(config: &Option<Config>, entry_file: &str, output: &str) {
     let (modules_tokens, modules_statements) = loader.load_all_modules(&mut global_store);
 
     // SECTION Write logs
-    write_lexer_log_file(&normalized_output_dir, "lexer_tokens.log", modules_tokens.clone());
-    write_preprocessor_log_file(
-        &normalized_output_dir,
-        "resolved_statements.log",
-        modules_statements.clone()
-    );
+    if debug {
+        for (module_path, module) in global_store.modules.clone() {
+            write_module_variable_log_file(
+                &normalized_output_dir,
+                &module_path,
+                &module.variable_table
+            );
+            write_module_function_log_file(
+                &normalized_output_dir,
+                &module_path,
+                &module.function_table
+            );
+        }
+
+        write_lexer_log_file(&normalized_output_dir, "lexer_tokens.log", modules_tokens.clone());
+        write_preprocessor_log_file(
+            &normalized_output_dir,
+            "resolved_statements.log",
+            modules_statements.clone()
+        );
+        write_variables_log_file(
+            &normalized_output_dir,
+            "global_variables.log",
+            global_store.variables.clone()
+        );
+        write_function_log_file(
+            &normalized_output_dir,
+            "global_functions.log",
+            global_store.functions.clone()
+        );
+    }
 
     // SECTION Building AST and Audio
     let builder = Builder::new();
-    builder.build_ast(&modules_statements, &output);
+    builder.build_ast(&modules_statements, &output, false);
     builder.build_audio(&modules_statements, &output, &mut global_store);
 
     // SECTION Logging

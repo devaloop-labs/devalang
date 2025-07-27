@@ -111,10 +111,12 @@ pub enum Commands {
     /// - `entry` - The entry point of the program to build. Defaults to "./src".
     /// - `output` - The directory where the output files will be generated. Defaults to "./output".
     /// - `watch` - Whether to watch for changes and rebuild. Defaults to "true".
+    /// - `debug` - Whether to print debug information. Defaults to "false".
+    /// - `compress` - Whether to compress the output files. Defaults to "false".
     ///
     /// ### Example
     /// ```bash
-    /// devalang build --entry ./src --output ./output --watch true
+    /// devalang build --entry ./src --output ./output --watch true --debug false --compress false
     /// ```
     ///
     Build {
@@ -135,19 +137,6 @@ pub enum Commands {
         /// - `false`
         ///
         watch: bool,
-
-        #[arg(long, default_value = "real-time")]
-        /// The mode of compilation.
-        ///
-        /// ### Default value
-        /// - `real-time`
-        ///
-        /// ### Possible values
-        /// - `real-time` - Compiles files as soon as possible.
-        /// - `batch` - Compiles files one by one.
-        /// - `check` - Analyzes the code without compiling it.
-        ///
-        compilation_mode: String,
 
         #[arg(short, long, default_value_t = false)]
         /// Whether to print debug information.
@@ -172,8 +161,12 @@ pub enum Commands {
     /// - `entry` - The entry point of the program to analyze. Defaults to "./src".
     /// - `output` - The directory where the output files will be generated. Defaults to "./output".
     /// - `watch` - Whether to watch for changes and re-analyze. Defaults to "true".
-    /// - `compilation_mode` - The mode of compilation. Defaults to "real-time".
     /// - `debug` - Whether to print debug information. Defaults to "false".
+    /// 
+    /// ### Example
+    /// ```bash
+    /// devalang check --entry ./src --output ./output --watch true --debug false
+    /// ```
     ///
     Check {
         #[arg(short, long)]
@@ -192,19 +185,6 @@ pub enum Commands {
         ///
         watch: bool,
 
-        #[arg(short, long, default_value = "real-time")]
-        /// The mode of compilation.
-        ///
-        /// ### Default value
-        /// - `real-time`
-        ///
-        /// ### Possible values
-        /// - `real-time` - Analyzes files as soon as possible.
-        /// - `batch` - Analyzes files one by one.
-        /// - `check` - Analyzes the code without compiling it.
-        ///
-        compilation_mode: String,
-
         #[arg(short, long, default_value_t = false)]
         /// Whether to print debug information.
         ///
@@ -221,6 +201,14 @@ pub enum Commands {
     /// - `output` - The directory where the output files will be generated. Defaults to "./output".
     /// - `watch` - Whether to watch for changes and re-play. Defaults to "false".
     /// - `repeat` - Whether to replay the program after it finishes. Defaults to "false".
+    /// - `debug` - Whether to print debug information. Defaults to "false".
+    ///
+    /// Note: `--repeat` and `--watch` cannot be used together. Instead use `repeat` to watch for changes and replay the program.
+    ///
+    /// ### Example
+    /// ```bash
+    /// devalang play --entry ./src --output ./output --repeat true --debug false
+    /// ```
     ///
     Play {
         #[arg(short, long)]
@@ -246,6 +234,14 @@ pub enum Commands {
         /// - `false`
         ///
         repeat: bool,
+
+        #[arg(short, long, default_value_t = false)]
+        /// Whether to print debug information.
+        ///
+        /// ### Default value
+        /// - `false`
+        ///
+        debug: bool,
     },
 
     /// Update the Devalang CLI to the latest version.

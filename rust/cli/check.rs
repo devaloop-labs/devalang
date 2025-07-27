@@ -1,9 +1,7 @@
 use crate::{
     config::driver::Config,
     core::{
-        preprocessor::loader::ModuleLoader,
-        store::global::GlobalStore,
-        utils::path::{ find_entry_file, normalize_path },
+        debugger::{lexer::write_lexer_log_file, module::{write_module_function_log_file, write_module_variable_log_file}, preprocessor::write_preprocessor_log_file, store::{write_function_log_file, write_variables_log_file}}, preprocessor::loader::ModuleLoader, store::global::GlobalStore, utils::path::{ find_entry_file, normalize_path }
     },
     utils::{
         collect_errors_recursively,
@@ -19,7 +17,8 @@ pub fn handle_check_command(
     config: Option<Config>,
     entry: Option<String>,
     output: Option<String>,
-    watch: bool
+    watch: bool,
+    debug: bool
 ) {
     let fetched_entry = if entry.is_none() {
         config
@@ -75,7 +74,7 @@ pub fn handle_check_command(
 
     // SECTION Begin check
     if fetched_watch {
-        begin_check(entry_file.clone(), fetched_output.clone());
+        begin_check(entry_file.clone(), fetched_output.clone(), debug);
 
         logger.log_message(
             LogLevel::Watcher,
@@ -85,14 +84,14 @@ pub fn handle_check_command(
         watch_directory(entry_file.clone(), move || {
             logger.log_message(LogLevel::Watcher, "Detected changes, re-checking...");
 
-            begin_check(entry_file.clone(), fetched_output.clone());
+            begin_check(entry_file.clone(), fetched_output.clone(), debug);
         }).unwrap();
     } else {
-        begin_check(entry_file.clone(), fetched_output.clone());
+        begin_check(entry_file.clone(), fetched_output.clone(), debug);
     }
 }
 
-fn begin_check(entry: String, output: String) {
+fn begin_check(entry: String, output: String, debug: bool) {
     let spinner = with_spinner("Checking...", || {
         thread::sleep(Duration::from_millis(800));
     });
@@ -114,6 +113,38 @@ fn begin_check(entry: String, output: String) {
     logger.log_message(LogLevel::Info, "Loaded modules:");
     for (module_name, _) in &modules.0 {
         logger.log_message(LogLevel::Info, &format!("- {}", module_name));
+    }
+
+    if debug {
+        for (module_path, module) in global_store.modules.clone() {
+            write_module_variable_log_file(
+                &normalized_output_dir,
+                &module_path,
+                &module.variable_table
+            );
+            write_module_function_log_file(
+                &normalized_output_dir,
+                &module_path,
+                &module.function_table
+            );
+        }
+
+        write_lexer_log_file(&normalized_output_dir, "lexer_tokens.log", modules.0.clone());
+        write_preprocessor_log_file(
+            &normalized_output_dir,
+            "resolved_statements.log",
+            modules.1.clone()
+        );
+        write_variables_log_file(
+            &normalized_output_dir,
+            "global_variables.log",
+            global_store.variables.clone()
+        );
+        write_function_log_file(
+            &normalized_output_dir,
+            "global_functions.log",
+            global_store.functions.clone()
+        );
     }
 
     let mut all_errors = Vec::new();
