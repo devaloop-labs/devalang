@@ -154,8 +154,12 @@ pub fn execute_audio_block(
                     Some(&mut cursor_time),
                     true
                 );
+
                 cursor_time = new_cursor;
-                max_end_time = new_max;
+                
+                if new_max > max_end_time {
+                    max_end_time = new_max;
+                }
             }
             _ => {}
         }

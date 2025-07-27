@@ -7,7 +7,7 @@ use crate::core::{
             bank::parse_bank_token,
             condition::parse_condition_token,
             dot::parse_dot_token,
-            identifier::{function::parse_function_token, parse_identifier_token},
+            identifier::{ function::parse_function_token, parse_identifier_token },
             loop_::parse_loop_token,
             tempo::parse_tempo_token,
         },
@@ -107,7 +107,11 @@ impl Parser {
         tokens: Vec<Token>,
         global_store: &mut GlobalStore
     ) -> Vec<Statement> {
-        self.tokens = tokens;
+        // Filtrer les tokens Whitespace et Newline avant parsing
+        self.tokens = tokens
+            .into_iter()
+            .filter(|t| t.kind != TokenKind::Whitespace && t.kind != TokenKind::Newline)
+            .collect();
         self.token_index = 0;
 
         let mut statements = Vec::new();
@@ -119,6 +123,11 @@ impl Parser {
                     break;
                 }
             };
+
+            if token.kind == TokenKind::Newline {
+                self.advance();
+                continue;
+            }
 
             let statement = match &token.kind {
                 TokenKind::At => parse_at_token(self, global_store),
@@ -149,7 +158,6 @@ impl Parser {
                 | TokenKind::LBrace
                 | TokenKind::RBrace
                 | TokenKind::Comma
-                | TokenKind::Newline
                 | TokenKind::Dedent
                 | TokenKind::Indent => {
                     self.advance();
@@ -189,15 +197,48 @@ impl Parser {
         let mut map = std::collections::HashMap::new();
 
         while !self.check_token(TokenKind::RBrace) && !self.is_eof() {
+            // Skip newlines, whitespace, indent, dedent before the key
+            while
+                self.check_token(TokenKind::Newline) ||
+                self.check_token(TokenKind::Whitespace) ||
+                self.check_token(TokenKind::Indent) ||
+                self.check_token(TokenKind::Dedent)
+            {
+                self.advance();
+            }
+
+            // Check if we are at the closing brace of the map
+            if self.check_token(TokenKind::RBrace) {
+                break;
+            }
+
             let key = if let Some(token) = self.advance() {
-                token.lexeme.clone()
+                match token.kind {
+                    | TokenKind::Whitespace
+                    | TokenKind::Indent
+                    | TokenKind::Dedent
+                    | TokenKind::Newline => {
+                        continue;
+                    }
+                    _ => token.lexeme.clone(),
+                }
             } else {
                 break;
             };
 
+            // Skip newlines and whitespace before colon
+            while self.check_token(TokenKind::Newline) || self.check_token(TokenKind::Whitespace) {
+                self.advance();
+            }
+
             if !self.match_token(TokenKind::Colon) {
                 println!("Expected ':' after map key '{}'", key);
                 break;
+            }
+
+            // Skip newlines and whitespace before value
+            while self.check_token(TokenKind::Newline) || self.check_token(TokenKind::Whitespace) {
+                self.advance();
             }
 
             let value = if let Some(token) = self.peek_clone() {
@@ -304,7 +345,7 @@ impl Parser {
             }
             collected.push(self.advance().unwrap().clone());
         }
-        
+
         collected
     }
 

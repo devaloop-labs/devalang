@@ -18,11 +18,22 @@ bpm 135
 
 bank 808
 
-let customSynth = synth sine { attack: 0, decay: 100, sustain: 50, release: 200 }
+let customSynth = synth sine {
+    attack: 0,
+    decay: 100,
+    sustain: 50,
+    release: 200
+}
 
 group mySynthGroup:
-    customSynth -> note(C4, { duration: 1000 })
-    customSynth -> note(E3, { duration: 1000 })
-    customSynth -> note(D3, { duration: 1000 })
+    customSynth -> note(C4, { 
+        duration: 1000
+    })
+    customSynth -> note(E3, { 
+        duration: 1000
+    })
+    customSynth -> note(D3, { 
+        duration: 1000
+    })
 
-call mySynthGroup
+spawn mySynthGroup

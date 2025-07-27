@@ -84,6 +84,7 @@ pub enum TokenKind {
     ElseIf,
 
     // ───── Special / Internal ─────
+    Whitespace,
     Unknown,
     Error(String),
     EOF,

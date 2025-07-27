@@ -54,10 +54,42 @@ pub fn parse_arrow_call(parser: &mut Parser, global_store: &mut GlobalStore) -> 
     parser.advance(); // method
 
     let mut args = Vec::new();
+    let mut paren_depth = 0;
+    let mut map_depth = 0;
 
     while let Some(token) = parser.peek_clone() {
         if token.kind == TokenKind::Newline || token.kind == TokenKind::EOF {
             break;
+        }
+        if token.kind == TokenKind::LParen {
+            paren_depth += 1;
+        }
+        if token.kind == TokenKind::RParen {
+            if paren_depth > 0 {
+                paren_depth -= 1;
+                parser.advance();
+                if paren_depth == 0 {
+                    break;
+                }
+                continue;
+            } else {
+                break;
+            }
+        }
+        if token.kind == TokenKind::LBrace {
+            map_depth += 1;
+        }
+        if token.kind == TokenKind::RBrace {
+            if map_depth > 0 {
+                map_depth -= 1;
+                parser.advance();
+                if map_depth == 0 {
+                    continue;
+                }
+                continue;
+            } else {
+                break;
+            }
         }
 
         parser.advance();
@@ -79,7 +111,6 @@ pub fn parse_arrow_call(parser: &mut Parser, global_store: &mut GlobalStore) -> 
                     }
                     parser.advance(); // consume key token
                     let key = inner_token.lexeme.clone();
-
                     if let Some(colon_token) = parser.peek_clone() {
                         if colon_token.kind == TokenKind::Colon {
                             parser.advance(); // consume colon
@@ -121,7 +152,6 @@ pub fn parse_arrow_call(parser: &mut Parser, global_store: &mut GlobalStore) -> 
                                         Value::Boolean(
                                             value_token.lexeme.parse::<bool>().unwrap_or(false)
                                         ),
-
                                     _ => Value::Unknown,
                                 };
                                 map.insert(key, value);
@@ -135,6 +165,15 @@ pub fn parse_arrow_call(parser: &mut Parser, global_store: &mut GlobalStore) -> 
         };
 
         args.push(value);
+
+        // Stop if we reach the end of the statement
+        if
+            paren_depth == 0 &&
+            map_depth == 0 &&
+            (token.kind == TokenKind::RParen || token.kind == TokenKind::RBrace)
+        {
+            break;
+        }
     }
 
     Statement {

@@ -16,10 +16,24 @@ pub fn handle_indent_lexer(
             *current_indent += 1;
             chars.next();
             col += 1;
+            tokens.push(Token {
+                kind: TokenKind::Whitespace,
+                lexeme: " ".to_string(),
+                line: *line,
+                column: col,
+                indent: *current_indent,
+            });
         } else if c == '\t' {
             *current_indent += 4;
             chars.next();
             col += 4;
+            tokens.push(Token {
+                kind: TokenKind::Whitespace,
+                lexeme: "\t".to_string(),
+                line: *line,
+                column: col,
+                indent: *current_indent,
+            });
         } else {
             break;
         }
@@ -32,7 +46,7 @@ pub fn handle_indent_lexer(
         indent_stack.push(*current_indent);
         tokens.push(Token {
             kind: TokenKind::Indent,
-            lexeme: String::new(),
+            lexeme: String::from("<INDENT>"),
             line: *line,
             column: *column,
             indent: *current_indent,
@@ -42,7 +56,7 @@ pub fn handle_indent_lexer(
             indent_stack.pop();
             tokens.push(Token {
                 kind: TokenKind::Dedent,
-                lexeme: String::new(),
+                lexeme: String::from("<DEDENT>"),
                 line: *line,
                 column: *column,
                 indent: *current_indent,
