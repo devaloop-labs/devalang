@@ -21,6 +21,14 @@ pub enum InstallCommand {
     Bank {
         name: String,
     },
+    /// Installs a plugin.
+    Plugin {
+        name: String,
+    },
+    /// Installs a preset.
+    Preset {
+        name: String,
+    },
 }
 
 #[derive(Subcommand)]

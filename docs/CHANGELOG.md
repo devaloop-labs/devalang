@@ -4,6 +4,20 @@
 
 # Changelog
 
+### Version 0.0.1-alpha.14 (2025-07-??)
+
+### 🧩 Language Features
+
+- Added support for ADSR envelopes in synthesizers.
+  - Example: `let mySynth = synth sine { attack: 0, decay: 50, sustain: 100, release: 50 }`
+
+### 🧰 Commands
+
+- Refactored `install` command to support installing banks, presets and plugins.
+  - `install bank <bank_name>` to install a specific bank of sounds.
+  - `install preset <preset_name>` to install a specific preset.
+  - `install plugin <plugin_name>` to install a specific plugin.
+
 ## Version 0.0.1-alpha.13 (2025-07-26)
 
 ### 🧩 Language Features

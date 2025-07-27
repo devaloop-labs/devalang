@@ -15,18 +15,11 @@ use crate::{
             handle_bank_available_command,
             handle_bank_info_command,
             handle_bank_list_command,
-            handle_remove_bank_command, handle_update_bank_command,
-        },
-        build::handle_build_command,
-        check::handle_check_command,
-        driver::{ BankCommand, Cli, Commands, InstallCommand, TemplateCommand },
-        init::handle_init_command,
-        install::handle_install_bank_command,
-        play::handle_play_command,
-        template::{ handle_template_info_command, handle_template_list_command },
-        update::handle_update_command,
+            handle_remove_bank_command,
+            handle_update_bank_command,
+        }, build::handle_build_command, check::handle_check_command, driver::{ BankCommand, Cli, Commands, InstallCommand, TemplateCommand }, init::handle_init_command, install::handle_install_command, play::handle_play_command, template::{ handle_template_info_command, handle_template_list_command }, update::handle_update_command
     },
-    config::{ driver::Config, loader::load_config },
+    config::{ driver::Config, loader::load_config }, installer::addon::AddonType,
 };
 
 #[tokio::main]
@@ -70,8 +63,18 @@ async fn main() -> io::Result<()> {
         Commands::Install { command } =>
             match command {
                 InstallCommand::Bank { name } => {
-                    if let Err(err) = handle_install_bank_command(name).await {
+                    if let Err(err) = handle_install_command(name, AddonType::Bank).await {
                         eprintln!("❌ Failed to install bank: {}", err);
+                    }
+                }
+                InstallCommand::Plugin { name } => {
+                    if let Err(err) = handle_install_command(name, AddonType::Plugin).await {
+                        eprintln!("❌ Failed to install plugin: {}", err);
+                    }
+                }
+                InstallCommand::Preset { name } => {
+                    if let Err(err) = handle_install_command(name, AddonType::Preset).await {
+                        eprintln!("❌ Failed to install preset: {}", err);
                     }
                 }
             }
