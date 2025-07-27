@@ -18,7 +18,7 @@ pub fn interprete_call_statement(
 ) -> (f32, f32) {
     match &stmt.kind {
         StatementKind::Call { name, args } => {
-            // ✅ 1. Cas : fonction classique
+            // Classic function call case
             if let Some(func) = functions.functions.get(name) {
                 if func.parameters.len() != args.len() {
                     eprintln!(
@@ -48,7 +48,7 @@ pub fn interprete_call_statement(
                 );
             }
 
-            // ✅ 2. Cas : group dans le scope local OU global
+            // Group case
             if let Some(group_stmt) = find_group(name, variable_table, global_store) {
                 if let Value::Map(map) = &group_stmt.value {
                     if let Some(Value::Block(body)) = map.get("body") {

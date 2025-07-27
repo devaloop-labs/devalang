@@ -1,15 +1,28 @@
-# This file demonstrates the use of main features in Devalang.
+# # This file demonstrates the use of main features in Devalang.
+# bpm 135
+
+# bank 808
+
+# let entityTest1 = .808.kick auto
+# let entityTest2 = .808.clap auto
+# let entityTest3 = .808.snare auto
+
+# fn myFirstGroup(entity1, entity2, entity3):
+#     .entity1
+#     .entity2
+#     .entity3
+
+# call myFirstGroup(entityTest1, entityTest2, entityTest3)
+
 bpm 135
 
 bank 808
 
-let entityTest1 = .808.kick auto
-let entityTest2 = .808.clap auto
-let entityTest3 = .808.snare auto
+let customSynth = synth sine { attack: 0, decay: 100, sustain: 50, release: 200 }
 
-fn myFirstGroup(entity1, entity2, entity3):
-    .entity1
-    .entity2
-    .entity3
+group mySynthGroup:
+    customSynth -> note(C4, { duration: 1000 })
+    customSynth -> note(E3, { duration: 1000 })
+    customSynth -> note(D3, { duration: 1000 })
 
-call myFirstGroup(entityTest1, entityTest2, entityTest3)
+call mySynthGroup

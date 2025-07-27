@@ -23,8 +23,13 @@ pub fn interprete_call_arrow_statement(
         .unwrap_or(0.0);
 
     if let StatementKind::ArrowCall { target, method, args } = &stmt.kind {
-        let Some(Value::Map(synth_map)) = variable_table.get(target) else {
+        let Some(Value::Statement(synth_stmt)) = variable_table.get(target) else {
             println!("❌ Synth '{}' not found in variable table", target);
+            return (*max_end_time, cursor_copy);
+        };
+
+        let Value::Map(synth_map) = &synth_stmt.value else {
+            println!("❌ Invalid synth statement for '{}', expected a map.", target);
             return (*max_end_time, cursor_copy);
         };
 
@@ -53,25 +58,35 @@ pub fn interprete_call_arrow_statement(
             return (*max_end_time, cursor_copy);
         };
 
+        let attack = extract_f32(params, "attack", base_bpm).unwrap_or(0.0);
+        let decay = extract_f32(params, "decay", base_bpm).unwrap_or(0.0);
+        let sustain = extract_f32(params, "sustain", base_bpm).unwrap_or(0.0);
+        let release = extract_f32(params, "release", base_bpm).unwrap_or(0.0);
+
         let freq = extract_f32(params, "freq", base_bpm).unwrap_or(440.0);
+        let duration_ms = extract_f32(params, "duration", base_bpm).unwrap_or(base_duration);
         let amp = extract_f32(params, "amp", base_bpm).unwrap_or(1.0);
 
         if method == "note" {
-            let Some(Value::Identifier(note_name)) = args.get(0) else {
+            let filtered_args: Vec<_> = args
+                .iter()
+                .filter(|arg| !matches!(arg, Value::Unknown))
+                .collect();
+
+            let Some(Value::Identifier(note_name)) = filtered_args.get(0) else {
                 println!("❌ Invalid or missing argument for 'note' method on '{}'.", target);
                 return (*max_end_time, cursor_copy);
             };
 
-            let mut final_note_params = HashMap::new();
-            if let Some(Value::Map(note_params)) = args.get(1) {
-                for (key, value) in note_params {
-                    final_note_params.insert(key.clone(), value.clone());
+            let mut note_params = HashMap::new();
+            if let Some(Value::Map(map)) = filtered_args.get(1) {
+                for (key, value) in map {
+                    note_params.insert(key.clone(), value.clone());
                 }
             }
 
-            let duration_ms = extract_f32(&final_note_params, "duration", base_bpm).unwrap_or(
-                base_duration
-            );
+            let amp_note = extract_f32(&note_params, "amp", base_bpm).unwrap_or(amp);
+            let duration_ms = extract_f32(&note_params, "duration", base_bpm).unwrap_or(base_duration);
             let duration_secs = duration_ms / 1000.0;
 
             let final_freq = note_to_freq(note_name);
@@ -81,9 +96,13 @@ pub fn interprete_call_arrow_statement(
             audio_engine.insert_note(
                 waveform.clone(),
                 final_freq,
-                amp,
+                amp_note,
                 start_time * 1000.0,
-                duration_ms
+                duration_ms,
+                attack,
+                decay,
+                sustain,
+                release
             );
 
             *max_end_time = (*max_end_time).max(end_time);

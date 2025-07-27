@@ -100,7 +100,11 @@ impl AudioEngine {
         freq: f32,
         amp: f32,
         start_time_ms: f32,
-        duration_ms: f32
+        duration_ms: f32,
+        attack: f32,
+        decay: f32,
+        sustain: f32,
+        release: f32
     ) {
         let sample_rate = SAMPLE_RATE as f32;
         let channels = CHANNELS as usize;
@@ -112,16 +116,41 @@ impl AudioEngine {
         let mut samples = Vec::with_capacity(total_samples);
         let fade_len = (sample_rate * 0.01) as usize; // 10 ms fade
 
+        let attack_samples = (attack * sample_rate) as usize;
+        let decay_samples = (decay * sample_rate) as usize;
+        let release_samples = (release * sample_rate) as usize;
+        let sustain_level = sustain;
+        let sustain_samples = if total_samples > attack_samples + decay_samples + release_samples {
+            total_samples - attack_samples - decay_samples - release_samples
+        } else {
+            0
+        };
+
         for i in 0..total_samples {
             let t = ((start_sample + i) as f32) / sample_rate;
             let phase = 2.0 * std::f32::consts::PI * freq * t;
 
             let mut value = match waveform.as_str() {
                 "sine" => phase.sin(),
-                "square" => if phase.sin() >= 0.0 { 1.0 } else { -1.0 }
+                "square" => if phase.sin() >= 0.0 { 1.0 } else { -1.0 },
                 "saw" => 2.0 * (freq * t - (freq * t + 0.5).floor()),
                 "triangle" => (2.0 * (2.0 * (freq * t).fract() - 1.0)).abs() * 2.0 - 1.0,
                 _ => 0.0,
+            };
+
+            // ADSR envelope
+            let envelope = if i < attack_samples {
+                (i as f32) / (attack_samples as f32)
+            } else if i < attack_samples + decay_samples {
+                1.0 - (1.0 - sustain_level) * ((i - attack_samples) as f32 / decay_samples as f32)
+            } else if i < attack_samples + decay_samples + sustain_samples {
+                sustain_level
+            } else {
+                if release_samples > 0 {
+                    sustain_level * (1.0 - ((i - attack_samples - decay_samples - sustain_samples) as f32 / release_samples as f32))
+                } else {
+                    0.0
+                }
             };
 
             // Fade in/out
@@ -131,6 +160,7 @@ impl AudioEngine {
                 value *= ((total_samples - i) as f32) / (fade_len as f32);
             }
 
+            value *= envelope;
             samples.push((value * amplitude) as i16);
         }
 

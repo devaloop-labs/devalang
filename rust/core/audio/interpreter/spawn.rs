@@ -20,7 +20,7 @@ pub fn interprete_spawn_statement(
         StatementKind::Spawn { name, args } => {
             let mut local_engine = AudioEngine::new(audio_engine.module_name.clone());
 
-            // ✅ 1. Cas : fonction
+            // Function case
             if let Some(func) = functions.functions.get(name) {
                 if func.parameters.len() != args.len() {
                     eprintln!(
@@ -53,7 +53,7 @@ pub fn interprete_spawn_statement(
                 return (spawn_max.max(max_end_time), cursor_time);
             }
 
-            // ✅ 2. Cas : group dans variable_table ou global_store
+            // Group case
             if let Some(group_stmt) = find_group(name, variable_table, global_store) {
                 if let Value::Map(map) = &group_stmt.value {
                     if let Some(Value::Block(body)) = map.get("body") {

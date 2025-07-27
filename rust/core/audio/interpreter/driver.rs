@@ -129,7 +129,7 @@ pub fn execute_audio_block(
                 max_end_time = new_max;
             }
             StatementKind::Call { .. } => {
-                let (new_max, new_cursor) = interprete_call_statement(
+                let (new_max, _) = interprete_call_statement(
                     &stmt,
                     audio_engine,
                     &variable_table,
@@ -140,7 +140,7 @@ pub fn execute_audio_block(
                     max_end_time,
                     cursor_time,
                 );
-                cursor_time = new_cursor;
+                cursor_time = new_max;
                 max_end_time = new_max;
             }
             StatementKind::ArrowCall { .. } => {
