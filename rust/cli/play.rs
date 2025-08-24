@@ -193,6 +193,7 @@ fn begin_play(config: &Option<Config>, entry_file: &str, output: &str, debug: bo
         normalized_output_dir
     );
 
+    spinner.finish_and_clear();
     logger.log_message(LogLevel::Success, &success_message);
 }
 

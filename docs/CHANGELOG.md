@@ -1,10 +1,14 @@
 <div align="center">
-    <img src="https://devalang.com/images/devalang-logo-cyan.svg" alt="Devalang Logo" width="300" />
+    <img src="https://devalang.com/images/devalang-logo.svg" alt="Devalang Logo" width="300" />
 </div>
 
 # Changelog
 
-### Version 0.0.1-alpha.14 (2025-07-??)
+## Version 0.0.1-alpha.14 (2025-08-24)
+
+### 🌎 Ecosystem
+
+- Deployed "SSO" (Single Sign-On) for user authentication. [(https://sso.devalang.com)](https://sso.devalang.com) when using `devalang login`.
 
 ### 🧩 Language Features
 
@@ -15,19 +19,21 @@
 
 ### 🧠 Core Engine
 
+- Patched banks resolution with improved namespace handling. (declaring `bank <bank_author>.<bank_name>` and using `.<bank_name>.<bank_trigger>`)
 - Patched `arrow_call` to correctly handle argument parsing and improve error reporting.
   - Implemented multi-line argument parsing for `arrow_call`.
   - Patched execution of `arrow_call` to ensure correct timing and execution order.
 - Upgraded indent lexer to handle multi-line statements and improve indentation handling.
 - Upgraded `parse_map_value` to handle multi-line values and improve parsing logic in Parser.
+- Added `log_message_with_trace` function to log messages with informations when running commands with `debug` flag.
 
 ### 🧰 Commands
 
-- Added `log_message_with_trace` function to log messages with informations when running commands with `debug` flag.
+- Added `login` command to authenticate users to install protected or private packages.
 - Refactored `install` command to support installing banks, presets and plugins.
-  - `install bank <bank_name>` to install a specific bank of sounds.
-  - `install preset <preset_name>` to install a specific preset.
-  - `install plugin <plugin_name>` to install a specific plugin.
+  - `install bank <bank_author>.<bank_name>` to install a specific bank of sounds.
+  - `install preset <preset_author>.<preset_name>` to install a specific preset.
+  - `install plugin <plugin_author>.<plugin_name>` to install a specific plugin.
 - Implemented `debug` and `compress` arguments for `build`, `check` and `play` commands.
   - `build --debug` to build the AST with debug information.
   - `check --debug` to check the syntax with debug information.
@@ -42,7 +48,7 @@
 
 - Added support for `fn` directive to define functions in Devalang.
   - Example: `fn myFunction(param1, param2):`
-  
+
 ### 🧠 Core Engine
 
 - Patched `trigger`, `call`, and `spawn`, `renderer` to handle correct cursor time in the audio interpreter.

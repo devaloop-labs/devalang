@@ -254,6 +254,8 @@ impl ModuleLoader {
         module: &mut Module,
         bank_name: &str
     ) -> Result<Module, String> {
+        let alias = bank_name.split('.').last().unwrap_or(bank_name);
+
         let bank_path = Path::new("./.deva/bank").join(bank_name);
         let bank_toml_path = bank_path.join("bank.toml");
 
@@ -277,23 +279,23 @@ impl ModuleLoader {
 
             bank_map.insert(bank_trigger.name.clone(), Value::String(bank_trigger_path.clone()));
 
-            if module.variable_table.variables.contains_key(bank_name) {
+            if module.variable_table.variables.contains_key(alias) {
                 eprintln!(
                     "⚠️ Trigger '{}' already defined in module '{}', skipping injection.",
-                    bank_name,
+                    alias,
                     module.path
                 );
                 continue;
             }
 
             module.variable_table.set(
-                format!("{}.{}", bank_name, bank_trigger.name),
+                format!("{}.{}", alias, bank_trigger.name),
                 Value::String(bank_trigger_path.clone())
             );
         }
 
         // Inject the map under the bank name
-        module.variable_table.set(bank_name.to_string(), Value::Map(bank_map));
+        module.variable_table.set(alias.to_string(), Value::Map(bank_map));
 
         Ok(module.clone())
     }

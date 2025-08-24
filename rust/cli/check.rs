@@ -1,7 +1,15 @@
 use crate::{
     config::driver::Config,
     core::{
-        debugger::{lexer::write_lexer_log_file, module::{write_module_function_log_file, write_module_variable_log_file}, preprocessor::write_preprocessor_log_file, store::{write_function_log_file, write_variables_log_file}}, preprocessor::loader::ModuleLoader, store::global::GlobalStore, utils::path::{ find_entry_file, normalize_path }
+        debugger::{
+            lexer::write_lexer_log_file,
+            module::{ write_module_function_log_file, write_module_variable_log_file },
+            preprocessor::write_preprocessor_log_file,
+            store::{ write_function_log_file, write_variables_log_file },
+        },
+        preprocessor::loader::ModuleLoader,
+        store::global::GlobalStore,
+        utils::path::{ find_entry_file, normalize_path },
     },
     utils::{
         collect_errors_recursively,
@@ -167,5 +175,6 @@ fn begin_check(entry: String, output: String, debug: bool) {
         normalized_output_dir
     );
 
+    spinner.finish_and_clear();
     logger.log_message(LogLevel::Success, &success_message);
 }

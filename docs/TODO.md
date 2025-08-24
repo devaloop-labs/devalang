@@ -1,5 +1,5 @@
 <div align="center">
-    <img src="https://devalang.com/images/devalang-logo-cyan.svg" alt="Devalang Logo" width="300" />
+    <img src="https://devalang.com/images/devalang-logo.svg" alt="Devalang Logo" width="300" />
 </div>
 
 # TODOs list
@@ -17,15 +17,16 @@ This is a list of tasks and features to be implemented in Devalang. Note that th
   - [x] Implement template info
 - [x] Checking
   - [x] Implement watch mode
-  - [ ] Implement debug mode
+  - [x] Implement debug mode
   - [ ] Implement compilation mode
 - [x] Building
   - [x] Implement watch mode
-  - [ ] Implement debug mode
+  - [x] Implement debug mode
   - [ ] Implement compilation mode
-  - [ ] Implement compression mode
+  - [x] Implement compression mode
 - [x] Play
   - [x] Implement Audio Engine
+  - [x] Implement debug mode
   - [x] Implement loop mode
 
 ## Core components

@@ -194,5 +194,6 @@ fn begin_build(entry: String, output: String, debug: bool, compress: bool) {
         normalized_output_dir
     );
 
+    spinner.finish_and_clear();
     logger.log_message(LogLevel::Success, &success_message);
 }

@@ -1,16 +1,31 @@
-use crate::installer::addon::{install_addon, AddonType};
+use crate::installer::addon::{ install_addon, AddonType };
 
+/// Handles the installation command for a given addon type and name.
 #[cfg(feature = "cli")]
 pub async fn handle_install_command(name: String, addon_type: AddonType) -> Result<(), String> {
+    use crate::utils::{ logger::{ LogLevel, Logger }, spinner::with_spinner };
+    use std::{ thread, time::Duration };
+
+    let logger = Logger::new();
     let deva_dir = std::path::Path::new("./.deva/");
 
-    println!("⬇️  Installing {:?} '{}'...", addon_type, name);
-    println!("📂 Target directory: {}", deva_dir.display());
+    let spinner = with_spinner("Installing...", || {
+        thread::sleep(Duration::from_millis(800));
+    });
 
     if let Err(e) = install_addon(addon_type.clone(), name.as_str(), deva_dir).await {
-        eprintln!("❌ Error installing {:?} '{}': {}", addon_type, name, e);
+        spinner.finish_and_clear();
+        logger.log_message_with_trace(
+            LogLevel::Error,
+            &format!("Error installing {:?} '{}'", addon_type, name),
+            vec![&e]
+        );
     } else {
-        println!("✅ {:?} '{}' installed successfully!", addon_type, name);
+        spinner.finish_and_clear();
+        logger.log_message(
+            LogLevel::Success,
+            &format!("{:?} '{}' installed successfully!", addon_type, name)
+        );
     }
 
     Ok(())

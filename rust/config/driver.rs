@@ -1,9 +1,12 @@
+use std::collections::HashMap;
+
 use serde::{ Deserialize, Serialize };
 
 #[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct Config {
     pub defaults: ConfigDefaults,
     pub banks: Option<Vec<BankEntry>>,
+    pub plugins: Option<Vec<PluginEntry>>,
 }
 
 #[derive(Debug, Deserialize, Clone, Serialize)]
@@ -14,11 +17,24 @@ pub struct ConfigDefaults {
     pub repeat: Option<bool>,
 }
 
+#[derive(Debug, Deserialize, Clone, Serialize)]
+pub struct BankMetadata {
+    pub bank: HashMap<String, String>,
+    pub triggers: Option<Vec<HashMap<String, String>>>,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct BankEntry {
     pub path: String,
     pub version: Option<String>,
-    pub author: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct PluginEntry {
+    pub path: String,
+    pub version: String,
+    pub author: String,
+    pub access: String,
 }
 
 impl Config {
@@ -31,6 +47,7 @@ impl Config {
                 repeat: None,
             },
             banks: Some(Vec::new()),
+            plugins: Some(Vec::new()),
         }
     }
 
@@ -48,6 +65,7 @@ impl Config {
                 repeat,
             },
             banks: Some(Vec::new()),
+            plugins: Some(Vec::new()),
         }
     }
 

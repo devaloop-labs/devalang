@@ -1,5 +1,5 @@
 <div align="center">
-        <img src="https://devalang.com/images/devalang-logo-cyan.svg" alt="Devalang Logo" width="300" />
+    <img src="https://devalang.com/images/devalang-logo.svg" alt="Devalang Logo" width="300" />
 </div>
 
 # Roadmap
@@ -8,7 +8,7 @@ Devalang is a work in progress. Here’s what we’re planning next:
 
 ## Completed
 
-- ✅ **Audio engine**: Integrate the audio engine for sound playback. 
+- ✅ **Audio engine**: Integrate the audio engine for sound playback.
 - ✅ **Basic syntax**: Implement the core syntax for Devalang, including data types and basic statements.
 - ✅ **Watch mode**: Add a watch mode to automatically rebuild on file changes.
 - ✅ **Module system**: Add support for importing and exporting variables between files using `@import` and `@export`.

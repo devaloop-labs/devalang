@@ -8,3 +8,4 @@ pub mod play;
 pub mod install;
 pub mod bank;
 pub mod update;
+pub mod login;

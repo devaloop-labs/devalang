@@ -398,6 +398,7 @@ async fn list_installed_banks() -> Result<Vec<BankFile>, String> {
         return Ok(banks); // No banks installed
     }
 
+    // TODO: Verify installed banks in files
     // let installed_banks = std::fs
     //     ::read_dir(bank_dir)
     //     .map_err(|e| format!("Failed to read bank directory: {}", e))?;
@@ -416,7 +417,7 @@ async fn list_installed_banks() -> Result<Vec<BankFile>, String> {
         );
     }
 
-    let mut config = load_config(Some(&config_path)).ok_or_else(||
+    let config = load_config(Some(&config_path)).ok_or_else(||
         format!("Failed to load config from '{}'", config_path.display())
     )?;
 

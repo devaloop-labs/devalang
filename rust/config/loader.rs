@@ -1,6 +1,5 @@
 use std::{ fs, path::Path };
-use std::collections::HashMap;
-use crate::config::driver::{ BankEntry, Config };
+use crate::config::driver::{ BankEntry, BankMetadata, Config };
 
 pub fn load_config(path: Option<&Path>) -> Option<Config> {
     let config_path = path.unwrap_or_else(|| Path::new(".devalang"));
@@ -56,6 +55,59 @@ pub fn remove_bank_from_config(config: &mut Config, dependency: &str) {
     }
 }
 
+pub fn add_plugin_to_config(config: &mut Config, real_path: &Path, dependency: &str) {
+    if config.plugins.is_none() {
+        config.plugins = Some(Vec::new());
+    }
+
+    let plugins = config.plugins.as_mut().unwrap();
+
+    let exists = plugins.iter().any(|p| p.path == dependency);
+    if exists {
+        println!("Plugin '{}' already in config", dependency);
+        return;
+    }
+
+    let metadata_path = Path::new(real_path).join("plugin.toml");
+
+    if !metadata_path.exists() {
+        eprintln!("❌ Plugin metadata file '{}' does not exist", metadata_path.display());
+        return;
+    }
+
+    let metadata_content = std::fs
+        ::read_to_string(&metadata_path)
+        .expect("Failed to read plugin metadata file");
+
+    let metadata: std::collections::HashMap<String, String> = toml
+        ::from_str(&metadata_content)
+        .expect("Failed to parse plugin metadata file");
+
+    let plugin_entry = crate::config::driver::PluginEntry {
+        path: dependency.to_string(),
+        version: metadata
+            .get("version")
+            .cloned()
+            .unwrap_or_else(|| "0.0.1".to_string()),
+        author: metadata
+            .get("author")
+            .cloned()
+            .unwrap_or_else(|| "unknown".to_string()),
+        access: metadata
+            .get("access")
+            .cloned()
+            .unwrap_or_else(|| "public".to_string()),
+    };
+
+    plugins.push(plugin_entry);
+
+    if let Err(e) = config.write(config) {
+        eprintln!("❌ Failed to write config: {}", e);
+    } else {
+        println!("✅ Plugin '{}' added to config", dependency);
+    }
+}
+
 pub fn add_bank_to_config(config: &mut Config, real_path: &Path, dependency: &str) {
     if config.banks.is_none() {
         config.banks = Some(Vec::new());
@@ -80,23 +132,17 @@ pub fn add_bank_to_config(config: &mut Config, real_path: &Path, dependency: &st
         ::read_to_string(&metadata_path)
         .expect("Failed to read bank metadata file");
 
-    let metadata: HashMap<String, String> = toml
+    let metadata: BankMetadata = toml
         ::from_str(&metadata_content)
         .expect("Failed to parse bank metadata file");
 
     let bank_to_insert = BankEntry {
         path: dependency.to_string(),
         version: Some(
-            metadata
+            metadata.bank
                 .get("version")
                 .cloned()
                 .unwrap_or_else(|| "0.0.1".to_string())
-        ),
-        author: Some(
-            metadata
-                .get("author")
-                .cloned()
-                .unwrap_or_else(|| "unknown".to_string())
         ),
     };
 

@@ -16,13 +16,23 @@ pub fn parse_dot_token(
 
     // Parse a single entity (namespace-friendly, stops at newline)
     let mut parts = Vec::new();
+    let current_line = dot_token.line;
 
     while let Some(token) = parser.peek_clone() {
+        // Ne jamais traverser une nouvelle ligne
+        if token.line != current_line {
+            break;
+        }
         match token.kind {
             TokenKind::Identifier | TokenKind::Number => {
                 parts.push(token.lexeme.clone());
                 parser.advance();
-                if parser.peek_kind() != Some(TokenKind::Dot) {
+                // Le séparateur doit être un '.' sur la même ligne, sinon on s'arrête
+                if let Some(next) = parser.peek_clone() {
+                    if next.line != current_line || next.kind != TokenKind::Dot {
+                        break;
+                    }
+                } else {
                     break;
                 }
             }
@@ -51,42 +61,53 @@ pub fn parse_dot_token(
     let mut value = Value::Null;
 
     if let Some(token) = parser.peek_clone() {
-        match token.kind {
+        // La durée et la map d'effets ne sont valides que sur la même ligne
+        if token.line == current_line {
+            match token.kind {
             TokenKind::Number => {
                 let numerator = token.lexeme.clone();
                 parser.advance();
-                if let Some(TokenKind::Slash) = parser.peek_kind() {
-                    parser.advance();
-                    if let Some(denominator_token) = parser.peek_clone() {
-                        if denominator_token.kind == TokenKind::Number {
-                            let denominator = denominator_token.lexeme.clone();
-                            parser.advance();
-                            duration = Duration::Beat(format!("{}/{}", numerator, denominator));
+                    if let Some(peek) = parser.peek_clone() {
+                        if peek.line == current_line {
+                            if let Some(TokenKind::Slash) = parser.peek_kind() {
+                                parser.advance();
+                                if let Some(denominator_token) = parser.peek_clone() {
+                                    if denominator_token.line == current_line && denominator_token.kind == TokenKind::Number {
+                                        let denominator = denominator_token.lexeme.clone();
+                                        parser.advance();
+                                        duration = Duration::Beat(format!("{}/{}", numerator, denominator));
+                                    }
+                                }
+                            } else {
+                                duration = parse_duration(numerator);
+                            }
+                        } else {
+                            duration = parse_duration(numerator);
+                        }
+                    } else {
+                        duration = parse_duration(numerator);
+                    }
+                    if let Some(next) = parser.peek_clone() {
+                        if next.line == current_line && next.kind == TokenKind::LBrace {
+                            value = parser.parse_map_value().unwrap_or(Value::Null);
                         }
                     }
-                } else {
-                    duration = parse_duration(numerator);
-                }
-                if let Some(next) = parser.peek_clone() {
-                    if next.kind == TokenKind::LBrace {
-                        value = parser.parse_map_value().unwrap_or(Value::Null);
-                    }
-                }
             }
             TokenKind::Identifier => {
                 let id = token.lexeme.clone();
                 parser.advance();
                 duration = parse_duration(id);
-                if let Some(next) = parser.peek_clone() {
-                    if next.kind == TokenKind::LBrace {
-                        value = parser.parse_map_value().unwrap_or(Value::Null);
+                    if let Some(next) = parser.peek_clone() {
+                        if next.line == current_line && next.kind == TokenKind::LBrace {
+                            value = parser.parse_map_value().unwrap_or(Value::Null);
+                        }
                     }
-                }
             }
             TokenKind::LBrace => {
-                value = parser.parse_map_value().unwrap_or(Value::Null);
+                    value = parser.parse_map_value().unwrap_or(Value::Null);
             }
-            _ => {}
+                _ => {}
+            }
         }
     }
 

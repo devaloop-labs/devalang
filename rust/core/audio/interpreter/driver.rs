@@ -52,8 +52,8 @@ pub fn run_audio_program(
 pub fn execute_audio_block(
     audio_engine: &mut AudioEngine,
     global_store: &GlobalStore,
-    variable_table: VariableTable,
-    functions_table: FunctionTable,
+    mut variable_table: VariableTable,
+    mut functions_table: FunctionTable,
     statements: Vec<Statement>,
     mut base_bpm: f32,
     mut base_duration: f32,
@@ -68,20 +68,21 @@ pub fn execute_audio_block(
     for stmt in others {
         match &stmt.kind {
             StatementKind::Load { .. } => {
-                if
-                    let Some(new_table) = interprete_load_statement(
-                        &stmt,
-                        &mut variable_table.clone()
-                    )
-                {
-                    // Extend the variable_table if necessary
+                if let Some(new_table) = interprete_load_statement(&stmt, &mut variable_table) {
+                    variable_table = new_table;
                 }
             }
             StatementKind::Let { .. } => {
-                interprete_let_statement(&stmt, &mut variable_table.clone());
+                if let Some(new_table) = interprete_let_statement(&stmt, &mut variable_table) {
+                    variable_table = new_table;
+                }
             }
             StatementKind::Function { .. } => {
-                interprete_function_statement(&stmt, &mut functions_table.clone());
+                if let Some(new_functions) =
+                    interprete_function_statement(&stmt, &mut functions_table)
+                {
+                    functions_table = new_functions;
+                }
             }
             StatementKind::Tempo => {
                 if let Some((new_bpm, new_duration)) = interprete_tempo_statement(&stmt) {

@@ -117,35 +117,56 @@ pub fn parse_arrow_call(parser: &mut Parser, global_store: &mut GlobalStore) -> 
                             if let Some(value_token) = parser.peek_clone() {
                                 parser.advance(); // consume value token
                                 let value = match value_token.kind {
-                                    TokenKind::Identifier =>
-                                        Value::Identifier(value_token.lexeme.clone()),
+                                    TokenKind::Identifier => {
+                                        // Interpret bare true/false as booleans
+                                        if value_token.lexeme == "true" {
+                                            Value::Boolean(true)
+                                        } else if value_token.lexeme == "false" {
+                                            Value::Boolean(false)
+                                        } else {
+                                            Value::Identifier(value_token.lexeme.clone())
+                                        }
+                                    },
                                     TokenKind::String => Value::String(value_token.lexeme.clone()),
                                     TokenKind::Number => {
+                                        // Support decimals (e.g., 0.8) and beats (e.g., 1/4)
                                         if let Some(TokenKind::Slash) = parser.peek_kind() {
-                                            parser.advance(); // consume slash
+                                            // Beat fraction
+                                            parser.advance(); // consume '/'
                                             if let Some(denominator_token) = parser.peek_clone() {
                                                 if denominator_token.kind == TokenKind::Number {
                                                     parser.advance(); // consume denominator
-                                                    let denominator =
-                                                        denominator_token.lexeme.clone();
-                                                    Value::Beat(
-                                                        format!(
-                                                            "{}/{}",
-                                                            value_token.lexeme,
-                                                            denominator
-                                                        )
-                                                    )
+                                                    let denominator = denominator_token.lexeme.clone();
+                                                    Value::Beat(format!("{}/{}", value_token.lexeme, denominator))
                                                 } else {
                                                     Value::Unknown
                                                 }
                                             } else {
                                                 Value::Unknown
                                             }
+                                        } else if let Some(next) = parser.peek_clone() {
+                                            // Decimal number handling: NUMBER '.' NUMBER -> f32
+                                            if next.kind == TokenKind::Dot {
+                                                // consume '.'
+                                                parser.advance();
+                                                if let Some(after_dot) = parser.peek_clone() {
+                                                    if after_dot.kind == TokenKind::Number {
+                                                        parser.advance(); // consume fractional digits
+                                                        let combined = format!("{}.{}", value_token.lexeme, after_dot.lexeme);
+                                                        Value::Number(combined.parse::<f32>().unwrap_or(0.0))
+                                                    } else {
+                                                        // Lone dot without number, fallback to integer part
+                                                        Value::Number(value_token.lexeme.parse::<f32>().unwrap_or(0.0))
+                                                    }
+                                                } else {
+                                                    Value::Number(value_token.lexeme.parse::<f32>().unwrap_or(0.0))
+                                                }
+                                            } else {
+                                                // Regular integer number
+                                                Value::Number(value_token.lexeme.parse::<f32>().unwrap_or(0.0))
+                                            }
                                         } else {
-                                            // Regular number without slash
-                                            Value::Number(
-                                                value_token.lexeme.parse::<f32>().unwrap_or(0.0)
-                                            )
+                                            Value::Number(value_token.lexeme.parse::<f32>().unwrap_or(0.0))
                                         }
                                     }
                                     TokenKind::Boolean =>

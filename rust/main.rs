@@ -23,6 +23,7 @@ use crate::{
         driver::{ BankCommand, Cli, Commands, InstallCommand, TemplateCommand },
         init::handle_init_command,
         install::handle_install_command,
+        login::handle_login_command,
         play::handle_play_command,
         template::{ handle_template_info_command, handle_template_list_command },
         update::handle_update_command,
@@ -125,6 +126,16 @@ async fn main() -> io::Result<()> {
             if let Err(err) = handle_update_command(only).await {
                 eprintln!("❌ Update failed: {}", err);
             }
+        }
+
+        Commands::Login { .. } => {
+            if let Err(err) = handle_login_command().await {
+                eprintln!("❌ Login failed: {}", err);
+            }
+        }
+
+        Commands::Logout { .. } => {
+            eprintln!("❌ Logout command is not implemented yet.");
         }
 
         _ => {}

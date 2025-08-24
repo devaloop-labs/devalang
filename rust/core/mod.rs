@@ -8,3 +8,4 @@ pub mod utils;
 pub mod builder;
 pub mod error;
 pub mod audio;
+pub mod plugin;

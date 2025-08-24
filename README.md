@@ -1,5 +1,5 @@
 <div align="center">
-    <img src="https://devalang.com/images/devalang-logo-cyan.svg" alt="Devalang Logo" width="300" />
+    <img src="https://devalang.com/images/devalang-logo.svg" alt="Devalang Logo" width="300" />
 </div>
 
 ![Rust](https://img.shields.io/badge/Made%20with-Rust-orange?logo=rust)
@@ -7,7 +7,7 @@
 ![Node.js](https://img.shields.io/badge/Node.js-18%2B-brightgreen?logo=node.js)
 
 ![Project Status](https://img.shields.io/badge/status-alpha-red)
-![Version](https://img.shields.io/badge/version-0.0.1-blue)
+![Version](https://img.shields.io/npm/v/@devaloop/devalang)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Windows-blue)
 
@@ -16,26 +16,20 @@
 
 [![VSCode Extension](https://img.shields.io/visual-studio-marketplace/v/devaloop.devalang-vscode?label=VSCode%20Extension)](https://marketplace.visualstudio.com/items?itemName=devaloop.devalang-vscode)
 
-# 🎶 Devalang
-
-Compose music with code — structured, expressive, and fast.
+# 🦊 Devalang (CORE) — Compose music with code
 
 Devalang is a tiny domain-specific language (DSL) for music makers, sound designers, and audio hackers.
 Compose loops, control samples, render and play audio — all in clean, readable text.
 
-🦊 Whether you're building a track, shaping textures, or performing live, Devalang helps you think in rhythms. It’s designed to be simple, expressive, and fast — because your ideas shouldn’t wait.
+Whether you're building a track, shaping textures, or performing live, Devalang helps you think in rhythms. It’s designed to be simple, expressive, and fast — because your ideas shouldn’t wait.
 
 From studio sketches to live sets, Devalang gives you rhythmic control — with the elegance of code.
 
-> 🚧 **v0.0.1-alpha.13 Notice** 🚧
->
-> NEW: Devalang is available in your browser at [playground.devalang.com](https://playground.devalang.com) !
->
-> NEW: Online documentation is now available at [docs.devalang.com](https://docs.devalang.com)
+> 🚧 Alpha Notice 🚧
 >
 > Includes synthesis, playback, and rendering features, but is still in early development.
 >
-> Currently, Devalang CLI is only available for **Windows**.  
+> Currently, Devalang CLI is only available for **Windows**.
 > Linux and macOS binaries will be added in future releases via cross-platform builds.
 
 ## 📚 Quick Access
@@ -51,7 +45,11 @@ From studio sketches to live sets, Devalang gives you rhythmic control — with 
 
 ## ⏱️ Try it now !
 
-### You can also have a look at the [Playground](https://playground.devalang.com) to try Devalang directly in your browser
+### Try Devalang in your browser
+
+> Have a look at the [Playground](https://playground.devalang.com) to try Devalang directly in your browser
+
+### Try Devalang CLI
 
 ```bash
 # Install Devalang CLI globally
@@ -68,10 +66,23 @@ Create a new Devalang file `src/index.deva` in the project directory:
 # src/index.deva
 
 group myLead:
-    let mySynth = synth sine
+    let mySynth = synth sine {
+        attack: 0,
+        decay: 100,
+        sustain: 100,
+        release: 100
+    }
 
-    mySynth -> note(C4, { duration: 400 })
-    mySynth -> note(G4, { duration: 600 })
+    mySynth -> note(C4, {
+        duration: 400,
+        velocity: 0.7,
+        glide: true
+    })
+
+    mySynth -> note(G4, {
+         duration: 600,
+         slide: true
+    })
 
 # Play the lead
 
@@ -95,19 +106,19 @@ devalang play --repeat
 
 > For more examples, check out the [examples directory](./examples/).
 
-## ❓ Why Devalang?
+## ❓ Why Devalang ?
 
-- 🎹 Prototype audio ideas without opening a DAW
+- 🎹 Prototype audio ideas without opening a DAW, even VSCode
 - 💻 Integrate sound into code-based workflows
 - 🎛️ Control audio parameters through readable syntax
 - 🧪 Build musical logic with variables and conditions
-
-> Producer, coder, or both — Devalang gives you musical structure, instantly.
+- 🔄 Create complex patterns with ease
 
 ## 🚀 Features
 
 - 🎵 **Audio Engine**: Integrated audio playback and rendering
 - 🧩 **Module system** for importing and exporting variables between files
+- 📦 **Addon manager** for managing external banks, plugins and more
 - 📜 **Structured AST** generation for debugging and future compilation
 - 🔢 **Basic data types**: strings, numbers, booleans, maps, arrays
 - 👁️ **Watch mode** for `build`, `check` and `play` commands
@@ -141,6 +152,10 @@ MIT — see [LICENSE](./LICENSE)
 Contributions, bug reports and suggestions are welcome !  
 Feel free to open an issue or submit a pull request.
 
+For more info, see [docs/CONTRIBUTING.md](./docs/CONTRIBUTING.md).
+
 ## 📢 Contact
+
+Feel free to reach out for any inquiries or feedback.
 
 📧 [contact@devaloop.com](mailto:contact@devaloop.com)

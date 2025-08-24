@@ -110,6 +110,9 @@ impl AudioEngine {
             "velocity",
             "glide",
             "slide",
+            "amp",
+            "target_freq",
+            "target_amp",
             "modulation",
             "expression"
         ];
@@ -128,24 +131,28 @@ impl AudioEngine {
             }
         }
 
-        // Synth parameters
-        let attack = self.extract_f32(&synth_params, "attack", 120.0).unwrap_or(0.0);
-        let decay = self.extract_f32(&synth_params, "decay", 120.0).unwrap_or(0.0);
-        let sustain = self.extract_f32(&synth_params, "sustain", 120.0).unwrap_or(0.0);
-        let release = self.extract_f32(&synth_params, "release", 120.0).unwrap_or(0.0);
+    // Synth parameters
+    let attack = self.extract_f32(&synth_params, "attack").unwrap_or(0.0);
+    let decay = self.extract_f32(&synth_params, "decay").unwrap_or(0.0);
+    let sustain = self.extract_f32(&synth_params, "sustain").unwrap_or(0.0);
+    let release = self.extract_f32(&synth_params, "release").unwrap_or(0.0);
+    let attack_s = if attack > 10.0 { attack / 1000.0 } else { attack };
+    let decay_s = if decay > 10.0 { decay / 1000.0 } else { decay };
+    let release_s = if release > 10.0 { release / 1000.0 } else { release };
+    let sustain_level = if sustain > 1.0 { (sustain / 100.0).clamp(0.0, 1.0) } else { sustain.clamp(0.0, 1.0) };
 
         // Note parameters
-        let duration_ms = self.extract_f32(&note_params, "duration", 120.0).unwrap_or(duration_ms);
-        let velocity = self.extract_f32(&note_params, "velocity", 120.0).unwrap_or(1.0);
+    let duration_ms = self.extract_f32(&note_params, "duration").unwrap_or(duration_ms);
+    let velocity = self.extract_f32(&note_params, "velocity").unwrap_or(1.0);
         let glide = self.extract_boolean(&note_params, "glide").unwrap_or(false);
         let slide = self.extract_boolean(&note_params, "slide").unwrap_or(false);
 
-        let amplitude = (i16::MAX as f32) * amp.clamp(0.0, 1.0) * velocity.clamp(0.0, 1.0);
+    let _amplitude = (i16::MAX as f32) * amp.clamp(0.0, 1.0) * velocity.clamp(0.0, 1.0);
 
         // Logic for glide and slide
-        let mut freq_start = freq;
+    let freq_start = freq;
         let mut freq_end = freq;
-        let mut amp_start = amp * velocity.clamp(0.0, 1.0);
+    let amp_start = amp * velocity.clamp(0.0, 1.0);
         let mut amp_end = amp_start;
 
         if glide {
@@ -171,12 +178,11 @@ impl AudioEngine {
         let start_sample = ((start_time_ms / 1000.0) * sample_rate) as usize;
 
         let mut samples = Vec::with_capacity(total_samples);
-        let fade_len = (sample_rate * 0.01) as usize; // 10 ms fade
+    let fade_len = (sample_rate * 0.01) as usize; // 10 ms fade
 
-        let attack_samples = (attack * sample_rate) as usize;
-        let decay_samples = (decay * sample_rate) as usize;
-        let release_samples = (release * sample_rate) as usize;
-        let sustain_level = sustain;
+    let attack_samples = (attack_s * sample_rate) as usize;
+    let decay_samples = (decay_s * sample_rate) as usize;
+    let release_samples = (release_s * sample_rate) as usize;
         let sustain_samples = if total_samples > attack_samples + decay_samples + release_samples {
             total_samples - attack_samples - decay_samples - release_samples
         } else {
@@ -204,7 +210,7 @@ impl AudioEngine {
 
             let mut value = match waveform.as_str() {
                 "sine" => phase.sin(),
-                "square" => if phase.sin() >= 0.0 { 1.0 } else { -1.0 }
+                "square" => if phase.sin() >= 0.0 { 1.0 } else { -1.0 },
                 "saw" => 2.0 * (current_freq * t - (current_freq * t + 0.5).floor()),
                 "triangle" => (2.0 * (2.0 * (current_freq * t).fract() - 1.0)).abs() * 2.0 - 1.0,
                 _ => 0.0,
@@ -255,8 +261,9 @@ impl AudioEngine {
         }
 
         for (i, sample) in stereo_samples.iter().enumerate() {
-            if *sample != 0 {
-            }
+            // Debug: note si on rencontre des samples non nuls
+            // (pour traquer les buffers silencieux)
+            // if i == 0 { eprintln!("[debug] first stereo sample: {}", sample); }
             self.buffer[offset + i] = self.buffer[offset + i].saturating_add(*sample);
         }
     }
@@ -275,8 +282,8 @@ impl AudioEngine {
         }
 
         let root = Path::new(env!("CARGO_MANIFEST_DIR"));
-        let module_root = Path::new(&self.module_name);
-        let mut resolved_path = String::new();
+    let module_root = Path::new(&self.module_name);
+    let resolved_path: String;
 
         // Get the variable path from the variable table
         let mut var_path = filepath.to_string();
@@ -286,41 +293,14 @@ impl AudioEngine {
             var_path = sample_path.clone();
         }
 
-        // If it's a namespace
-        if var_path.contains(".") {
-            let parts: Vec<&str> = var_path.trim_start_matches('.').split('.').collect();
-            if parts.len() == 2 {
-                let bank_name = parts[0];
-                let entity_name = parts[1];
-
-                // Verifies if the bank is declared
-                if !variable_table.variables.contains_key(bank_name) {
-                    eprintln!(
-                        "❌ Bank '{}' not declared. Please declare it first using : 'bank {}'",
-                        bank_name,
-                        bank_name
-                    );
-                    return;
-                }
-
-                resolved_path = root
-                    .join(".deva")
-                    .join("bank")
-                    .join(bank_name)
-                    .join(format!("{}.wav", entity_name))
-                    .to_string_lossy()
-                    .to_string();
-            } else {
-                eprintln!("❌ Invalid namespace format: {}", var_path);
-                return;
-            }
-        } else if var_path.starts_with("devalang://") {
+        // Handle devalang:// protocol
+        if var_path.starts_with("devalang://") {
             let path_after_protocol = var_path.replace("devalang://", "");
             let parts: Vec<&str> = path_after_protocol.split('/').collect();
 
             if parts.len() < 3 {
                 eprintln!(
-                    "❌ Invalid devalang:// path format. Expected devalang://<type>/<bank>/<entity>"
+                    "❌ Invalid devalang:// path format. Expected devalang://<type>/<author>.<bank>/<entity>"
                 );
                 return;
             }
@@ -513,12 +493,12 @@ impl AudioEngine {
         }
     }
 
-    fn extract_f32(&self, map: &HashMap<String, Value>, key: &str, default: f32) -> Option<f32> {
+    fn extract_f32(&self, map: &HashMap<String, Value>, key: &str) -> Option<f32> {
         match map.get(key) {
             Some(Value::Number(n)) => Some(*n),
             Some(Value::String(s)) => s.parse::<f32>().ok(),
             Some(Value::Boolean(b)) => Some(if *b { 1.0 } else { 0.0 }),
-            _ => Some(default),
+            _ => None,
         }
     }
 

@@ -59,14 +59,8 @@ pub fn interprete_call_arrow_statement(
         };
 
         // Synth parameters
-        let mut synth_params = params.clone();
-        
-        let attack = extract_f32(&synth_params, "attack", base_bpm).unwrap_or(0.0);
-        let decay = extract_f32(&synth_params, "decay", base_bpm).unwrap_or(0.0);
-        let sustain = extract_f32(&synth_params, "sustain", base_bpm).unwrap_or(0.0);
-        let release = extract_f32(&synth_params, "release", base_bpm).unwrap_or(0.0);
-        let freq = extract_f32(&synth_params, "freq", base_bpm).unwrap_or(440.0);
-        let amp = extract_f32(&synth_params, "amp", base_bpm).unwrap_or(1.0);
+    let synth_params = params.clone();
+    let amp = extract_f32(&synth_params, "amp", base_bpm).unwrap_or(1.0);
 
         if method == "note" {
             let filtered_args: Vec<_> = args
@@ -74,24 +68,30 @@ pub fn interprete_call_arrow_statement(
                 .filter(|arg| !matches!(arg, Value::Unknown))
                 .collect();
 
-            let Some(Value::Identifier(note_name)) = filtered_args.get(0) else {
+            let Some(Value::Identifier(note_name)) = filtered_args.get(0).map(|v| (*v).clone()) else {
                 println!("❌ Invalid or missing argument for 'note' method on '{}'.", target);
                 return (*max_end_time, cursor_copy);
             };
 
             let mut note_params = HashMap::new();
-            if let Some(Value::Map(map)) = filtered_args.get(1) {
-                for (key, value) in map {
-                    note_params.insert(key.clone(), value.clone());
+            if let Some(arg1) = filtered_args.get(1) {
+                match (*arg1).clone() {
+                    Value::Map(map) => {
+                        for (key, value) in map {
+                            note_params.insert(key, value);
+                        }
+                    }
+                    _ => {}
                 }
             }
 
             // Note parameters and calculations
             let amp_note = extract_f32(&note_params, "amp", base_bpm).unwrap_or(amp);
-            let duration_ms = extract_f32(&note_params, "duration", base_bpm).unwrap_or(base_duration);
+            let duration_ms = extract_f32(&note_params, "duration", base_bpm)
+                .unwrap_or(base_duration * 1000.0);
             
             let duration_secs = duration_ms / 1000.0;
-            let final_freq = note_to_freq(note_name);
+            let final_freq = note_to_freq(&note_name);
             let start_time = cursor_copy;
             let end_time = start_time + duration_secs;
 

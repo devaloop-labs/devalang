@@ -14,13 +14,41 @@ pub fn parse_bank_token(parser: &mut Parser, _global_store: &mut GlobalStore) ->
 
     let bank_value = if let Some(token) = parser.peek_clone() {
         match token.kind {
-            TokenKind::Identifier => {
-                parser.advance();
-                Value::Identifier(token.lexeme.clone())
-            }
-            TokenKind::Number => {
-                parser.advance();
-                Value::Number(token.lexeme.parse::<f32>().unwrap_or(0.0))
+            TokenKind::Identifier | TokenKind::Number => {
+                parser.advance(); // consume identifier or number
+
+                let mut value = token.lexeme.clone();
+
+                // Support namespaced banks: <author>.<bank_name>
+                if let Some(next) = parser.peek_clone() {
+                    if next.kind == TokenKind::Dot {
+                        parser.advance(); // consume '.'
+                        if let Some(last) = parser.peek_clone() {
+                            match last.kind {
+                                TokenKind::Identifier | TokenKind::Number => {
+                                    parser.advance();
+                                    value = format!("{}.{}", value, last.lexeme);
+                                    Value::String(value)
+                                }
+                                _ => Value::Unknown,
+                            }
+                        } else {
+                            Value::Unknown
+                        }
+                    } else {
+                        match token.kind {
+                            TokenKind::Identifier => Value::Identifier(value),
+                            TokenKind::Number => Value::Number(value.parse::<f32>().unwrap_or(0.0)),
+                            _ => Value::Unknown,
+                        }
+                    }
+                } else {
+                    match token.kind {
+                        TokenKind::Identifier => Value::Identifier(value),
+                        TokenKind::Number => Value::Number(value.parse::<f32>().unwrap_or(0.0)),
+                        _ => Value::Unknown,
+                    }
+                }
             }
             _ => Value::Unknown,
         }

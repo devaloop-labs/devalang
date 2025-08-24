@@ -2,8 +2,6 @@
 
 bpm 135
 
-bank 808
-
 let customSynth = synth sine {
     attack: 0,
     decay: 100,
@@ -14,12 +12,18 @@ let customSynth = synth sine {
 group mySynthGroup:
     customSynth -> note(C4, { 
         duration: 1000,
+        glide: true,
+        velocity: 0.8
     })
     customSynth -> note(E3, { 
         duration: 1000,
+        glide: true,
+        velocity: 0.5
     })
     customSynth -> note(D3, { 
         duration: 1000,
+        glide: true,
+        velocity: 0.6
     })
 
 spawn mySynthGroup

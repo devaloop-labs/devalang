@@ -162,7 +162,7 @@ pub enum Commands {
     /// - `output` - The directory where the output files will be generated. Defaults to "./output".
     /// - `watch` - Whether to watch for changes and re-analyze. Defaults to "true".
     /// - `debug` - Whether to print debug information. Defaults to "false".
-    /// 
+    ///
     /// ### Example
     /// ```bash
     /// devalang check --entry ./src --output ./output --watch true --debug false
@@ -281,4 +281,12 @@ pub enum Commands {
         #[command(subcommand)]
         command: BankCommand,
     },
+
+    /// Log in to your Devaloop account.
+    ///
+    Login {},
+
+    /// Log out of your Devaloop account.
+    /// 
+    Logout {},
 }

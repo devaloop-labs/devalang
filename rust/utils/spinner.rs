@@ -3,7 +3,7 @@ use indicatif::{ ProgressBar, ProgressStyle };
 use std::{ time::Duration };
 
 #[cfg(feature = "cli")]
-pub fn with_spinner<T, F>(start_msg: &str, f: F) -> T where F: FnOnce() -> T {
+pub fn with_spinner<T, F>(start_msg: &str, f: F) -> ProgressBar where F: FnOnce() -> T {
     let spinner = ProgressBar::new_spinner();
     spinner.set_style(
         ProgressStyle::with_template("{spinner:.green} {msg}")
@@ -15,7 +15,5 @@ pub fn with_spinner<T, F>(start_msg: &str, f: F) -> T where F: FnOnce() -> T {
 
     let result = f();
 
-    spinner.finish_and_clear();
-
-    result
+    spinner
 }
