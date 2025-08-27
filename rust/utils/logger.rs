@@ -7,6 +7,7 @@ pub enum LogLevel {
     Success,
     Error,
     Info,
+    Print,
     Warning,
     Watcher,
     Debug,
@@ -102,6 +103,7 @@ impl Logger {
             LogLevel::Warning => Color::Rgb { r: 255, g: 152, b: 0 },
             LogLevel::Watcher => Color::Rgb { r: 156, g: 39, b: 176 },
             LogLevel::Debug => Color::Rgb { r: 103, g: 58, b: 183 },
+            LogLevel::Print => Color::Rgb { r: 255, g: 255, b: 255 },
         };
 
         let status = match level {
@@ -111,6 +113,7 @@ impl Logger {
             LogLevel::Warning => "WARNING",
             LogLevel::Watcher => "WATCHER",
             LogLevel::Debug => "DEBUG",
+            LogLevel::Print => "PRINT",
         };
 
         s.push('[');
@@ -133,6 +136,7 @@ impl Logger {
             LogLevel::Warning => "[WARNING]",
             LogLevel::Watcher => "[WATCHER]",
             LogLevel::Debug => "[DEBUG]",
+            LogLevel::Print => "[PRINT]",
         }
         .to_string()
     }

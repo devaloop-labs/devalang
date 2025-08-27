@@ -1,13 +1,12 @@
-use std::collections::HashMap;
 
 use crate::{
     core::{
         parser::statement::{ Statement, StatementKind },
         preprocessor::{ module::Module, resolver::driver::resolve_statement },
         shared::value::Value,
-        store::{ function::FunctionDef, global::GlobalStore, variable::VariableTable },
+        store::{ function::FunctionDef, global::GlobalStore },
     },
-    utils::logger::{ LogLevel, Logger },
+    
 };
 
 pub fn resolve_function(
@@ -66,13 +65,4 @@ fn resolve_block_statements(
         .collect()
 }
 
-fn type_error(logger: &Logger, module: &Module, stmt: &Statement, message: String) -> Statement {
-    let stacktrace = format!("{}:{}:{}", module.path, stmt.line, stmt.column);
-    logger.log_error_with_stacktrace(&message, &stacktrace);
-
-    Statement {
-        kind: StatementKind::Error { message },
-        value: Value::Null,
-        ..stmt.clone()
-    }
-}
+// (removed unused helper type_error)

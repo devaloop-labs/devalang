@@ -12,7 +12,7 @@ use crate::{
         utils::path::{ find_entry_file, normalize_path },
     },
     utils::{
-        collect_errors_recursively,
+        error::collect_errors_recursively,
         logger::{ LogLevel, Logger },
         spinner::with_spinner,
         watcher::watch_directory,

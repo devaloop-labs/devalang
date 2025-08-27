@@ -1,0 +1,44 @@
+bpm 120
+
+group myLead:
+    let mySynth = synth sine
+
+    # This will automate all notes inside mySynth
+    # automate mySynth:
+    #     param volume {
+    #         0% = 0.0
+    #         100% = 1.0
+    #     }
+    #     param pan {
+    #         0% = -1.0
+    #         100% = 1.0
+    #     }
+    #     param pitch {
+    #         0% = -12.0
+    #         100% = 12.0
+    #     }
+    
+    # This will automate only C4
+    mySynth -> note(C4, { 
+        duration: 400,
+        automate: {
+            pitch: {
+                0%: -12.0
+                100%: 12.0
+            },
+            pan: {
+                0%: -1.0,
+                100%: 1.0
+            }
+        }
+    })
+    mySynth -> note(G4, { duration: 400 })
+    mySynth -> note(E4, { duration: 600 })
+    mySynth -> note(A4, { duration: 400 })
+    mySynth -> note(F4, { duration: 800 })
+    mySynth -> note(D4, { duration: 400 })
+    mySynth -> note(B3, { duration: 600 })
+
+
+
+call myLead

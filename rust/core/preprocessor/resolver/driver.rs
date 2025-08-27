@@ -25,7 +25,7 @@ use crate::{
 };
 
 pub fn resolve_all_modules(module_loader: &ModuleLoader, global_store: &mut GlobalStore) {
-    for module in global_store.clone().modules.values_mut() {
+    for _module in global_store.clone().modules.values_mut() {
         resolve_imports(module_loader, global_store);
     }
 }
@@ -80,9 +80,11 @@ fn resolve_value(value: &Value, module: &Module, global_store: &mut GlobalStore)
                 return resolve_value(&export_val, module, global_store);
             }
 
-            eprintln!("⚠️ Unresolved identifier '{}'", name);
-            Value::Null
+            // Leave unresolved identifiers as-is; they might be runtime-bound (e.g., foreach vars)
+            Value::Identifier(name.clone())
         }
+
+        Value::String(s) => Value::String(s.clone()),
 
         Value::Beat(beat_str) => {
             println!("[warn] '{:?}': unresolved beat '{}'", module.path, beat_str);
@@ -118,7 +120,7 @@ fn find_export_value(name: &str, global_store: &GlobalStore) -> Option<Value> {
     None
 }
 
-pub fn resolve_imports(module_loader: &ModuleLoader, global_store: &mut GlobalStore) {
+pub fn resolve_imports(_module_loader: &ModuleLoader, global_store: &mut GlobalStore) {
     for (module_path, module) in global_store.clone().modules.iter_mut() {
         for (name, source_path) in &module.import_table.imports {
             match source_path {
@@ -260,7 +262,7 @@ pub fn resolve_and_flatten_all_modules(
                     resolved.push(resolved_stmt);
                 }
 
-                StatementKind::Function { name, parameters, body } => {
+                StatementKind::Function { name: _, parameters: _, body: _ } => {
                     let resolved_function = resolve_function(&stmt, &module, &path, global_store);
                     resolved.push(resolved_function);
                 }

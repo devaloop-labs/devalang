@@ -1,15 +1,18 @@
 use crate::core::parser::{ statement::{ Statement, StatementKind }, driver::Parser };
+use serde::{Serialize, Deserialize};
 
 pub struct ErrorHandler {
     errors: Vec<Error>,
 }
 
+#[derive(Serialize, Deserialize, Clone)]
 pub struct ErrorResult {
     pub message: String,
     pub line: usize,
     pub column: usize,
 }
 
+#[derive(Clone)]
 pub struct Error {
     pub message: String,
     pub line: usize,
@@ -42,7 +45,7 @@ impl ErrorHandler {
         self.errors.clear();
     }
 
-    pub fn detect_from_statements(&mut self, parser: &mut Parser, statements: &[Statement]) {
+    pub fn detect_from_statements(&mut self, _parser: &mut Parser, statements: &[Statement]) {
         for stmt in statements {
             match &stmt.kind {
                 StatementKind::Unknown => {

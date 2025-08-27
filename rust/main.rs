@@ -138,7 +138,6 @@ async fn main() -> io::Result<()> {
             eprintln!("❌ Logout command is not implemented yet.");
         }
 
-        _ => {}
     }
 
     Ok(())

@@ -1,0 +1,15 @@
+# NOTE: Available in next release
+
+# @use devaloop.acid as acidPlugin
+
+# let acidSynth = synth acidPlugin.synth {
+#     waveform: "saw",
+#     accent: 0.1,
+#     decay: 250
+# }
+
+# group mySynthGroup:
+#     acidSynth -> note(C4, { duration: 600 })
+#     acidSynth -> note(E4, { duration: 600 })
+
+# call mySynthGroup

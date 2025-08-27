@@ -2,7 +2,7 @@ pub mod handler;
 pub mod token;
 
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use crate::core::{
     lexer::{ handler::driver::handle_content_lexing, token::Token },
     utils::path::normalize_path,

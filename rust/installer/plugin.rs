@@ -34,7 +34,7 @@ pub async fn install_plugin(name: &str, target_dir: &Path) -> Result<(), String>
         .ok_or_else(|| "Failed to determine root directory".to_string())?;
 
     let config_path = root_dir.join(".devalang");
-    if (!config_path.exists()) {
+    if !config_path.exists() {
         return Err(
             format!(
                 "Config file not found at '{}'. Please run 'devalang init' before adding an addon",
@@ -49,7 +49,7 @@ pub async fn install_plugin(name: &str, target_dir: &Path) -> Result<(), String>
 
     let dependency_path = &format!("devalang://plugin/{}", name);
 
-    add_plugin_to_config(&mut config, &extract_path, &dependency_path);
+    add_plugin_to_config(&mut config, &extract_path, dependency_path);
 
     Ok(())
 }

@@ -22,7 +22,7 @@ pub fn render_audio_with_modules(
         // Apply global variables to the initial engine
         if let Some(module) = global_store.get_module(&module_name) {
             // interprete statements to fill the audio buffer
-            let (module_max_end_time, cursor_time) = run_audio_program(
+            let (module_max_end_time, _cursor_time) = run_audio_program(
                 &statements,
                 &mut audio_engine,
                 module_name.clone(),

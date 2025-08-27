@@ -19,7 +19,7 @@ pub fn parse_dot_token(
     let current_line = dot_token.line;
 
     while let Some(token) = parser.peek_clone() {
-        // Ne jamais traverser une nouvelle ligne
+        // Never cross a newline
         if token.line != current_line {
             break;
         }
@@ -27,7 +27,7 @@ pub fn parse_dot_token(
             TokenKind::Identifier | TokenKind::Number => {
                 parts.push(token.lexeme.clone());
                 parser.advance();
-                // Le séparateur doit être un '.' sur la même ligne, sinon on s'arrête
+                // The separator must be a '.' on the same line, otherwise stop
                 if let Some(next) = parser.peek_clone() {
                     if next.line != current_line || next.kind != TokenKind::Dot {
                         break;
@@ -61,7 +61,7 @@ pub fn parse_dot_token(
     let mut value = Value::Null;
 
     if let Some(token) = parser.peek_clone() {
-        // La durée et la map d'effets ne sont valides que sur la même ligne
+    // Duration and effects map are only valid on the same line
         if token.line == current_line {
             match token.kind {
             TokenKind::Number => {

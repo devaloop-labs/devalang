@@ -7,7 +7,7 @@ use crate::core::lexer::{
 
 fn advance_char<I: Iterator<Item = char>>(
     chars: &mut std::iter::Peekable<I>,
-    line: &mut usize,
+    _line: &mut usize,
     column: &mut usize
 ) -> Option<char> {
     while let Some(c) = chars.next() {
@@ -90,7 +90,7 @@ pub fn handle_content_lexing(content: String) -> Result<Vec<Token>, String> {
                     &mut column
                 );
             }
-            '=' | '!' | '<' | '>' => {
+            '=' | '!' | '<' | '>' | '+' | '*' => {
                 handle_operator_lexer(
                     ch,
                     &mut chars,
@@ -122,6 +122,20 @@ pub fn handle_content_lexing(content: String) -> Result<Vec<Token>, String> {
                     &mut line,
                     &mut column
                 );
+                // If not parsed as arrow or number, fallback as Minus token
+                if let Some(last) = tokens.last() {
+                    if last.kind == TokenKind::Unknown && last.lexeme == "-" {
+                        // replace last with Minus
+                        let _ = tokens.pop();
+                        tokens.push(Token {
+                            kind: TokenKind::Minus,
+                            lexeme: "-".to_string(),
+                            line,
+                            column,
+                            indent: current_indent,
+                        });
+                    }
+                }
             }
             '{' => {
                 handle_lbrace_lexer(
@@ -145,6 +159,9 @@ pub fn handle_content_lexing(content: String) -> Result<Vec<Token>, String> {
                     &mut column
                 );
             }
+            '[' => { tokens.push(Token { kind: TokenKind::LBracket, lexeme: "[".to_string(), line, column, indent: current_indent }); }
+            ']' => { tokens.push(Token { kind: TokenKind::RBracket, lexeme: "]".to_string(), line, column, indent: current_indent }); }
+            ',' => { tokens.push(Token { kind: TokenKind::Comma, lexeme: ",".to_string(), line, column, indent: current_indent }); }
             '(' => {
                 handle_lparen_lexer(
                     ch,
@@ -189,7 +206,41 @@ pub fn handle_content_lexing(content: String) -> Result<Vec<Token>, String> {
                     &mut column
                 );
             }
-            '\"' | '\'' => {
+            '$' => {
+                // Treat `$` as start of a special identifier like `$env` or `$math`
+                let mut ident = String::from("$");
+                while let Some(&c) = chars.peek() {
+                    if c.is_ascii_alphanumeric() || c == '_' {
+                        ident.push(c);
+                        chars.next();
+                        column += 1;
+                    } else { break; }
+                }
+                tokens.push(Token { kind: TokenKind::Identifier, lexeme: ident, line, column, indent: current_indent });
+            }
+            '0'..='9' => {
+                handle_number_lexer(
+                    ch,
+                    &mut chars,
+                    &mut current_indent,
+                    &mut indent_stack,
+                    &mut tokens,
+                    &mut line,
+                    &mut column,
+                );
+            }
+            'a'..='z' | 'A'..='Z' | '_' => {
+                handle_identifier_lexer(
+                    ch,
+                    &mut chars,
+                    &mut current_indent,
+                    &mut indent_stack,
+                    &mut tokens,
+                    &mut line,
+                    &mut column,
+                );
+            }
+            '"' | '\'' => {
                 handle_string_lexer(
                     ch,
                     &mut chars,
@@ -197,29 +248,7 @@ pub fn handle_content_lexing(content: String) -> Result<Vec<Token>, String> {
                     &mut indent_stack,
                     &mut tokens,
                     &mut line,
-                    &mut column
-                );
-            }
-            c if c.is_ascii_digit() => {
-                handle_number_lexer(
-                    c,
-                    &mut chars,
-                    &mut current_indent,
-                    &mut indent_stack,
-                    &mut tokens,
-                    &mut line,
-                    &mut column
-                );
-            }
-            c if c.is_ascii_alphabetic() => {
-                handle_identifier_lexer(
-                    c,
-                    &mut chars,
-                    &mut current_indent,
-                    &mut indent_stack,
-                    &mut tokens,
-                    &mut line,
-                    &mut column
+                    &mut column,
                 );
             }
             _ => {

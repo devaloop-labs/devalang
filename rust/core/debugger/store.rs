@@ -27,7 +27,7 @@ pub fn write_function_log_file(output_dir: &str, file_name: &str, functions: Fun
     let log_directory = format!("{}/logs", output_dir);
     create_dir_all(&log_directory).expect("Failed to create log directory");
 
-    for (index, function) in functions.functions {
+    for (_index, function) in functions.functions {
         content.push_str(
             &format!("'{}' = [{:?}] => {:?}\n", function.name, function.parameters, function.body)
         );

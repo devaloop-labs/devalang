@@ -1,11 +1,7 @@
 use crate::{
     core::{
         parser::statement::{ Statement, StatementKind },
-        preprocessor::{
-            module::Module,
-            resolver::driver::resolve_statement,
-            resolver::value::resolve_value,
-        },
+        preprocessor::module::Module,
         shared::value::Value,
         store::global::GlobalStore,
     },
@@ -17,7 +13,7 @@ pub fn resolve_spawn(
     name: String,
     args: Vec<Value>,
     module: &Module,
-    path: &str,
+    _path: &str,
     global_store: &mut GlobalStore
 ) -> Statement {
     let logger = Logger::new();
@@ -74,19 +70,4 @@ pub fn resolve_spawn(
     }
 }
 
-fn get_group_body(stmt_box: &Statement) -> Vec<Statement> {
-    if let Value::Block(body) = &stmt_box.value { body.clone() } else { vec![] }
-}
-
-fn error_stmt(logger: &Logger, module: &Module, stmt: &Statement, message: &str) -> Statement {
-    let stacktrace = format!("{}:{}:{}", module.path, stmt.line, stmt.column);
-    logger.log_message(LogLevel::Error, &format!("{message}\n  → at {stacktrace}"));
-
-    Statement {
-        kind: StatementKind::Error {
-            message: message.to_string(),
-        },
-        value: Value::Null,
-        ..stmt.clone()
-    }
-}
+// (removed unused helpers get_group_body, error_stmt)

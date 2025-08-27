@@ -188,7 +188,7 @@ impl ModuleLoader {
 
         // Inject triggers for each bank used in module
         for bank_name in self.extract_bank_names(&statements) {
-            self.inject_bank_triggers(&mut module, &bank_name);
+            let _ = self.inject_bank_triggers(&mut module, &bank_name);
         }
 
         // Inject module variables and functions into global store

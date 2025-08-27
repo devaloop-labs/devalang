@@ -10,7 +10,6 @@ categories = ["command-line-utilities", "development-tools", "parser-implementat
 readme = "README.md"
 homepage = "https://devalang.com"
 documentation = "https://docs.devalang.com/"
-license-file = "LICENSE"
 edition = "2024"
 
 [[bin]]
@@ -19,6 +18,7 @@ path = "rust/main.rs"
 required-features = ["cli"]
 
 [lib]
+name = "devalang_core"
 path = "rust/lib.rs"
 crate-type = ["cdylib", "rlib"]
 

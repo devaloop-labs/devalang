@@ -102,7 +102,8 @@ impl AudioEngine {
         start_time_ms: f32,
         duration_ms: f32,
         synth_params: HashMap<String, Value>,
-        note_params: HashMap<String, Value>
+        note_params: HashMap<String, Value>,
+        automation: Option<HashMap<String, Value>>
     ) {
         let valid_synth_params = vec!["attack", "decay", "sustain", "release"];
         let valid_note_params = vec![
@@ -114,7 +115,9 @@ impl AudioEngine {
             "target_freq",
             "target_amp",
             "modulation",
-            "expression"
+            "expression",
+            // allow per-note automation map
+            "automate"
         ];
 
         // Synth params validation
@@ -131,35 +134,39 @@ impl AudioEngine {
             }
         }
 
-    // Synth parameters
-    let attack = self.extract_f32(&synth_params, "attack").unwrap_or(0.0);
-    let decay = self.extract_f32(&synth_params, "decay").unwrap_or(0.0);
-    let sustain = self.extract_f32(&synth_params, "sustain").unwrap_or(0.0);
-    let release = self.extract_f32(&synth_params, "release").unwrap_or(0.0);
-    let attack_s = if attack > 10.0 { attack / 1000.0 } else { attack };
-    let decay_s = if decay > 10.0 { decay / 1000.0 } else { decay };
-    let release_s = if release > 10.0 { release / 1000.0 } else { release };
-    let sustain_level = if sustain > 1.0 { (sustain / 100.0).clamp(0.0, 1.0) } else { sustain.clamp(0.0, 1.0) };
+        // Synth parameters
+        let attack = self.extract_f32(&synth_params, "attack").unwrap_or(0.0);
+        let decay = self.extract_f32(&synth_params, "decay").unwrap_or(0.0);
+        let sustain = self.extract_f32(&synth_params, "sustain").unwrap_or(1.0);
+        let release = self.extract_f32(&synth_params, "release").unwrap_or(0.0);
+        let attack_s = if attack > 10.0 { attack / 1000.0 } else { attack };
+        let decay_s = if decay > 10.0 { decay / 1000.0 } else { decay };
+        let release_s = if release > 10.0 { release / 1000.0 } else { release };
+        let sustain_level = if sustain > 1.0 {
+            (sustain / 100.0).clamp(0.0, 1.0)
+        } else {
+            sustain.clamp(0.0, 1.0)
+        };
 
         // Note parameters
-    let duration_ms = self.extract_f32(&note_params, "duration").unwrap_or(duration_ms);
-    let velocity = self.extract_f32(&note_params, "velocity").unwrap_or(1.0);
+        let duration_ms = self.extract_f32(&note_params, "duration").unwrap_or(duration_ms);
+        let velocity = self.extract_f32(&note_params, "velocity").unwrap_or(1.0);
         let glide = self.extract_boolean(&note_params, "glide").unwrap_or(false);
         let slide = self.extract_boolean(&note_params, "slide").unwrap_or(false);
 
     let _amplitude = (i16::MAX as f32) * amp.clamp(0.0, 1.0) * velocity.clamp(0.0, 1.0);
 
         // Logic for glide and slide
-    let freq_start = freq;
+        let freq_start = freq;
         let mut freq_end = freq;
-    let amp_start = amp * velocity.clamp(0.0, 1.0);
+        let amp_start = amp * velocity.clamp(0.0, 1.0);
         let mut amp_end = amp_start;
 
         if glide {
             if let Some(Value::Number(target_freq)) = note_params.get("target_freq") {
                 freq_end = *target_freq;
             } else {
-                freq_end = freq * 1.5; // Par défaut, glide vers une quinte
+                freq_end = freq * 1.5; // By default, glide to a perfect fifth
             }
         }
 
@@ -167,22 +174,24 @@ impl AudioEngine {
             if let Some(Value::Number(target_amp)) = note_params.get("target_amp") {
                 amp_end = *target_amp * velocity.clamp(0.0, 1.0);
             } else {
-                amp_end = amp_start * 0.5; // Par défaut, slide vers la moitié
+                amp_end = amp_start * 0.5; // By default, slide to half the amplitude
             }
         }
-
         let sample_rate = SAMPLE_RATE as f32;
         let channels = CHANNELS as usize;
 
         let total_samples = ((duration_ms / 1000.0) * sample_rate) as usize;
         let start_sample = ((start_time_ms / 1000.0) * sample_rate) as usize;
 
-        let mut samples = Vec::with_capacity(total_samples);
-    let fade_len = (sample_rate * 0.01) as usize; // 10 ms fade
+        // Precompute automation envelopes
+        let (volume_env, pan_env, pitch_env) = Self::env_maps_from_automation(&automation);
 
-    let attack_samples = (attack_s * sample_rate) as usize;
-    let decay_samples = (decay_s * sample_rate) as usize;
-    let release_samples = (release_s * sample_rate) as usize;
+        let mut stereo_samples: Vec<i16> = Vec::with_capacity(total_samples * 2);
+        let fade_len = (sample_rate * 0.01) as usize; // 10 ms fade
+
+        let attack_samples = (attack_s * sample_rate) as usize;
+        let decay_samples = (decay_s * sample_rate) as usize;
+        let release_samples = (release_s * sample_rate) as usize;
         let sustain_samples = if total_samples > attack_samples + decay_samples + release_samples {
             total_samples - attack_samples - decay_samples - release_samples
         } else {
@@ -199,6 +208,10 @@ impl AudioEngine {
                 freq
             };
 
+            // Pitch automation (in semitones), applied as frequency multiplier
+            let pitch_semi = Self::eval_env_map(&pitch_env, (i as f32) / (total_samples as f32), 0.0);
+            let current_freq = current_freq * (2.0_f32).powf(pitch_semi / 12.0);
+
             // Slide
             let current_amp = if slide {
                 amp_start + ((amp_end - amp_start) * (i as f32)) / (total_samples as f32)
@@ -206,34 +219,17 @@ impl AudioEngine {
                 amp_start
             };
 
-            let phase = 2.0 * std::f32::consts::PI * current_freq * t;
-
-            let mut value = match waveform.as_str() {
-                "sine" => phase.sin(),
-                "square" => if phase.sin() >= 0.0 { 1.0 } else { -1.0 },
-                "saw" => 2.0 * (current_freq * t - (current_freq * t + 0.5).floor()),
-                "triangle" => (2.0 * (2.0 * (current_freq * t).fract() - 1.0)).abs() * 2.0 - 1.0,
-                _ => 0.0,
-            };
+            let mut value = Self::oscillator_sample(&waveform, current_freq, t);
 
             // ADSR envelope
-            let envelope = if i < attack_samples {
-                (i as f32) / (attack_samples as f32)
-            } else if i < attack_samples + decay_samples {
-                1.0 -
-                    (1.0 - sustain_level) * (((i - attack_samples) as f32) / (decay_samples as f32))
-            } else if i < attack_samples + decay_samples + sustain_samples {
-                sustain_level
-            } else {
-                if release_samples > 0 {
-                    sustain_level *
-                        (1.0 -
-                            ((i - attack_samples - decay_samples - sustain_samples) as f32) /
-                                (release_samples as f32))
-                } else {
-                    0.0
-                }
-            };
+            let envelope = Self::adsr_envelope_value(
+                i,
+                attack_samples,
+                decay_samples,
+                sustain_samples,
+                release_samples,
+                sustain_level,
+            );
 
             // Fade in/out
             if i < fade_len {
@@ -243,29 +239,31 @@ impl AudioEngine {
             }
 
             value *= envelope;
-            // Application de l'amplitude dynamique (slide + velocity)
-            samples.push((value * (i16::MAX as f32) * current_amp) as i16);
+            // Apply dynamic amplitude (slide + velocity)
+            let mut sample_val = value * (i16::MAX as f32) * current_amp;
+
+            // Volume automation multiplier
+            let vol_mul = Self::eval_env_map(&volume_env, (i as f32) / (total_samples as f32), 1.0)
+                .clamp(0.0, 10.0);
+            sample_val *= vol_mul;
+
+            // Pan automation [-1..1]; consistency with pad_samples method
+            let pan_val = Self::eval_env_map(&pan_env, (i as f32) / (total_samples as f32), 0.0)
+                .clamp(-1.0, 1.0);
+            let (left_gain, right_gain) = Self::pan_gains(pan_val);
+
+            let left = (sample_val * left_gain)
+                .round()
+                .clamp(i16::MIN as f32, i16::MAX as f32) as i16;
+            let right = (sample_val * right_gain)
+                .round()
+                .clamp(i16::MIN as f32, i16::MAX as f32) as i16;
+
+            stereo_samples.push(left);
+            stereo_samples.push(right);
         }
 
-        // Convert to stereo
-        let stereo_samples: Vec<i16> = samples
-            .iter()
-            .flat_map(|s| vec![*s, *s])
-            .collect();
-
-        let offset = start_sample * channels;
-        let required_len = offset + stereo_samples.len();
-
-        if self.buffer.len() < required_len {
-            self.buffer.resize(required_len, 0);
-        }
-
-        for (i, sample) in stereo_samples.iter().enumerate() {
-            // Debug: note si on rencontre des samples non nuls
-            // (pour traquer les buffers silencieux)
-            // if i == 0 { eprintln!("[debug] first stereo sample: {}", sample); }
-            self.buffer[offset + i] = self.buffer[offset + i].saturating_add(*sample);
-        }
+        self.mix_stereo_samples_into_buffer(start_sample, channels, &stereo_samples);
     }
 
     pub fn insert_sample(
@@ -282,8 +280,8 @@ impl AudioEngine {
         }
 
         let root = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let module_root = Path::new(&self.module_name);
-    let resolved_path: String;
+        let module_root = Path::new(&self.module_name);
+        let resolved_path: String;
 
         // Get the variable path from the variable table
         let mut var_path = filepath.to_string();
@@ -477,8 +475,7 @@ impl AudioEngine {
             let adjusted_sample = adjusted.round().clamp(i16::MIN as f32, i16::MAX as f32) as i16;
 
             // PAN
-            let left_gain = 1.0 - pan.max(0.0); // Pan > 0 => reduce left
-            let right_gain = 1.0 + pan.min(0.0); // Pan < 0 => reduce right
+            let (left_gain, right_gain) = Self::pan_gains(pan);
 
             let left = ((adjusted_sample as f32) * left_gain) as i16;
             let right = ((adjusted_sample as f32) * right_gain) as i16;
@@ -490,6 +487,150 @@ impl AudioEngine {
                 self.buffer[left_pos] = self.buffer[left_pos].saturating_add(left);
                 self.buffer[right_pos] = self.buffer[right_pos].saturating_add(right);
             }
+        }
+    }
+
+    // ===== Helper methods to keep long functions modular and readable =====
+
+    fn env_maps_from_automation(
+        automation: &Option<HashMap<String, Value>>
+    ) -> (
+        Option<HashMap<String, Value>>,
+        Option<HashMap<String, Value>>,
+        Option<HashMap<String, Value>>,
+    ) {
+        if let Some(auto) = automation {
+            let vol = match auto.get("volume") {
+                Some(Value::Map(m)) => Some(m.clone()),
+                _ => None,
+            };
+            let pan = match auto.get("pan") {
+                Some(Value::Map(m)) => Some(m.clone()),
+                _ => None,
+            };
+            let pit = match auto.get("pitch") {
+                Some(Value::Map(m)) => Some(m.clone()),
+                _ => None,
+            };
+            (vol, pan, pit)
+        } else {
+            (None, None, None)
+        }
+    }
+
+    // Evaluate envelope map at progress [0,1]
+    fn eval_env_map(
+        env_opt: &Option<HashMap<String, Value>>,
+        progress: f32,
+        default_val: f32,
+    ) -> f32 {
+        let env = match env_opt {
+            Some(m) => m,
+            None => {
+                return default_val;
+            }
+        };
+        let mut points: Vec<(f32, f32)> = Vec::with_capacity(env.len());
+        for (k, v) in env.iter() {
+            // accept keys like "0" or "0%"
+            let key = if k.ends_with('%') { &k[..k.len() - 1] } else { &k[..] };
+            if let Ok(mut p) = key.parse::<f32>() {
+                p = (p / 100.0).clamp(0.0, 1.0);
+                let val = match v {
+                    Value::Number(n) => *n,
+                    Value::String(s) => s.parse::<f32>().unwrap_or(default_val),
+                    Value::Identifier(s) => s.parse::<f32>().unwrap_or(default_val),
+                    _ => default_val,
+                };
+                points.push((p, val));
+            }
+        }
+        if points.is_empty() {
+            return default_val;
+        }
+        points.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+        let t = progress.clamp(0.0, 1.0);
+        if t <= points[0].0 {
+            return points[0].1;
+        }
+        if t >= points[points.len() - 1].0 {
+            return points[points.len() - 1].1;
+        }
+        for w in points.windows(2) {
+            let (p0, v0) = w[0];
+            let (p1, v1) = w[1];
+            if t >= p0 && t <= p1 {
+                let ratio = if (p1 - p0).abs() < std::f32::EPSILON {
+                    0.0
+                } else {
+                    (t - p0) / (p1 - p0)
+                };
+                return v0 + (v1 - v0) * ratio;
+            }
+        }
+        default_val
+    }
+
+    fn oscillator_sample(waveform: &str, current_freq: f32, t: f32) -> f32 {
+        let phase = 2.0 * std::f32::consts::PI * current_freq * t;
+        match waveform {
+            "sine" => phase.sin(),
+            "square" => {
+                if phase.sin() >= 0.0 { 1.0 } else { -1.0 }
+            }
+            "saw" => 2.0 * (current_freq * t - (current_freq * t + 0.5).floor()),
+            "triangle" => (2.0 * (2.0 * (current_freq * t).fract() - 1.0)).abs() * 2.0 - 1.0,
+            _ => 0.0,
+        }
+    }
+
+    fn adsr_envelope_value(
+        i: usize,
+        attack_samples: usize,
+        decay_samples: usize,
+        sustain_samples: usize,
+        release_samples: usize,
+        sustain_level: f32,
+    ) -> f32 {
+        if i < attack_samples {
+            (i as f32) / (attack_samples as f32)
+        } else if i < attack_samples + decay_samples {
+            1.0 - (1.0 - sustain_level) * (((i - attack_samples) as f32) / (decay_samples as f32))
+        } else if i < attack_samples + decay_samples + sustain_samples {
+            sustain_level
+        } else if release_samples > 0 {
+            sustain_level
+                * (1.0
+                    - ((i - attack_samples - decay_samples - sustain_samples) as f32)
+                        / (release_samples as f32))
+        } else {
+            0.0
+        }
+    }
+
+    fn pan_gains(pan_val: f32) -> (f32, f32) {
+        let left_gain = 1.0 - pan_val.max(0.0);
+        let right_gain = 1.0 + pan_val.min(0.0);
+        (left_gain, right_gain)
+    }
+
+    fn mix_stereo_samples_into_buffer(
+        &mut self,
+        start_sample: usize,
+        channels: usize,
+        stereo_samples: &[i16],
+    ) {
+        let offset = start_sample * channels;
+        let required_len = offset + stereo_samples.len();
+
+        if self.buffer.len() < required_len {
+            self.buffer.resize(required_len, 0);
+        }
+
+        for (i, sample) in stereo_samples.iter().enumerate() {
+            // Debug: track if we hit non-zero samples (to trace silent buffers)
+            // if i == 0 { eprintln!("[debug] first stereo sample: {}", sample); }
+            self.buffer[offset + i] = self.buffer[offset + i].saturating_add(*sample);
         }
     }
 

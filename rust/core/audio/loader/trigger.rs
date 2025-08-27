@@ -7,7 +7,7 @@ use crate::core::{
 pub fn load_trigger(
     trigger: &Value,
     duration: &Duration,
-    effects: &Option<Value>,
+    _effects: &Option<Value>,
     base_duration: f32,
     variable_table: VariableTable
 ) -> (String, f32) {
@@ -37,7 +37,7 @@ pub fn load_trigger(
             trigger_path = src.to_string();
         }
         Value::Statement(stmt) => {
-            if let StatementKind::Trigger { entity, duration, effects } = &stmt.kind {
+            if let StatementKind::Trigger { entity, duration: _, effects: _ } = &stmt.kind {
                 trigger_path = entity.clone();
             } else {
                 eprintln!("❌ Trigger statement must be of type 'Trigger', found: {:?}", stmt.kind);
@@ -88,9 +88,6 @@ pub fn load_trigger(
             }
         }
 
-        _ => {
-            eprintln!("❌ Invalid duration type. Expected an identifier.");
-        }
     }
 
     (trigger_path, duration_as_secs)

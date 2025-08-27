@@ -2,7 +2,7 @@ use crate::core::lexer::token::{ Token, TokenKind };
 
 pub fn handle_newline_lexer(
     ch: char,
-    chars: &mut std::iter::Peekable<std::str::Chars>,
+    _chars: &mut std::iter::Peekable<std::str::Chars>,
     tokens: &mut Vec<Token>,
     line: &mut usize,
     column: &mut usize,

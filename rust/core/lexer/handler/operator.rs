@@ -4,7 +4,7 @@ pub fn handle_operator_lexer(
     ch: char,
     chars: &mut std::iter::Peekable<std::str::Chars>,
     current_indent: &mut usize,
-    indent_stack: &mut Vec<usize>,
+    _indent_stack: &mut Vec<usize>,
     tokens: &mut Vec<Token>,
     line: &mut usize,
     column: &mut usize
@@ -16,6 +16,8 @@ pub fn handle_operator_lexer(
         ('!', Some('=')) => (TokenKind::NotEquals, 2),
         ('>', Some('=')) => (TokenKind::GreaterEqual, 2),
         ('<', Some('=')) => (TokenKind::LessEqual, 2),
+        ('+', _) => (TokenKind::Plus, 1),
+        ('*', _) => (TokenKind::Asterisk, 1),
         ('=', _) => (TokenKind::Equals, 1),
         ('>', _) => (TokenKind::Greater, 1),
         ('<', _) => (TokenKind::Less, 1),

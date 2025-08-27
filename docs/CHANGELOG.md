@@ -4,6 +4,65 @@
 
 # Changelog
 
+## Version 0.0.1-alpha.15 (2025-08-27)
+
+### ✨ Language Features
+
+- Added `automate` statement to schedule parameter automation (e.g. volume, pan, pitch) over time
+  - Supports per-note automation via a `automate` map on note calls (e.g. `note(C4, { automate: { volume: { 0%: 0.0, 100%: 1.0 } } })`)
+- Added `print` statement to ease debugging at runtime
+- Added special variables and functions usable in expressions:
+  - `$env.bpm`, `$env.beat`
+  - `$math.sin(expr)`, `$math.cos(expr)`
+  - `$env.position` (alias of beat), `$env.seed` (global session seed for deterministic randomness)
+  - `$math.random(seed?)`, `$math.lerp(a, b, t)`
+  - `$easing.*` functions for shaping values in [0,1]:
+    - `linear`, `easeIn/Out/InOutQuad`, `easeIn/Out/InOutCubic`, `easeIn/Out/InOutQuart`,
+      `easeIn/Out/InOutExpo`, `easeIn/Out/InOutBack`, `easeIn/Out/InOutElastic`, `easeIn/Out/InOutBounce`
+  - `$mod.*` modulators for time-based control:
+    - `lfo.sine(ratePerBeat)`, `lfo.tri(ratePerBeat)`, `envelope(attack, decay, sustain, release, t)`
+- Added basic `for` loops and array literals
+  - Example: `for i in [1, 2, 3]: print i`
+
+### 🧠 Core Engine
+
+- Implemented runtime automation in the audio renderer with linear envelope interpolation
+- Per-note automation supported (volume, pan, pitch) and evaluated during rendering
+- Fixed evaluator recursion guard and improved `$math.*` expression handling (prevents stack overflows)
+- Minor ADSR defaults polish: ensure `sustain` defaults to `1.0`
+- Evaluator now supports `$mod.*` and `$easing.*` calls (evaluated before `$math.*`) for richer automation
+- Modularized `AudioEngine::insert_note` into small helpers (oscillator, ADSR computation, pan gains, envelope evaluation, stereo mix)
+  - Reused helpers in `pad_samples` to reduce duplication
+- Moved special variables/functions to a dedicated module: `core::audio::special`, and refactored the evaluator to use it
+- Continued borrow-friendly refactors to avoid unnecessary clones and improve readability
+
+### 🧩 Parser / Preprocessor
+
+- Parser upgrades for operators `+ - * /`, parentheses and brackets
+- Improved arrow-call parsing and map handling for multi-line values
+- Resolvers: refined `call`/`spawn` resolution (better error messages with stack traces)
+
+### 🧱 Architecture / Refactor
+
+- Modularized audio interpreter (split by statement type); clearer responsibilities
+- Reduced allocations by passing slices/borrows instead of cloning large structures
+- Removed dead code and unused params across resolvers, handlers, and interpreter modules
+
+### 🧰 Tooling / Build
+
+- Resolved binary/lib artifact collision by renaming the internal library crate to `devalang_core`
+- Warning sweep: build now compiles cleanly without Rust warnings (and fewer Clippy lints)
+- Moved error collection helpers into a dedicated `utils::error` module
+
+### 🐛 Fixes & Stability
+
+- Prevent infinite recursion during numeric expression evaluation
+- Stabilized renderer and interpreter timing when combining `loop`, `call`, and `spawn`
+
+### ⚠️ Breaking changes
+
+- Internal crate rename to `devalang_core` (no change to the CLI or WASM package names)
+
 ## Version 0.0.1-alpha.14 (2025-08-24)
 
 ### 🌎 Ecosystem

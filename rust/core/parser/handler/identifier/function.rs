@@ -29,7 +29,6 @@ pub fn parse_function_token(parser: &mut Parser, global_store: &mut GlobalStore)
     parser.advance(); // consume function name
 
     let mut parameters = Vec::new();
-    let mut body = Vec::new();
 
     // Expect '('
     if parser.peek_kind() != Some(TokenKind::LParen) {
@@ -68,8 +67,8 @@ pub fn parse_function_token(parser: &mut Parser, global_store: &mut GlobalStore)
         body_tokens.push(parser.advance().unwrap().clone());
     }
 
-    // arse those tokens into block statements
-    body = parser.parse_block(body_tokens.clone(), global_store);
+    // Parse those tokens into block statements
+    let body = parser.parse_block(body_tokens.clone(), global_store);
 
     // Skip Dedent if present
     if let Some(tok) = parser.peek() {

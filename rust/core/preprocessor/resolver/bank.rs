@@ -11,12 +11,11 @@ use crate::{
 pub fn resolve_bank(
     stmt: &Statement,
     module: &Module,
-    path: &str,
+    _path: &str,
     _global_store: &GlobalStore
 ) -> Statement {
     let mut new_stmt = stmt.clone();
     let logger = Logger::new();
-
     match &stmt.value {
         Value::Identifier(ident) => {
             if let Some(val) = module.variable_table.get(ident) {

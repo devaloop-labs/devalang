@@ -1,13 +1,11 @@
 use rayon::prelude::*;
-use std::sync::{ Arc, Mutex };
 
-use crate::core::{
+use crate::{core::{
     audio::{
         engine::AudioEngine,
         interpreter::{
             arrow_call::interprete_call_arrow_statement,
             call::interprete_call_statement,
-            condition::interprete_condition_statement,
             function::interprete_function_statement,
             let_::interprete_let_statement,
             load::interprete_load_statement,
@@ -17,29 +15,27 @@ use crate::core::{
             tempo::interprete_tempo_statement,
             trigger::interprete_trigger_statement,
         },
-    },
-    parser::statement::{ Statement, StatementKind },
-    store::{ function::FunctionTable, global::GlobalStore, variable::VariableTable },
-};
+    }, parser::statement::{ Statement, StatementKind }, shared::value::Value, store::{ function::FunctionTable, global::GlobalStore, variable::VariableTable }
+}, utils::logger::{LogLevel, Logger}};
 
 pub fn run_audio_program(
     statements: &Vec<Statement>,
     audio_engine: &mut AudioEngine,
-    entry: String,
-    output: String,
-    mut module_variables: VariableTable,
-    mut module_functions: FunctionTable,
+    _entry: String,
+    _output: String,
+    _module_variables: VariableTable,
+    _module_functions: FunctionTable,
     global_store: &mut GlobalStore
 ) -> (f32, f32) {
-    let mut base_bpm = 120.0;
-    let mut base_duration = 60.0 / base_bpm;
+    let base_bpm = 120.0;
+    let base_duration = 60.0 / base_bpm;
 
     let (max_end_time, cursor_time) = execute_audio_block(
         audio_engine,
         global_store,
         global_store.variables.clone(),
         global_store.functions.clone(),
-        statements.clone(),
+        &statements,
         base_bpm,
         base_duration,
         0.0,
@@ -54,14 +50,14 @@ pub fn execute_audio_block(
     global_store: &GlobalStore,
     mut variable_table: VariableTable,
     mut functions_table: FunctionTable,
-    statements: Vec<Statement>,
+    statements: &[Statement],
     mut base_bpm: f32,
     mut base_duration: f32,
     mut max_end_time: f32,
     mut cursor_time: f32
 ) -> (f32, f32) {
     let (spawns, others): (Vec<_>, Vec<_>) = statements
-        .into_iter()
+        .iter()
         .partition(|stmt| matches!(stmt.kind, StatementKind::Spawn { .. }));
 
     // Execute sequential statements first
@@ -160,6 +156,43 @@ pub fn execute_audio_block(
                 
                 if new_max > max_end_time {
                     max_end_time = new_max;
+                }
+            }
+            StatementKind::Automate { .. } => {
+                if let Some(new_table) = crate::core::audio::interpreter::automate::interprete_automate_statement(&stmt, &mut variable_table) {
+                    variable_table = new_table;
+                }
+            }
+            StatementKind::Print => {
+                // Print debug output; if the string contains special expressions, evaluate them.
+                let logger = Logger::new();
+                match &stmt.value {
+                    Value::String(s) => {
+                        let bpm = if let Some(Value::Number(n)) = variable_table.get("bpm") { *n } else { 120.0 };
+                        let beat = if let Some(Value::Number(n)) = variable_table.get("beat") { *n } else { 0.0 };
+                        // If the string is exactly a variable name, print its value
+                        if let Some(val) = variable_table.get(&s) {
+                            logger.log_message(LogLevel::Print, &format!("{:?}", val));
+                        } else if s.contains("$env") || s.contains("$math") || s.parse::<f32>().is_ok() {
+                            let v = crate::core::audio::evaluator::evaluate_rhs_into_value(s, &variable_table, bpm, beat);
+                            match v { Value::Number(n) => logger.log_message(LogLevel::Print, &format!("{}", n)), _ => logger.log_message(LogLevel::Print, s) }
+                        } else {
+                            logger.log_message(LogLevel::Print, s)
+                        }
+                    }
+                    Value::Identifier(name) => {
+                        if let Some(val) = variable_table.get(name) {
+                            match val {
+                                Value::Number(n) => logger.log_message(LogLevel::Print, &format!("{}", n)),
+                                Value::String(s) => logger.log_message(LogLevel::Print, s),
+                                Value::Boolean(b) => logger.log_message(LogLevel::Print, &format!("{}", b)),
+                                other => logger.log_message(LogLevel::Print, &format!("{:?}", other)),
+                            }
+                        } else {
+                            logger.log_message(LogLevel::Print, name)
+                        }
+                    }
+                    v => logger.log_message(LogLevel::Print, &format!("{:?}", v)),
                 }
             }
             _ => {}

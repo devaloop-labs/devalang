@@ -11,3 +11,4 @@ pub mod call;
 pub mod condition;
 pub mod arrow_call;
 pub mod function;
+pub mod automate;

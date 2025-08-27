@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::core::{
-    lexer::token::{ Token, TokenKind },
+    lexer::token::Token,
     parser::{ driver::Parser, statement::{ Statement, StatementKind } },
     shared::value::Value,
     store::global::GlobalStore,
@@ -9,8 +9,8 @@ use crate::core::{
 
 pub fn parse_synth_token(
     parser: &mut Parser,
-    current_token: Token,
-    global_store: &mut GlobalStore
+    _current_token: Token,
+    _global_store: &mut GlobalStore
 ) -> Statement {
     parser.advance(); // consume 'synth'
 
@@ -28,19 +28,17 @@ pub fn parse_synth_token(
     parser.advance(); // consume identifier
 
     // Expect synth optional parameters map
-    let mut parameters = HashMap::new();
-
-    if let Some(params) = parser.parse_map_value() {
+    let parameters = if let Some(params) = parser.parse_map_value() {
         // If parameters are provided, we expect a map
         if let Value::Map(map) = params {
-            parameters = map;
+            map
         } else {
             return Statement::error(synth_token, "Expected a map for synth parameters".to_string());
         }
     } else {
         // If no parameters are provided, we can still create the statement with an empty map
-        parameters = HashMap::new();
-    }
+        HashMap::new()
+    };
 
     Statement {
         kind: StatementKind::Synth,

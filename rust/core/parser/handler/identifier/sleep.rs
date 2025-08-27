@@ -8,7 +8,7 @@ use crate::core::{
 pub fn parse_sleep_token(
     parser: &mut Parser,
     current_token: Token,
-    global_store: &mut GlobalStore
+    _global_store: &mut GlobalStore
 ) -> Statement {
     parser.advance(); // consume "sleep"
 

@@ -134,7 +134,7 @@ pub fn handle_play_command(
     }
 }
 
-fn begin_play(config: &Option<Config>, entry_file: &str, output: &str, debug: bool) {
+fn begin_play(_config: &Option<Config>, entry_file: &str, output: &str, debug: bool) {
     let spinner = with_spinner("Building...", || {
         thread::sleep(Duration::from_millis(800));
     });

@@ -5,21 +5,23 @@ pub mod spawn;
 pub mod sleep;
 pub mod synth;
 pub mod function;
+pub mod automate;
+pub mod print;
 
 use crate::core::{
     parser::{
         driver::Parser,
-        handler::{
-            identifier::{
-                call::parse_call_token,
-                group::parse_group_token,
-                let_::parse_let_token,
-                sleep::parse_sleep_token,
-                spawn::parse_spawn_token,
-                synth::parse_synth_token
-            },
+        handler::identifier::{
+            automate::parse_automate_token,
+            call::parse_call_token,
+            group::parse_group_token,
+            let_::parse_let_token,
+            print::parse_print_token,
+            sleep::parse_sleep_token,
+            spawn::parse_spawn_token,
+            synth::parse_synth_token,
         },
-        statement::Statement,
+        statement::{ Statement },
     },
     store::global::GlobalStore,
 };
@@ -39,6 +41,8 @@ pub fn parse_identifier_token(parser: &mut Parser, global_store: &mut GlobalStor
         "spawn" => parse_spawn_token(parser, current_token_clone, global_store),
         "sleep" => parse_sleep_token(parser, current_token_clone, global_store),
         "synth" => parse_synth_token(parser, current_token_clone, global_store),
+        "automate" => parse_automate_token(parser, current_token_clone, global_store),
+        "print" => parse_print_token(parser, current_token_clone, global_store),
         _ => {
             parser.advance(); // consume identifier
 

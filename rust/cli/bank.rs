@@ -1,6 +1,6 @@
 use std::fs;
 
-use serde::{ Deserialize, Serialize };
+use serde::Deserialize;
 use crate::{
     common::cdn::get_cdn_url,
     config::loader::{ load_config, remove_bank_from_config, update_bank_version_in_config },
@@ -102,7 +102,7 @@ pub async fn handle_update_bank_command(name: Option<String>) -> Result<(), Stri
             );
         }
 
-        let mut config = load_config(Some(&config_path)).ok_or_else(||
+        let config = load_config(Some(&config_path)).ok_or_else(||
             format!("Failed to load config from '{}'", config_path.display())
         )?;
 
@@ -255,8 +255,8 @@ pub async fn handle_remove_bank_command(name: String) -> Result<(), String> {
 pub async fn handle_bank_available_command() -> Result<(), String> {
     let bank_list = match list_external_banks().await {
         Ok(list) => list,
-        Err(err) => {
-            eprintln!("❌ Error fetching bank list: {}", err);
+    Err(_err) => {
+            eprintln!("❌ Error fetching bank list");
             return Err("Failed to fetch bank list".into());
         }
     };
@@ -283,7 +283,7 @@ pub async fn handle_bank_info_command(
 
     let response = match reqwest::get(&url).await {
         Ok(resp) => resp,
-        Err(err) => {
+    Err(_err) => {
             return Err("Failed to fetch bank info".into());
         }
     };
@@ -294,8 +294,8 @@ pub async fn handle_bank_info_command(
 
     let bytes = match response.bytes().await {
         Ok(b) => b,
-        Err(err) => {
-            eprintln!("❌ Error reading response body: {}", err);
+    Err(_err) => {
+            eprintln!("❌ Error reading response body");
             return Err("Failed to read response body".into());
         }
     };
@@ -314,8 +314,8 @@ pub async fn handle_bank_info_command(
 pub async fn handle_bank_list_command() -> Result<(), String> {
     let bank_list = match list_installed_banks().await {
         Ok(list) => list,
-        Err(err) => {
-            eprintln!("❌ Error fetching bank list: {}", err);
+    Err(_err) => {
+            eprintln!("❌ Error fetching bank list");
             return Err("Failed to fetch bank list".into());
         }
     };
@@ -325,11 +325,10 @@ pub async fn handle_bank_list_command() -> Result<(), String> {
     for bank_toml in bank_list {
         let latest_version = match fetch_latest_version(bank_toml.bank.name.clone()).await {
             Ok(version) => version,
-            Err(err) => {
+        Err(_err) => {
                 eprintln!(
-                    "❌ Error fetching latest version for '{}': {}",
-                    bank_toml.bank.name,
-                    err
+                    "❌ Error fetching latest version for '{}'",
+                    bank_toml.bank.name
                 );
                 continue;
             }
@@ -441,8 +440,8 @@ async fn list_installed_banks() -> Result<Vec<BankFile>, String> {
 
                     match toml::from_str::<BankFile>(&content) {
                         Ok(bank_info) => banks.push(bank_info),
-                        Err(err) => {
-                            eprintln!("❌ Error parsing bank info for '{}': {}", bank_name, err);
+                        Err(_err) => {
+                            eprintln!("❌ Error parsing bank info for '{}'", bank_name);
                         }
                     }
                 } else {

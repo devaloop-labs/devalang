@@ -65,31 +65,48 @@ Create a new Devalang file `src/index.deva` in the project directory:
 ```deva
 # src/index.deva
 
-group myLead:
-    let mySynth = synth sine {
+group main:
+    let lead = synth sine {
         attack: 0,
         decay: 100,
         sustain: 100,
         release: 100
     }
 
-    mySynth -> note(C4, {
+    # Global automation for this synth (applies to subsequent notes)
+    automate lead:
+        param volume {
+            0% = 0.0
+            100% = 1.0
+        }
+        param pan {
+            0% = -1.0
+            100% = 1.0
+        }
+        param pitch {
+            0% = -12.0
+            100% = 12.0
+        }
+
+    lead -> note(C4, {
         duration: 400,
-        velocity: 0.7,
-        glide: true
+        velocity: 0.8,
+        automate: { pan: { 0%: -1.0, 100%: 0.0 } }
     })
 
-    mySynth -> note(G4, {
-         duration: 600,
-         slide: true
-    })
+    lead -> note(E4, { duration: 400 })
+    lead -> note(G4, { duration: 600, glide: true, target_freq: 659.25 })
+    lead -> note(B3, { duration: 400, slide: true, target_amp: 0.3 })
+
+    for i in [1, 2, 3]:
+        lead -> note(C5, { duration: 200 })
 
 # Play the lead
 
-call myLead
+call main
 ```
 
-And the best part ? You can play it directly from the command line:
+### And the best part ? You can play it directly from the command line:
 
 ```bash
 # Play the Devalang file
@@ -102,9 +119,9 @@ devalang play --watch
 devalang play --repeat
 ```
 
-### 🎉 You can now hear your Devalang code in action!
+### 🎉 You can now hear your Devalang code in action
 
-> For more examples, check out the [examples directory](./examples/).
+> For more examples, check out the [examples directory](./examples/)
 
 ## ❓ Why Devalang ?
 
@@ -128,7 +145,7 @@ devalang play --repeat
 
 ## 📄 Documentation
 
-### Please refer to the [online documentation](https://docs.devalang.com) for detailed information on syntax, features, and usage examples.
+### Please refer to the [online documentation](https://docs.devalang.com) for detailed information on syntax, features, and usage examples
 
 ## 🧯 Known issues
 

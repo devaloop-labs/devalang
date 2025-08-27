@@ -14,7 +14,7 @@ pub fn resolve_trigger(
     stmt: &Statement,
     entity: &str,
     duration: &mut Duration,
-    effects: Option<Value>,
+    _effects: Option<Value>,
     module: &Module,
     path: &str,
     global_store: &GlobalStore
@@ -22,7 +22,6 @@ pub fn resolve_trigger(
     let logger = Logger::new();
 
     let mut final_duration = duration.clone();
-    let mut final_value = stmt.value.clone();
 
     // Duration resolution
     if let Duration::Identifier(ident) = duration {
@@ -43,7 +42,7 @@ pub fn resolve_trigger(
     }
 
     // Params value resolution
-    final_value = match &stmt.value {
+    let final_value = match &stmt.value {
         Value::Identifier(ident) => {
             println!("Resolving identifier: {}", ident);
 

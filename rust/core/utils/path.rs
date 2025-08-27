@@ -1,4 +1,4 @@
-use std::path::{ Component, Path, PathBuf };
+use std::path::{ Path, PathBuf };
 
 pub fn find_entry_file(entry: &str) -> Option<String> {
     let path = Path::new(entry);

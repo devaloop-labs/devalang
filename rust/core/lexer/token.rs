@@ -51,6 +51,9 @@ pub enum TokenKind {
     Equals,
     Dot,
     Slash,
+    Plus,
+    Asterisk,
+    Minus,
 
     // ───── Operators ─────
     DoubleEquals,

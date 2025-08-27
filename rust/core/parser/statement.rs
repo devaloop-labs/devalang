@@ -37,12 +37,17 @@ pub enum StatementKind {
     // ───── Core Instructions ─────
     Tempo,
     Bank,
+    Print,
     Load {
         source: String,
         alias: String,
     },
     Let {
         name: String,
+    },
+    // Automation of parameters over time (percent-based envelopes)
+    Automate {
+        target: String,
     },
     ArrowCall {
         target: String,

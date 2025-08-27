@@ -95,6 +95,31 @@ pub fn interprete_call_arrow_statement(
             let start_time = cursor_copy;
             let end_time = start_time + duration_secs;
 
+            // Fetch automation map if present:
+            // - Global (per-synth): key "<target>__automation" => map with key "params"
+            // - Per-note: note parameter "automate" => map
+            let auto_key = format!("{}__automation", target);
+            let synth_automation = match variable_table.get(&auto_key) {
+                Some(Value::Map(map)) => match map.get("params") {
+                    Some(Value::Map(p)) => Some(p.clone()),
+                    _ => None,
+                },
+                _ => None,
+            };
+
+            let note_automation = match note_params.get("automate") {
+                Some(Value::Map(m)) => Some(m.clone()),
+                _ => None,
+            };
+
+            // Merge: per-note overrides synth automation per key (volume/pan/pitch)
+            let automation = match (synth_automation, note_automation) {
+                (Some(mut a), Some(n)) => { for (k, v) in n { a.insert(k, v); } Some(a) },
+                (None, Some(n)) => Some(n),
+                (Some(a), None) => Some(a),
+                _ => None,
+            };
+
             audio_engine.insert_note(
                 waveform.clone(),
                 final_freq,
@@ -102,7 +127,8 @@ pub fn interprete_call_arrow_statement(
                 start_time * 1000.0,
                 duration_ms,
                 synth_params,
-                note_params
+                note_params,
+                automation
             );
 
             *max_end_time = (*max_end_time).max(end_time);

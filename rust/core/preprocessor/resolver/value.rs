@@ -1,14 +1,10 @@
 use std::collections::HashMap;
 
-use crate::{
-    core::{
-        parser::statement::{ Statement, StatementKind },
+use crate::core::{
         preprocessor::{ module::Module, resolver::driver::resolve_statement },
         shared::value::Value,
-        store::{ global::GlobalStore, variable::VariableTable },
-    },
-    utils::logger::{ LogLevel, Logger },
-};
+        store::global::GlobalStore,
+    };
 
 fn find_export_value(name: &str, global_store: &GlobalStore) -> Option<Value> {
     for (_path, module) in &global_store.modules {
@@ -23,8 +19,7 @@ fn find_export_value(name: &str, global_store: &GlobalStore) -> Option<Value> {
 pub fn resolve_value(value: &Value, module: &Module, global_store: &mut GlobalStore) -> Value {
     match value {
         Value::String(s) => {
-            println!("Resolving value: {}", s);
-
+            // Keep raw strings as-is; they may be runtime-evaluated (e.g., expressions)
             Value::String(s.clone())
         },
 
@@ -37,9 +32,8 @@ pub fn resolve_value(value: &Value, module: &Module, global_store: &mut GlobalSt
                 return resolve_value(&export_val, module, global_store);
             }
 
-            println!("⚠️ Unresolved identifier '{}'", name);
-
-            Value::Null
+            // Leave unresolved identifiers as-is; may be runtime-bound (e.g., foreach variable)
+            Value::Identifier(name.clone())
         }
 
         Value::Map(map) => {

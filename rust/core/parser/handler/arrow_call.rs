@@ -5,7 +5,104 @@ use crate::core::{
     store::global::GlobalStore,
 };
 
-pub fn parse_arrow_call(parser: &mut Parser, global_store: &mut GlobalStore) -> Statement {
+fn parse_map_literal(parser: &mut Parser) -> Value {
+    // Assumes '{' has already been consumed by caller
+    let mut map = std::collections::HashMap::new();
+    loop {
+        let Some(inner_token) = parser.peek_clone() else { break; };
+
+        match inner_token.kind {
+            TokenKind::RBrace => {
+                parser.advance(); // consume '}'
+                break;
+            }
+            TokenKind::Newline | TokenKind::Comma => {
+                parser.advance();
+                continue;
+            }
+            _ => {}
+        }
+
+        // Key
+        parser.advance();
+        let key = inner_token.lexeme.clone();
+
+        // Expect ':'
+        if let Some(colon_token) = parser.peek_clone() {
+            if colon_token.kind == TokenKind::Colon {
+                parser.advance(); // consume ':'
+
+                // Value
+                if let Some(value_token) = parser.peek_clone() {
+                    match value_token.kind {
+                        TokenKind::LBrace => {
+                            parser.advance(); // consume '{'
+                            let nested = parse_map_literal(parser);
+                            map.insert(key, nested);
+                        }
+                        TokenKind::Identifier => {
+                            parser.advance();
+                            let v = if value_token.lexeme == "true" {
+                                Value::Boolean(true)
+                            } else if value_token.lexeme == "false" {
+                                Value::Boolean(false)
+                            } else {
+                                Value::Identifier(value_token.lexeme.clone())
+                            };
+                            map.insert(key, v);
+                        }
+                        TokenKind::String => {
+                            parser.advance();
+                            map.insert(key, Value::String(value_token.lexeme.clone()));
+                        }
+                        TokenKind::Number => {
+                            parser.advance();
+                            // Beat fraction support: NUMBER '/' NUMBER
+                            if let Some(TokenKind::Slash) = parser.peek_kind() {
+                                parser.advance(); // '/'
+                                if let Some(den) = parser.peek_clone() {
+                                    if den.kind == TokenKind::Number {
+                                        parser.advance();
+                                        let beat = format!("{}/{}", value_token.lexeme, den.lexeme);
+                                        map.insert(key, Value::Beat(beat));
+                                        continue;
+                                    }
+                                }
+                            }
+                            // Decimal support NUMBER '.' NUMBER
+                            if let Some(next) = parser.peek_clone() {
+                                if next.kind == TokenKind::Dot {
+                                    parser.advance(); // '.'
+                                    if let Some(after) = parser.peek_clone() {
+                                        if after.kind == TokenKind::Number {
+                                            parser.advance();
+                                            let combined = format!("{}.{}", value_token.lexeme, after.lexeme);
+                                            map.insert(key, Value::Number(combined.parse::<f32>().unwrap_or(0.0)));
+                                            continue;
+                                        }
+                                    }
+                                }
+                            }
+                            map.insert(key, Value::Number(value_token.lexeme.parse::<f32>().unwrap_or(0.0)));
+                        }
+                        TokenKind::Boolean => {
+                            parser.advance();
+                            map.insert(key, Value::Boolean(value_token.lexeme.parse::<bool>().unwrap_or(false)));
+                        }
+                        _ => {
+                            // Unknown value type, consume and store Unknown
+                            parser.advance();
+                            map.insert(key, Value::Unknown);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    Value::Map(map)
+}
+
+pub fn parse_arrow_call(parser: &mut Parser, _global_store: &mut GlobalStore) -> Statement {
     let Some(target_token) = parser.peek_clone() else {
         return Statement::unknown();
     };
@@ -94,93 +191,16 @@ pub fn parse_arrow_call(parser: &mut Parser, global_store: &mut GlobalStore) -> 
 
         parser.advance();
 
-        let value = match token.kind {
+    let value = match token.kind {
             TokenKind::Identifier => Value::Identifier(token.lexeme.clone()),
             TokenKind::String => Value::String(token.lexeme.clone()),
             TokenKind::Number => Value::Number(token.lexeme.parse::<f32>().unwrap_or(0.0)),
             TokenKind::LBrace => {
-                // Handle map literal
-                let mut map = std::collections::HashMap::new();
-                while let Some(inner_token) = parser.peek_clone() {
-                    if inner_token.kind == TokenKind::RBrace {
-                        parser.advance(); // consume RBrace
-                        break;
-                    }
-                    if inner_token.kind == TokenKind::Newline || inner_token.kind == TokenKind::EOF {
-                        break;
-                    }
-                    parser.advance(); // consume key token
-                    let key = inner_token.lexeme.clone();
-                    if let Some(colon_token) = parser.peek_clone() {
-                        if colon_token.kind == TokenKind::Colon {
-                            parser.advance(); // consume colon
-                            if let Some(value_token) = parser.peek_clone() {
-                                parser.advance(); // consume value token
-                                let value = match value_token.kind {
-                                    TokenKind::Identifier => {
-                                        // Interpret bare true/false as booleans
-                                        if value_token.lexeme == "true" {
-                                            Value::Boolean(true)
-                                        } else if value_token.lexeme == "false" {
-                                            Value::Boolean(false)
-                                        } else {
-                                            Value::Identifier(value_token.lexeme.clone())
-                                        }
-                                    },
-                                    TokenKind::String => Value::String(value_token.lexeme.clone()),
-                                    TokenKind::Number => {
-                                        // Support decimals (e.g., 0.8) and beats (e.g., 1/4)
-                                        if let Some(TokenKind::Slash) = parser.peek_kind() {
-                                            // Beat fraction
-                                            parser.advance(); // consume '/'
-                                            if let Some(denominator_token) = parser.peek_clone() {
-                                                if denominator_token.kind == TokenKind::Number {
-                                                    parser.advance(); // consume denominator
-                                                    let denominator = denominator_token.lexeme.clone();
-                                                    Value::Beat(format!("{}/{}", value_token.lexeme, denominator))
-                                                } else {
-                                                    Value::Unknown
-                                                }
-                                            } else {
-                                                Value::Unknown
-                                            }
-                                        } else if let Some(next) = parser.peek_clone() {
-                                            // Decimal number handling: NUMBER '.' NUMBER -> f32
-                                            if next.kind == TokenKind::Dot {
-                                                // consume '.'
-                                                parser.advance();
-                                                if let Some(after_dot) = parser.peek_clone() {
-                                                    if after_dot.kind == TokenKind::Number {
-                                                        parser.advance(); // consume fractional digits
-                                                        let combined = format!("{}.{}", value_token.lexeme, after_dot.lexeme);
-                                                        Value::Number(combined.parse::<f32>().unwrap_or(0.0))
-                                                    } else {
-                                                        // Lone dot without number, fallback to integer part
-                                                        Value::Number(value_token.lexeme.parse::<f32>().unwrap_or(0.0))
-                                                    }
-                                                } else {
-                                                    Value::Number(value_token.lexeme.parse::<f32>().unwrap_or(0.0))
-                                                }
-                                            } else {
-                                                // Regular integer number
-                                                Value::Number(value_token.lexeme.parse::<f32>().unwrap_or(0.0))
-                                            }
-                                        } else {
-                                            Value::Number(value_token.lexeme.parse::<f32>().unwrap_or(0.0))
-                                        }
-                                    }
-                                    TokenKind::Boolean =>
-                                        Value::Boolean(
-                                            value_token.lexeme.parse::<bool>().unwrap_or(false)
-                                        ),
-                                    _ => Value::Unknown,
-                                };
-                                map.insert(key, value);
-                            }
-                        }
-                    }
-                }
-                Value::Map(map)
+        // Handle map literal (supports nested maps)
+        let map_val = parse_map_literal(parser);
+        // We consumed the matching '}', so outer map_depth should be decremented
+        // if the caller tracks it.
+        map_val
             }
             _ => Value::Unknown,
         };
@@ -188,11 +208,7 @@ pub fn parse_arrow_call(parser: &mut Parser, global_store: &mut GlobalStore) -> 
         args.push(value);
 
         // Stop if we reach the end of the statement
-        if
-            paren_depth == 0 &&
-            map_depth == 0 &&
-            (token.kind == TokenKind::RParen || token.kind == TokenKind::RBrace)
-        {
+    if paren_depth == 0 && (token.kind == TokenKind::RParen || token.kind == TokenKind::RBrace) {
             break;
         }
     }

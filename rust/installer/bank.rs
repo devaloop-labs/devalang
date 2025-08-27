@@ -59,7 +59,7 @@ pub async fn install_bank(name: &str, target_dir: &Path) -> Result<(), String> {
         format!("Failed to extract: {}", e)
     )?;
 
-    add_bank_to_config(&mut config, &extract_path, &dependency_path);
+    add_bank_to_config(&mut config, &extract_path, dependency_path);
 
     Ok(())
 }

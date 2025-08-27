@@ -11,7 +11,7 @@ use crate::{
 pub fn resolve_tempo(
     stmt: &Statement,
     module: &Module,
-    path: &str,
+    _path: &str,
     _global_store: &GlobalStore
 ) -> Statement {
     let mut new_stmt = stmt.clone();

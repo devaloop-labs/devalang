@@ -4,7 +4,7 @@ use crate::core::{
     shared::value::Value,
     store::global::GlobalStore,
 };
-pub fn parse_at_token(parser: &mut Parser, global_store: &mut GlobalStore) -> Statement {
+pub fn parse_at_token(parser: &mut Parser, _global_store: &mut GlobalStore) -> Statement {
     parser.advance(); // consume '@'
 
     let Some(token) = parser.peek_clone() else {

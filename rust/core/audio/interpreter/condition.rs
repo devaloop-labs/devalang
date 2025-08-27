@@ -20,8 +20,8 @@ pub fn interprete_condition_statement(
     max_end_time: f32,
     cursor_time: f32
 ) -> (f32, f32) {
-    let mut cur_time = cursor_time;
-    let mut max_time = max_end_time;
+    let cur_time = cursor_time;
+    let max_time = max_end_time;
 
     let mut current = stmt.value.clone();
 
@@ -44,7 +44,7 @@ pub fn interprete_condition_statement(
                     global_store,
                     variable_table.clone(),
                     functions_table.clone(),
-                    block.clone(),
+                    &block,
                     base_bpm,
                     base_duration,
                     max_time,

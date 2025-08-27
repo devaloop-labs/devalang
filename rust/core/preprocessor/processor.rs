@@ -1,14 +1,14 @@
 use std::{ collections::HashMap, path::Path };
 
 use crate::core::{
-    parser::{ driver::Parser, statement::StatementKind },
-    preprocessor::{ loader::ModuleLoader, resolver::group },
+    parser::statement::StatementKind,
+    preprocessor::loader::ModuleLoader,
     shared::value::Value,
     store::global::GlobalStore,
     utils::path::{ normalize_path, resolve_relative_path },
 };
 
-pub fn process_modules(module_loader: &ModuleLoader, global_store: &mut GlobalStore) {
+pub fn process_modules(_module_loader: &ModuleLoader, global_store: &mut GlobalStore) {
     for module in global_store.modules.values_mut() {
         for stmt in &module.statements {
             match &stmt.kind {
@@ -52,7 +52,7 @@ pub fn process_modules(module_loader: &ModuleLoader, global_store: &mut GlobalSt
                     );
                 }
 
-                StatementKind::Export { names, source } => {
+                StatementKind::Export { names, source: _ } => {
                     for name in names {
                         if let Some(val) = module.variable_table.get(name) {
                             module.export_table.add_export(name.clone(), val.clone());

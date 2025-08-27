@@ -33,6 +33,22 @@ pub fn parse_let_token(
         return Statement::error(current_token, "Expected '=' after identifier".to_string());
     }
 
+    // If RHS begins with '$' or contains expression tokens ('+', '-', '*', '/', '(', '['),
+    // collect the rest of the line as a raw expression string.
+    if let Some(tok) = parser.peek_clone() {
+        let line = tok.line;
+        if tok.lexeme.starts_with('$') || matches!(tok.kind, TokenKind::Identifier | TokenKind::Number | TokenKind::LParen | TokenKind::LBracket) {
+            // Collect tokens until end of the current line
+            let collected = parser.collect_until(|t| t.line != line || matches!(t.kind, TokenKind::Newline | TokenKind::EOF));
+            let mut text = String::new();
+            for t in collected.iter() {
+                if matches!(t.kind, TokenKind::Newline | TokenKind::EOF) { break; }
+                text.push_str(&t.lexeme);
+            }
+            return Statement { kind: StatementKind::Let { name: identifier }, value: Value::String(text.trim().to_string()), indent: current_token.indent, line: current_token.line, column: current_token.column };
+        }
+    }
+
     let value = match parser.peek_clone() {
         Some(token) if token.kind == TokenKind::Dot => {
             let dot_stmt = parse_dot_token(parser, global_store);

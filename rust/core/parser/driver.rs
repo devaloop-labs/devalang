@@ -107,10 +107,11 @@ impl Parser {
         tokens: Vec<Token>,
         global_store: &mut GlobalStore
     ) -> Vec<Statement> {
-        // Filtrer les tokens Whitespace et Newline avant parsing
+        // Filtrer uniquement les espaces, mais conserver les Newline car
+        // certaines constructions (ex: print ...) s'appuient sur la fin de ligne.
         self.tokens = tokens
             .into_iter()
-            .filter(|t| t.kind != TokenKind::Whitespace && t.kind != TokenKind::Newline)
+            .filter(|t| t.kind != TokenKind::Whitespace)
             .collect();
         self.token_index = 0;
 
@@ -197,12 +198,13 @@ impl Parser {
         let mut map = std::collections::HashMap::new();
 
         while !self.check_token(TokenKind::RBrace) && !self.is_eof() {
-            // Skip newlines, whitespace, indent, dedent before the key
+            // Skip separators and formatting before the key
             while
                 self.check_token(TokenKind::Newline) ||
                 self.check_token(TokenKind::Whitespace) ||
                 self.check_token(TokenKind::Indent) ||
-                self.check_token(TokenKind::Dedent)
+                self.check_token(TokenKind::Dedent) ||
+                self.check_token(TokenKind::Comma)
             {
                 self.advance();
             }
@@ -236,8 +238,14 @@ impl Parser {
                 break;
             }
 
-            // Skip newlines and whitespace before value
-            while self.check_token(TokenKind::Newline) || self.check_token(TokenKind::Whitespace) {
+            // Skip separators and formatting before value
+            while
+                self.check_token(TokenKind::Newline) ||
+                self.check_token(TokenKind::Whitespace) ||
+                self.check_token(TokenKind::Indent) ||
+                self.check_token(TokenKind::Dedent) ||
+                self.check_token(TokenKind::Comma)
+            {
                 self.advance();
             }
 
@@ -291,6 +299,11 @@ impl Parser {
             };
 
             map.insert(key, value);
+
+            // Optionally skip a trailing comma after the value
+            while self.check_token(TokenKind::Comma) || self.check_token(TokenKind::Whitespace) || self.check_token(TokenKind::Newline) {
+                self.advance();
+            }
         }
 
         if !self.match_token(TokenKind::RBrace) {
@@ -298,6 +311,79 @@ impl Parser {
         }
 
         Some(Value::Map(map))
+    }
+
+    // Parse an array value like [1, 2, 3] or ["a", b]
+    pub fn parse_array_value(&mut self) -> Option<Value> {
+        if !self.match_token(TokenKind::LBracket) {
+            return None;
+        }
+
+        let mut arr: Vec<Value> = Vec::new();
+
+        while !self.check_token(TokenKind::RBracket) && !self.is_eof() {
+            // Skip formatting tokens
+            while
+                self.check_token(TokenKind::Newline) ||
+                self.check_token(TokenKind::Whitespace) ||
+                self.check_token(TokenKind::Indent) ||
+                self.check_token(TokenKind::Dedent) ||
+                self.check_token(TokenKind::Comma)
+            {
+                self.advance();
+            }
+
+            if self.check_token(TokenKind::RBracket) {
+                break;
+            }
+
+            if let Some(token) = self.peek_clone() {
+                let value = match token.kind {
+                    TokenKind::String => { self.advance(); Value::String(token.lexeme.clone()) }
+                    TokenKind::Number => {
+                        // Support simple decimals split as number '.' number
+                        let mut number_str = token.lexeme.clone();
+                        self.advance();
+                        if let Some(dot) = self.peek_clone() {
+                            if dot.kind == TokenKind::Dot {
+                                if let Some(next) = self.peek_nth(1).cloned() {
+                                    if next.kind == TokenKind::Number {
+                                        self.advance(); // consume dot
+                                        self.advance(); // consume next number
+                                        number_str.push('.');
+                                        number_str.push_str(&next.lexeme);
+                                    }
+                                }
+                            }
+                        }
+                        Value::Number(number_str.parse::<f32>().unwrap_or(0.0))
+                    }
+                    TokenKind::Identifier => { self.advance(); Value::Identifier(token.lexeme.clone()) }
+                    TokenKind::LBrace => {
+                        // Allow inline maps inside arrays
+                        if let Some(v) = self.parse_map_value() { v } else { Value::Null }
+                    }
+                    TokenKind::LBracket => {
+                        // Nested arrays
+                        if let Some(v) = self.parse_array_value() { v } else { Value::Null }
+                    }
+                    _ => { self.advance(); Value::Null }
+                };
+
+                // Only push non-null (retain alignment with permissive parsing)
+                if value != Value::Null { arr.push(value); }
+
+                // Optional trailing comma handled by the skipper at loop start
+            } else {
+                break;
+            }
+        }
+
+        if !self.match_token(TokenKind::RBracket) {
+            println!("Expected ']' at end of array");
+        }
+
+        Some(Value::Array(arr))
     }
 
     pub fn peek(&self) -> Option<&Token> {
@@ -333,14 +419,10 @@ impl Parser {
     pub fn collect_until<F>(&mut self, condition: F) -> Vec<Token> where F: Fn(&Token) -> bool {
         let mut collected = Vec::new();
         while let Some(token) = self.peek() {
-            if token.kind == TokenKind::Newline || token.kind == TokenKind::Indent {
-                self.advance(); // Skip newlines and indents
-                continue;
-            }
-            if token.kind == TokenKind::EOF {
+            if condition(token) {
                 break;
             }
-            if condition(token) {
+            if token.kind == TokenKind::EOF {
                 break;
             }
             collected.push(self.advance().unwrap().clone());
