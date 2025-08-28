@@ -17,7 +17,8 @@
     "script:build": "tsc",
     "script:postbuild": "tsc && node out-tsc/scripts/postbuild.js",
     "script:version:bump": "tsc && node out-tsc/scripts/version/index.js",
-    "prepublish": "cargo build --release"
+    "prepublish": "cargo build --release",
+    "postinstall": "tsc && node out-tsc/scripts/postinstall.js"
   },
   "homepage": "https://devalang.com",
   "keywords": [
@@ -42,7 +43,9 @@
     "url": "https://github.com/devaloop-labs/devalang.git"
   },
   "dependencies": {
-    "@types/node": "^24.0.3"
+    "@types/follow-redirects": "^1.14.4",
+    "@types/node": "^24.0.3",
+    "follow-redirects": "^1.15.11"
   },
   "devDependencies": {
     "typescript": "^5.9.2"

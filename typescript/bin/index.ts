@@ -20,7 +20,7 @@ switch (process.platform) {
     process.exit(1);
 }
 
-const binaryPath = path.join(__dirname, "bin", binaryName);
+const binaryPath = path.join(__dirname, binaryName);
 
 const args = process.argv.slice(2);
 const child = spawn(binaryPath, args, { stdio: "inherit" });

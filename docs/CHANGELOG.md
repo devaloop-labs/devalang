@@ -6,6 +6,10 @@
 
 ## Version 0.0.1-alpha.16 (2025-08-28)
 
+### 🌎 Ecosystem
+
+- Added Github Actions to build and release binaries for multiple platforms.
+
 ### 🧩 Language Features
 
 - `bank` handler: add `as <alias>` support and robust parsing of `author.name` and string names.
