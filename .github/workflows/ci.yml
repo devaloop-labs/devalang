@@ -40,9 +40,10 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install deps and build TS
+      - name: Install deps, install and build TS
         run: |
-          npm install
+          npm install 
+          npm install typescript
           npm run script:build
 
       - name: Install Rust
