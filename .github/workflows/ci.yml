@@ -40,11 +40,11 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install deps and TS
-        run: npm install && npm install typescript
+      - name: Install TS
+        run: npm install typescript
 
       - name: Build TS
-        run: npm run script:build
+        run: tsc
 
       - name: Install Rust
         uses: actions-rs/toolchain@v1
