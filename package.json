@@ -1,7 +1,7 @@
 {
   "name": "@devaloop/devalang",
   "private": false,
-  "version": "0.0.1-alpha.16",
+  "version": "0.0.1-alpha.16-hotfix.0",
   "description": "Write music like code. Devalang is a domain-specific language (DSL) for sound designers and music hackers. Compose, automate, and control sound — in plain text.",
   "main": "out-tsc/index.js",
   "bin": {
@@ -18,7 +18,7 @@
     "script:postbuild": "tsc && node out-tsc/scripts/postbuild.js",
     "script:version:bump": "tsc && node out-tsc/scripts/version/index.js",
     "prepublish": "cargo build --release",
-    "postinstall": "tsc && node out-tsc/scripts/postinstall.js"
+    "postinstall": "node out-tsc/scripts/postinstall.js"
   },
   "homepage": "https://devalang.com",
   "keywords": [
