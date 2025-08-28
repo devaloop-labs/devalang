@@ -36,7 +36,7 @@ jobs:
 
       - name: Install deps and build TS
         run: |
-          npm ci
+          npm install
           npm run script:build
 
       - name: Install Rust
