@@ -44,7 +44,7 @@ jobs:
         run: npm install && npm install typescript
 
       - name: Build TS
-        run: npm run build
+        run: npm run script:build
 
       - name: Install Rust
         uses: actions-rs/toolchain@v1
