@@ -40,18 +40,18 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install TS
-        run: npm install typescript
-
-      - name: Build TS
-        run: tsc
-
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           override: true
           target: ${{ matrix.target }}
+
+      - name: NPM Install
+        run: npm install
+
+      - name: Build TS
+        run: npx tsc
 
       - name: Build release
         run: cargo build --release --target ${{ matrix.target }}
