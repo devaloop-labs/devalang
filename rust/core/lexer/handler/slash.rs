@@ -1,4 +1,4 @@
-use crate::core::lexer::token::{ Token, TokenKind };
+use crate::core::lexer::token::{Token, TokenKind};
 
 pub fn handle_slash_lexer(
     ch: char,
@@ -7,7 +7,7 @@ pub fn handle_slash_lexer(
     _indent_stack: &mut Vec<usize>,
     tokens: &mut Vec<Token>,
     line: &mut usize,
-    column: &mut usize
+    column: &mut usize,
 ) {
     let slash = ch.to_string();
 
@@ -16,6 +16,6 @@ pub fn handle_slash_lexer(
         lexeme: slash,
         line: *line,
         column: *column,
-    indent: *current_indent,
+        indent: *current_indent,
     });
 }

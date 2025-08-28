@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use crate::core::parser::statement::Statement;
+use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 pub struct FunctionDef {

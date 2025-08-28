@@ -1,14 +1,18 @@
-use std::collections::HashMap;
 use crate::core::{
+    parser::statement::Statement,
+    plugin::loader::PluginInfo,
     preprocessor::module::Module,
-    store::{ function::FunctionTable, variable::VariableTable },
+    store::{function::FunctionTable, variable::VariableTable},
 };
+use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 pub struct GlobalStore {
     pub modules: HashMap<String, Module>,
     pub variables: VariableTable,
     pub functions: FunctionTable,
+    pub events: HashMap<String, Vec<Statement>>,
+    pub plugins: HashMap<String, (PluginInfo, Vec<u8>)>,
 }
 
 impl GlobalStore {
@@ -17,6 +21,8 @@ impl GlobalStore {
             modules: HashMap::new(),
             functions: FunctionTable::new(),
             variables: VariableTable::new(),
+            events: HashMap::new(),
+            plugins: HashMap::new(),
         }
     }
 
@@ -34,5 +40,16 @@ impl GlobalStore {
 
     pub fn remove_module(&mut self, path: &str) -> Option<Module> {
         self.modules.remove(path)
+    }
+
+    pub fn register_event_handler(&mut self, event: &str, handler: Statement) {
+        self.events
+            .entry(event.to_string())
+            .or_default()
+            .push(handler);
+    }
+
+    pub fn get_event_handlers(&self, event: &str) -> Option<&Vec<Statement>> {
+        self.events.get(event)
     }
 }

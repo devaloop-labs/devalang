@@ -17,7 +17,9 @@ fn parse_top_level_args(s: &str) -> Vec<&str> {
         }
     }
     let last = s[start..].trim();
-    if !last.is_empty() { args.push(last); }
+    if !last.is_empty() {
+        args.push(last);
+    }
     args
 }
 
@@ -32,7 +34,11 @@ fn eval_math_func(func: &str, args: &[f32], fallback_seed: f32) -> Option<f32> {
             Some((x.fract() * 2.0 - 1.0).clamp(-1.0, 1.0))
         }
         "lerp" => {
-            if args.len() >= 3 { Some(args[0] + (args[1] - args[0]) * args[2]) } else { None }
+            if args.len() >= 3 {
+                Some(args[0] + (args[1] - args[0]) * args[2])
+            } else {
+                None
+            }
         }
         _ => None,
     }
@@ -77,7 +83,11 @@ where
     let raw_args = parse_top_level_args(inner);
     let mut args: Vec<f32> = Vec::with_capacity(raw_args.len());
     for a in raw_args {
-        if let Some(v) = eval(a, vars, bpm, beat) { args.push(v); } else { return None; }
+        if let Some(v) = eval(a, vars, bpm, beat) {
+            args.push(v);
+        } else {
+            return None;
+        }
     }
 
     // If no explicit seed is provided, use $env.seed via fallback

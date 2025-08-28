@@ -21,7 +21,10 @@ impl VariableTable {
     }
 
     pub fn with_parent(parent: VariableTable) -> Self {
-        Self { variables: HashMap::new(), parent: Some(Box::new(parent)) }
+        Self {
+            variables: HashMap::new(),
+            parent: Some(Box::new(parent)),
+        }
     }
 
     pub fn get(&self, name: &str) -> Option<&Value> {

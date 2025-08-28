@@ -1,12 +1,14 @@
 use crate::core::store::variable::VariableTable;
 use std::sync::OnceLock;
-use std::time::{ SystemTime, UNIX_EPOCH };
+use std::time::{SystemTime, UNIX_EPOCH};
 
 static SESSION_SEED: OnceLock<f32> = OnceLock::new();
 
 pub fn get_session_seed() -> f32 {
     *SESSION_SEED.get_or_init(|| {
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default();
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default();
         // Build a stable 0..1 seed from nanos
         let nanos = now.subsec_nanos();
         ((nanos as f32) / 1_000_000_000.0).clamp(0.0, 1.0)

@@ -1,12 +1,12 @@
 pub mod handler;
 pub mod token;
 
-use std::fs;
-use std::path::Path;
 use crate::core::{
-    lexer::{ handler::driver::handle_content_lexing, token::Token },
+    lexer::{handler::driver::handle_content_lexing, token::Token},
     utils::path::normalize_path,
 };
+use std::fs;
+use std::path::Path;
 
 pub struct Lexer {}
 
@@ -45,7 +45,10 @@ impl Lexer {
         } else if candidate.is_file() {
             return path.to_string();
         } else {
-            panic!("Provided entrypoint '{}' is not a valid file or directory", path);
+            panic!(
+                "Provided entrypoint '{}' is not a valid file or directory",
+                path
+            );
         }
     }
 }

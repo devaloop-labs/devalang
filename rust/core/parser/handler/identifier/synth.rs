@@ -2,7 +2,10 @@ use std::collections::HashMap;
 
 use crate::core::{
     lexer::token::Token,
-    parser::{ driver::Parser, statement::{ Statement, StatementKind } },
+    parser::{
+        driver::Parser,
+        statement::{Statement, StatementKind},
+    },
     shared::value::Value,
     store::global::GlobalStore,
 };
@@ -10,7 +13,7 @@ use crate::core::{
 pub fn parse_synth_token(
     parser: &mut Parser,
     _current_token: Token,
-    _global_store: &mut GlobalStore
+    _global_store: &mut GlobalStore,
 ) -> Statement {
     parser.advance(); // consume 'synth'
 
@@ -33,7 +36,10 @@ pub fn parse_synth_token(
         if let Value::Map(map) = params {
             map
         } else {
-            return Statement::error(synth_token, "Expected a map for synth parameters".to_string());
+            return Statement::error(
+                synth_token,
+                "Expected a map for synth parameters".to_string(),
+            );
         }
     } else {
         // If no parameters are provided, we can still create the statement with an empty map
@@ -42,20 +48,16 @@ pub fn parse_synth_token(
 
     Statement {
         kind: StatementKind::Synth,
-        value: Value::Map(
-            HashMap::from([
-                ("entity".to_string(), Value::String("synth".to_string())),
-                (
-                    "value".to_string(),
-                    Value::Map(
-                        HashMap::from([
-                            ("waveform".to_string(), Value::String(synth_waveform)),
-                            ("parameters".to_string(), Value::Map(parameters)),
-                        ])
-                    ),
-                ),
-            ])
-        ),
+        value: Value::Map(HashMap::from([
+            ("entity".to_string(), Value::String("synth".to_string())),
+            (
+                "value".to_string(),
+                Value::Map(HashMap::from([
+                    ("waveform".to_string(), Value::String(synth_waveform)),
+                    ("parameters".to_string(), Value::Map(parameters)),
+                ])),
+            ),
+        ])),
         indent: synth_token.indent,
         line: synth_token.line,
         column: synth_token.column,

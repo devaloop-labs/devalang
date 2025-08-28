@@ -1,4 +1,4 @@
-use crate::core::lexer::token::{ Token, TokenKind };
+use crate::core::lexer::token::{Token, TokenKind};
 
 pub fn handle_identifier_lexer(
     ch: char,
@@ -7,7 +7,7 @@ pub fn handle_identifier_lexer(
     _indent_stack: &mut Vec<usize>,
     tokens: &mut Vec<Token>,
     line: &mut usize,
-    column: &mut usize
+    column: &mut usize,
 ) {
     let mut ident = ch.to_string();
 
@@ -26,10 +26,13 @@ pub fn handle_identifier_lexer(
         "else" => TokenKind::Else,
         "bank" => TokenKind::Bank,
         "bpm" => TokenKind::Tempo,
-    "loop" => TokenKind::Loop,
-    "for" => TokenKind::Loop,
+        "loop" => TokenKind::Loop,
+        "for" => TokenKind::Loop,
         "synth" => TokenKind::Synth,
         "fn" => TokenKind::Function,
+        "as" => TokenKind::As,
+        "on" => TokenKind::On,
+        "emit" => TokenKind::Emit,
         _ => TokenKind::Identifier,
     };
 

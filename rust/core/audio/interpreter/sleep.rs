@@ -1,7 +1,4 @@
-use crate::core::{
-    parser::statement::Statement,
-    shared::value::Value,
-};
+use crate::core::{parser::statement::Statement, shared::value::Value};
 
 pub fn interprete_sleep_statement(
     stmt: &Statement,
@@ -10,12 +7,14 @@ pub fn interprete_sleep_statement(
 ) -> (f32, f32) {
     let duration_secs = match &stmt.value {
         Value::Number(ms) => *ms / 1000.0,
-        Value::String(s) if s.ends_with("ms") => {
-            s.trim_end_matches("ms").parse::<f32>().map(|ms| ms / 1000.0).unwrap_or_else(|_| {
+        Value::String(s) if s.ends_with("ms") => s
+            .trim_end_matches("ms")
+            .parse::<f32>()
+            .map(|ms| ms / 1000.0)
+            .unwrap_or_else(|_| {
                 eprintln!("❌ Invalid sleep value (ms): {}", s);
                 0.0
-            })
-        }
+            }),
         other => {
             eprintln!("❌ Invalid sleep value: {:?}", other);
             0.0

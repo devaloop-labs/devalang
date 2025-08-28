@@ -1,15 +1,16 @@
-# NOTE: Available in next release
+# This is an example of using a plugin in Devalang.
+# Make sure you have the plugin installed in your Devaloop application. (devalang install plugin <author>.<plugin_name>)
 
-# @use devaloop.acid as acidPlugin
+@use devaloop.acid as acidPlugin
 
-# let acidSynth = synth acidPlugin.synth {
-#     waveform: "saw",
-#     accent: 0.1,
-#     decay: 250
-# }
+let acidSynth = synth acidPlugin.synth {
+    waveform: "saw",
+    accent: 0.1,
+    decay: 250
+}
 
-# group mySynthGroup:
-#     acidSynth -> note(C4, { duration: 600 })
-#     acidSynth -> note(E4, { duration: 600 })
+group mySynthGroup:
+    acidSynth -> note(C4, { duration: 600 })
+    acidSynth -> note(E4, { duration: 600 })
 
-# call mySynthGroup
+call mySynthGroup

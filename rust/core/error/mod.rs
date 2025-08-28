@@ -1,15 +1,34 @@
-use crate::core::parser::{ statement::{ Statement, StatementKind }, driver::Parser };
-use serde::{Serialize, Deserialize};
+use crate::core::parser::{
+    driver::Parser,
+    statement::{Statement, StatementKind},
+};
+use serde::{Deserialize, Serialize};
 
 pub struct ErrorHandler {
     errors: Vec<Error>,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub enum Severity {
+    Warning,
+    Critical,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct StackFrame {
+    pub module: Option<String>,
+    pub context: Option<String>,
+    pub line: usize,
+    pub column: usize,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ErrorResult {
     pub message: String,
     pub line: usize,
     pub column: usize,
+    pub severity: Severity,
+    pub stack: Vec<StackFrame>,
 }
 
 #[derive(Clone)]
@@ -49,18 +68,10 @@ impl ErrorHandler {
         for stmt in statements {
             match &stmt.kind {
                 StatementKind::Unknown => {
-                    self.add_error(
-                        "Unknown statement".to_string(),
-                        stmt.line,
-                        stmt.column
-                    );
+                    self.add_error("Unknown statement".to_string(), stmt.line, stmt.column);
                 }
                 StatementKind::Error { message } => {
-                    self.add_error(
-                        message.clone(),
-                        stmt.line,
-                        stmt.column
-                    );
+                    self.add_error(message.clone(), stmt.line, stmt.column);
                 }
                 _ => {}
             }

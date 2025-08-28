@@ -1,6 +1,9 @@
 use crate::core::{
     lexer::token::{Token, TokenKind},
-    parser::{statement::{Statement, StatementKind}, driver::Parser},
+    parser::{
+        driver::Parser,
+        statement::{Statement, StatementKind},
+    },
     shared::value::Value,
     store::global::GlobalStore,
 };
@@ -8,7 +11,7 @@ use crate::core::{
 pub fn parse_call_token(
     parser: &mut Parser,
     current_token: Token,
-    _global_store: &mut GlobalStore
+    _global_store: &mut GlobalStore,
 ) -> Statement {
     parser.advance(); // consume "call"
 
@@ -18,7 +21,7 @@ pub fn parse_call_token(
         None => {
             return Statement::error(
                 current_token,
-                "Expected function name after 'call'".to_string()
+                "Expected function name after 'call'".to_string(),
             );
         }
     };
@@ -26,7 +29,7 @@ pub fn parse_call_token(
     if name_token.kind != TokenKind::Identifier {
         return Statement::error(
             name_token,
-            "Expected function name to be an identifier".to_string()
+            "Expected function name to be an identifier".to_string(),
         );
     }
 
@@ -67,7 +70,7 @@ pub fn parse_call_token(
                     _ => {
                         return Statement::error(
                             token,
-                            "Unexpected token in call arguments".to_string()
+                            "Unexpected token in call arguments".to_string(),
                         );
                     }
                 }

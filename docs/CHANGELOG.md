@@ -1,8 +1,37 @@
 <div align="center">
-    <img src="https://devalang.com/images/devalang-logo.svg" alt="Devalang Logo" width="300" />
+    <img src="https://devalang.com/images/devalang-logo-min.png" alt="Devalang Logo" width="100" />
 </div>
 
 # Changelog
+
+## Version 0.0.1-alpha.16 (2025-08-28)
+
+### 🧩 Language Features
+
+- `bank` handler: add `as <alias>` support and robust parsing of `author.name` and string names.
+  - Example: `bank user.808 as my808`, `bank user.myBank as myBank`
+- `plugin` handler: initial implementation with basic support for loading and resolving plugins.
+  - Example: `@use user.myPlugin`, `@use user.myPlugin as myAlias`
+- `on` event handler: implemented event trigger resolution and context management.
+  - Example: `on beat: ...`, `on bar: ...`, `on custom: ...`
+- `emit` event handler: initial implementation for emitting events.
+  - Example: `emit beat`, `emit custom { value: 42 }`
+- `print`: add JS-like string concatenation with `+` between strings, variables, numbers, and `$env`/`$math` expressions.
+  - Examples: `print "looping " + i`, `print "bpm=" + $env.bpm`, `print "sin=" + $math.sin(0.5)`
+
+### 🧠 Core Engine
+
+- Cleanest error handling for unknown triggers (module:line:column), no implicit file search.
+- Real-time runner (play): loops are paced at 1 iteration per beat on the same thread.
+  - Periodic events (`on beat`, `on $beat`, `on bar`, `on $bar`) are suspended while a loop is running to avoid interleaving.
+  - Loops stop strictly at the end of their block (dedent / end-of-line).
+  - Duration estimation improved by accounting for loop iteration counts to keep the runner alive as needed.
+
+### 🔎 Telemetry (stats)
+
+- Added basic telemetry support for tracking module loading and resolution times.
+  - To enable telemetry, execute `devalang telemetry enable`
+  - To disable telemetry, execute `devalang telemetry disable`
 
 ## Version 0.0.1-alpha.15 (2025-08-27)
 

@@ -1,7 +1,9 @@
-pub mod version;
+pub mod error;
+pub mod file;
+pub mod first_usage;
+pub mod logger;
 pub mod signature;
 pub mod spinner;
+pub mod telemetry;
+pub mod version;
 pub mod watcher;
-pub mod file;
-pub mod logger;
-pub mod error;

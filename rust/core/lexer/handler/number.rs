@@ -1,4 +1,4 @@
-use crate::core::lexer::token::{ Token, TokenKind };
+use crate::core::lexer::token::{Token, TokenKind};
 
 pub fn handle_number_lexer(
     ch: char,
@@ -7,7 +7,7 @@ pub fn handle_number_lexer(
     _indent_stack: &mut Vec<usize>,
     tokens: &mut Vec<Token>,
     line: &mut usize,
-    column: &mut usize
+    column: &mut usize,
 ) {
     let mut number = ch.to_string();
 

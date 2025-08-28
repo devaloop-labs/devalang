@@ -1,5 +1,5 @@
-use include_dir::{ include_dir, Dir, DirEntry };
 use crate::utils::file::format_file_size;
+use include_dir::{Dir, DirEntry, include_dir};
 
 static TEMPLATES_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/templates");
 
@@ -43,7 +43,12 @@ pub fn handle_template_info_command(name: String) {
         }
     }
 
-    walk(template_dir, &mut file_count, &mut dir_count, &mut total_size);
+    walk(
+        template_dir,
+        &mut file_count,
+        &mut dir_count,
+        &mut total_size,
+    );
 
     println!("📦 Template : {}", name);
     println!("📂 Content  : {file_count} file(s), {dir_count} folder(s)");
@@ -51,7 +56,14 @@ pub fn handle_template_info_command(name: String) {
 }
 
 pub fn get_available_templates() -> Vec<String> {
-    TEMPLATES_DIR.dirs()
-        .map(|dir| dir.path().file_name().unwrap().to_string_lossy().to_string())
+    TEMPLATES_DIR
+        .dirs()
+        .map(|dir| {
+            dir.path()
+                .file_name()
+                .unwrap()
+                .to_string_lossy()
+                .to_string()
+        })
         .collect()
 }

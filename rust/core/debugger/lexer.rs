@@ -1,10 +1,10 @@
-use std::{ collections::HashMap, fs::create_dir_all };
-use crate::core::{ debugger::Debugger, lexer::token::Token };
+use crate::core::{debugger::Debugger, lexer::token::Token};
+use std::{collections::HashMap, fs::create_dir_all};
 
 pub fn write_lexer_log_file(
     output_dir: &str,
     file_name: &str,
-    modules: HashMap<String, Vec<Token>>
+    modules: HashMap<String, Vec<Token>>,
 ) {
     let debugger = Debugger::new();
     let mut content = String::new();

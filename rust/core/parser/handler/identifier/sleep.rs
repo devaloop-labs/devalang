@@ -1,6 +1,9 @@
 use crate::core::{
-    lexer::token::{ Token, TokenKind },
-    parser::{ statement::{ Statement, StatementKind }, driver::Parser },
+    lexer::token::{Token, TokenKind},
+    parser::{
+        driver::Parser,
+        statement::{Statement, StatementKind},
+    },
     shared::value::Value,
     store::global::GlobalStore,
 };
@@ -8,7 +11,7 @@ use crate::core::{
 pub fn parse_sleep_token(
     parser: &mut Parser,
     current_token: Token,
-    _global_store: &mut GlobalStore
+    _global_store: &mut GlobalStore,
 ) -> Statement {
     parser.advance(); // consume "sleep"
 

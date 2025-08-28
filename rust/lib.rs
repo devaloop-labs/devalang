@@ -1,17 +1,18 @@
+pub mod common;
+pub mod config;
 pub mod core;
 pub mod utils;
-pub mod config;
 
-use serde::{ Deserialize, Serialize };
-use wasm_bindgen::prelude::*;
+use serde::{Deserialize, Serialize};
 use serde_wasm_bindgen::to_value;
+use wasm_bindgen::prelude::*;
 
 use crate::core::{
-    audio::{ engine::AudioEngine, interpreter::driver::run_audio_program },
-    parser::statement::{ Statement, StatementKind },
+    audio::{engine::AudioEngine, interpreter::driver::run_audio_program},
+    parser::statement::{Statement, StatementKind},
     preprocessor::loader::ModuleLoader,
     shared::value::Value,
-    store::{ function::FunctionTable, global::GlobalStore, variable::VariableTable },
+    store::{function::FunctionTable, global::GlobalStore, variable::VariableTable},
     utils::path::normalize_path,
 };
 
@@ -36,11 +37,10 @@ pub fn parse(entry_path: &str, source: &str) -> Result<JsValue, JsValue> {
     match statements {
         Ok(value) => {
             let ast_string = value;
-            to_value(&ast_string).map_err(|e|
-                JsValue::from_str(&format!("Error converting AST to JS value: {}", e))
-            )
+            to_value(&ast_string)
+                .map_err(|e| JsValue::from_str(&format!("Error converting AST to JS value: {}", e)))
         }
-        Err(e) => { Err(JsValue::from_str(&format!("Error: {}", e))) }
+        Err(e) => Err(JsValue::from_str(&format!("Error: {}", e))),
     }
 }
 
@@ -51,12 +51,8 @@ pub fn render_audio(user_code: &str) -> Result<js_sys::Float32Array, JsValue> {
 
     let mut global_store = GlobalStore::new();
 
-    let loader = ModuleLoader::from_raw_source(
-        &entry_path,
-        &output_path,
-        user_code,
-        &mut global_store
-    );
+    let loader =
+        ModuleLoader::from_raw_source(&entry_path, &output_path, user_code, &mut global_store);
 
     loader
         .load_wasm_module(&mut global_store)
@@ -78,7 +74,7 @@ pub fn render_audio(user_code: &str) -> Result<js_sys::Float32Array, JsValue> {
         "wasm_output".to_string(),
         VariableTable::new(),
         FunctionTable::new(),
-        &mut global_store
+        &mut global_store,
     );
 
     let samples = audio_engine.get_normalized_buffer();
@@ -95,12 +91,8 @@ fn parse_internal_from_string(virtual_path: &str, source: &str) -> Result<ParseR
     let output_path = normalize_path("./temp");
 
     let mut global_store = GlobalStore::new();
-    let loader = ModuleLoader::from_raw_source(
-        &entry_path,
-        &output_path,
-        source,
-        &mut global_store
-    );
+    let loader =
+        ModuleLoader::from_raw_source(&entry_path, &output_path, source, &mut global_store);
 
     let module = loader
         .load_single_module(&mut global_store)

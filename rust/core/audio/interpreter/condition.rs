@@ -1,12 +1,11 @@
 use crate::core::{
     audio::{
-        engine::AudioEngine,
-        evaluator::evaluate_condition_string,
+        engine::AudioEngine, evaluator::evaluate_condition_string,
         interpreter::driver::execute_audio_block,
     },
     parser::statement::Statement,
     shared::value::Value,
-    store::{ function::FunctionTable, global::GlobalStore, variable::VariableTable },
+    store::{function::FunctionTable, global::GlobalStore, variable::VariableTable},
 };
 
 pub fn interprete_condition_statement(
@@ -18,7 +17,7 @@ pub fn interprete_condition_statement(
     base_bpm: f32,
     base_duration: f32,
     max_end_time: f32,
-    cursor_time: f32
+    cursor_time: f32,
 ) -> (f32, f32) {
     let cur_time = cursor_time;
     let max_time = max_end_time;
@@ -48,7 +47,7 @@ pub fn interprete_condition_statement(
                     base_bpm,
                     base_duration,
                     max_time,
-                    cur_time
+                    cur_time,
                 );
                 return (new_max, cursor_time);
             } else {

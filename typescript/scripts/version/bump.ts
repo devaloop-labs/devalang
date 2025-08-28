@@ -1,5 +1,4 @@
 import fs from "fs";
-import path from "path";
 
 export const bumpVersion = async (bumpType: string, projectVersionPath: string) => {
     const versionData = JSON.parse(fs.readFileSync(projectVersionPath, "utf-8"));

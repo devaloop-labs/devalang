@@ -1,5 +1,5 @@
-use rodio::{ Decoder, OutputStream, OutputStreamHandle, Sink, Source };
-use std::{ fs::File, io::BufReader };
+use rodio::{Decoder, OutputStream, OutputStreamHandle, Sink, Source};
+use std::{fs::File, io::BufReader};
 
 pub struct AudioPlayer {
     _stream: OutputStream,

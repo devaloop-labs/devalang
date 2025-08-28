@@ -1,5 +1,8 @@
-use std::{ fs::{ self }, path::Path };
-use include_dir::{ Dir, DirEntry };
+use include_dir::{Dir, DirEntry};
+use std::{
+    fs::{self},
+    path::Path,
+};
 
 pub fn copy_dir_recursive(dir: &Dir, target_root: &Path, base_path: &Path) {
     for entry in dir.entries() {

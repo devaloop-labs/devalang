@@ -1,18 +1,20 @@
 {
   "name": "@devaloop/devalang",
   "private": false,
-  "version": "0.0.1-alpha.15",
+  "version": "0.0.1-alpha.16",
   "description": "Write music like code. Devalang is a domain-specific language (DSL) for sound designers and music hackers. Compose, automate, and control sound — in plain text.",
   "main": "out-tsc/index.js",
   "bin": {
     "devalang": "./out-tsc/bin/index.js"
   },
   "scripts": {
+    "rust:fmt": "cargo fmt",
     "rust:dev:build": "cargo run build --entry examples --output output --debug",
     "rust:dev:check": "cargo run check --entry examples --output output --debug",
     "rust:dev:play": "cargo run play --entry examples --output output --repeat --debug",
     "rust:wasm:web": "wasm-pack build --target=web --no-default-features",
     "rust:wasm:node": "wasm-pack build --target=nodejs --no-default-features",
+    "script:build": "tsc",
     "script:postbuild": "tsc && node out-tsc/scripts/postbuild.js",
     "script:version:bump": "tsc && node out-tsc/scripts/version/index.js",
     "prepublish": "cargo build --release && npm run script:postbuild"

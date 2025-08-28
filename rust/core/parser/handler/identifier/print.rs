@@ -1,29 +1,52 @@
 use crate::core::{
-    lexer::token::{ Token, TokenKind },
-    parser::{ driver::Parser, statement::{ Statement, StatementKind } },
+    lexer::token::{Token, TokenKind},
+    parser::{
+        driver::Parser,
+        statement::{Statement, StatementKind},
+    },
     store::global::GlobalStore,
 };
 
 pub fn parse_print_token(
     parser: &mut Parser,
     current_token: Token,
-    _global_store: &mut GlobalStore
+    _global_store: &mut GlobalStore,
 ) -> Statement {
     // consume 'print'
     parser.advance();
 
     let collected = parser.collect_until(|t| matches!(t.kind, TokenKind::Newline | TokenKind::EOF));
-    // If single identifier, store as Identifier; else store as String of concatenated lexemes
-    let value = if collected.len() == 1 && collected[0].kind == TokenKind::Identifier {
-        crate::core::shared::value::Value::Identifier(collected[0].lexeme.clone())
-    } else {
-        let mut text = String::new();
-        for t in collected.iter() {
-            if matches!(t.kind, TokenKind::Newline | TokenKind::EOF) { break; }
-            text.push_str(&t.lexeme);
+    // Accept: print <identifier|string|number|expression>
+    let value = if collected.len() == 1 {
+        match collected[0].kind {
+            TokenKind::Identifier => {
+                crate::core::shared::value::Value::Identifier(collected[0].lexeme.clone())
+            }
+            TokenKind::String => {
+                crate::core::shared::value::Value::String(collected[0].lexeme.clone())
+            }
+            TokenKind::Number => {
+                let n = collected[0].lexeme.parse::<f32>().unwrap_or(0.0);
+                crate::core::shared::value::Value::Number(n)
+            }
+            _ => crate::core::shared::value::Value::String(collected[0].lexeme.clone()),
         }
+    } else {
+        // Join tokens with spaces to preserve readability for expressions/text
+        let text = collected
+            .iter()
+            .filter(|t| !matches!(t.kind, TokenKind::Newline | TokenKind::EOF))
+            .map(|t| t.lexeme.clone())
+            .collect::<Vec<_>>()
+            .join(" ");
         crate::core::shared::value::Value::String(text.trim().to_string())
     };
 
-    Statement { kind: StatementKind::Print, value, indent: current_token.indent, line: current_token.line, column: current_token.column }
+    Statement {
+        kind: StatementKind::Print,
+        value,
+        indent: current_token.indent,
+        line: current_token.line,
+        column: current_token.column,
+    }
 }

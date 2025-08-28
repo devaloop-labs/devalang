@@ -1,6 +1,9 @@
 use crate::core::{
-    lexer::token::{ Token, TokenKind },
-    parser::{ statement::{ Statement, StatementKind }, driver::Parser },
+    lexer::token::{Token, TokenKind},
+    parser::{
+        driver::Parser,
+        statement::{Statement, StatementKind},
+    },
     shared::value::Value,
     store::global::GlobalStore,
 };
@@ -9,15 +12,19 @@ use std::collections::HashMap;
 pub fn parse_group_token(
     parser: &mut Parser,
     current_token: Token,
-    global_store: &mut GlobalStore
+    global_store: &mut GlobalStore,
 ) -> Statement {
     parser.advance(); // consume "group"
 
     let Some(identifier_token) = parser.peek_clone() else {
-        return Statement::error(current_token, "Expected identifier after 'group'".to_string());
+        return Statement::error(
+            current_token,
+            "Expected identifier after 'group'".to_string(),
+        );
     };
 
-    if identifier_token.kind != TokenKind::Identifier && identifier_token.kind != TokenKind::String {
+    if identifier_token.kind != TokenKind::Identifier && identifier_token.kind != TokenKind::String
+    {
         return Statement::error(identifier_token, "Expected valid identifier".to_string());
     }
 
@@ -26,14 +33,14 @@ pub fn parse_group_token(
     let Some(colon_token) = parser.peek_clone() else {
         return Statement::error(
             identifier_token,
-            "Expected ':' after group identifier".to_string()
+            "Expected ':' after group identifier".to_string(),
         );
     };
 
     if colon_token.kind != TokenKind::Colon {
         return Statement::error(
             colon_token.clone(),
-            "Expected ':' after group identifier".to_string()
+            "Expected ':' after group identifier".to_string(),
         );
     }
 
@@ -62,7 +69,10 @@ pub fn parse_group_token(
     let body = parser.parse_block(tokens_inside_group, global_store);
 
     let mut value_map = HashMap::new();
-    value_map.insert("identifier".to_string(), Value::String(identifier_token.lexeme.clone()));
+    value_map.insert(
+        "identifier".to_string(),
+        Value::String(identifier_token.lexeme.clone()),
+    );
     value_map.insert("body".to_string(), Value::Block(body));
 
     return Statement {

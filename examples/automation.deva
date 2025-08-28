@@ -18,7 +18,7 @@ group myLead:
     #         100% = 12.0
     #     }
     
-    # This will automate only C4
+    # This will automate only one note
     mySynth -> note(C4, { 
         duration: 400,
         automate: {
@@ -38,7 +38,5 @@ group myLead:
     mySynth -> note(F4, { duration: 800 })
     mySynth -> note(D4, { duration: 400 })
     mySynth -> note(B3, { duration: 600 })
-
-
 
 call myLead

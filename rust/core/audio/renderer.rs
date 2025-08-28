@@ -1,17 +1,17 @@
-use std::collections::HashMap;
 use crate::{
     core::{
-        audio::{ engine::AudioEngine, interpreter::driver::run_audio_program },
+        audio::{engine::AudioEngine, interpreter::driver::run_audio_program},
         parser::statement::Statement,
         store::global::GlobalStore,
     },
-    utils::logger::{ LogLevel, Logger },
+    utils::logger::{LogLevel, Logger},
 };
+use std::collections::HashMap;
 
 pub fn render_audio_with_modules(
     modules: HashMap<String, Vec<Statement>>,
     output_dir: &str,
-    global_store: &mut GlobalStore
+    global_store: &mut GlobalStore,
 ) -> HashMap<String, AudioEngine> {
     let mut result = HashMap::new();
 
@@ -29,7 +29,7 @@ pub fn render_audio_with_modules(
                 output_dir.to_string(),
                 module.variable_table.clone(),
                 module.function_table.clone(),
-                global_store
+                global_store,
             );
 
             // Verify if the buffer is silent (all samples are zero)
@@ -37,7 +37,10 @@ pub fn render_audio_with_modules(
                 let logger = Logger::new();
                 logger.log_message(
                     LogLevel::Warning,
-                    &format!("Module '{}' ignored: silent buffer (no non-zero samples)", module_name)
+                    &format!(
+                        "Module '{}' ignored: silent buffer (no non-zero samples)",
+                        module_name
+                    ),
                 );
             }
 

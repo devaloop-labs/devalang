@@ -1,8 +1,8 @@
-use std::fs::File;
-use std::path::Path;
-use std::io::BufReader;
 use std::error::Error;
-use std::io::{ copy, Cursor };
+use std::fs::File;
+use std::io::BufReader;
+use std::io::{Cursor, copy};
+use std::path::Path;
 use zip::ZipArchive;
 
 pub async fn download_file(url: &str, destination: &Path) -> Result<(), Box<dyn Error>> {
@@ -26,7 +26,7 @@ pub async fn download_file(url: &str, destination: &Path) -> Result<(), Box<dyn 
 
 pub async fn extract_archive(
     zip_path: &Path,
-    destination: &Path
+    destination: &Path,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let file = File::open(zip_path)?;
     let mut archive = ZipArchive::new(BufReader::new(file))?;

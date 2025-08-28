@@ -1,16 +1,16 @@
 pub mod driver;
 
+pub mod arrow;
 pub mod at;
 pub mod brace;
 pub mod colon;
 pub mod comment;
 pub mod dot;
-pub mod operator;
 pub mod identifier;
+pub mod indent;
 pub mod newline;
 pub mod number;
-pub mod indent;
-pub mod string;
-pub mod arrow;
-pub mod slash;
+pub mod operator;
 pub mod parenthesis;
+pub mod slash;
+pub mod string;

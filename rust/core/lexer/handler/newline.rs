@@ -1,4 +1,4 @@
-use crate::core::lexer::token::{ Token, TokenKind };
+use crate::core::lexer::token::{Token, TokenKind};
 
 pub fn handle_newline_lexer(
     ch: char,
@@ -7,7 +7,7 @@ pub fn handle_newline_lexer(
     line: &mut usize,
     column: &mut usize,
     at_line_start: &mut bool,
-    current_indent: &mut usize
+    current_indent: &mut usize,
 ) {
     tokens.push(Token {
         kind: TokenKind::Newline,

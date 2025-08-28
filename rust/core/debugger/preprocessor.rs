@@ -1,10 +1,10 @@
-use std::{ collections::HashMap, fs::create_dir_all };
-use crate::core::{ debugger::Debugger, parser::statement::Statement };
+use crate::core::{debugger::Debugger, parser::statement::Statement};
+use std::{collections::HashMap, fs::create_dir_all};
 
 pub fn write_preprocessor_log_file(
     output_dir: &str,
     file_name: &str,
-    modules: HashMap<String, Vec<Statement>>
+    modules: HashMap<String, Vec<Statement>>,
 ) {
     let debugger = Debugger::new();
     let mut content = String::new();

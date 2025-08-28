@@ -1,5 +1,5 @@
-use clap::{ Parser, Subcommand };
 use crate::utils::version::get_version;
+use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
 #[command(name = "devalang")]
@@ -16,19 +16,21 @@ pub struct Cli {
 }
 
 #[derive(Subcommand)]
+pub enum TelemetryCommand {
+    /// Enables telemetry data collection.
+    Enable {},
+    /// Disables telemetry data collection.
+    Disable {},
+}
+
+#[derive(Subcommand)]
 pub enum InstallCommand {
     /// Installs a bank.
-    Bank {
-        name: String,
-    },
+    Bank { name: String },
     /// Installs a plugin.
-    Plugin {
-        name: String,
-    },
+    Plugin { name: String },
     /// Installs a preset.
-    Preset {
-        name: String,
-    },
+    Preset { name: String },
 }
 
 #[derive(Subcommand)]
@@ -36,9 +38,7 @@ pub enum TemplateCommand {
     /// Lists all available templates for Devalang projects.
     List,
     /// Displays information about a specific template.
-    Info {
-        name: String,
-    },
+    Info { name: String },
 }
 
 #[derive(Subcommand)]
@@ -48,17 +48,11 @@ pub enum BankCommand {
     /// Lists all available banks.
     Available,
     /// Displays information about a specific bank.
-    Info {
-        name: String,
-    },
+    Info { name: String },
     /// Removes a bank.
-    Remove {
-        name: String,
-    },
+    Remove { name: String },
     /// Updates a specific or all banks.
-    Update {
-        name: Option<String>,
-    },
+    Update { name: Option<String> },
 }
 
 #[derive(Subcommand)]
@@ -282,11 +276,22 @@ pub enum Commands {
         command: BankCommand,
     },
 
+    /// Telemetry settings for Devalang.
+    ///
+    /// ### Subcommands
+    /// - `enable` - Enables telemetry data collection.
+    /// - `disable` - Disables telemetry data collection.
+    ///
+    Telemetry {
+        #[command(subcommand)]
+        command: TelemetryCommand,
+    },
+
     /// Log in to your Devaloop account.
     ///
     Login {},
 
     /// Log out of your Devaloop account.
-    /// 
+    ///
     Logout {},
 }

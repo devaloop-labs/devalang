@@ -1,27 +1,25 @@
-pub mod let_;
-pub mod group;
-pub mod call;
-pub mod spawn;
-pub mod sleep;
-pub mod synth;
-pub mod function;
 pub mod automate;
+pub mod call;
+pub mod emit;
+pub mod function;
+pub mod group;
+pub mod let_;
+pub mod on;
 pub mod print;
+pub mod sleep;
+pub mod spawn;
+pub mod synth;
 
 use crate::core::{
     parser::{
         driver::Parser,
         handler::identifier::{
-            automate::parse_automate_token,
-            call::parse_call_token,
-            group::parse_group_token,
-            let_::parse_let_token,
-            print::parse_print_token,
-            sleep::parse_sleep_token,
-            spawn::parse_spawn_token,
+            automate::parse_automate_token, call::parse_call_token, emit::parse_emit_token,
+            group::parse_group_token, let_::parse_let_token, on::parse_on_token,
+            print::parse_print_token, sleep::parse_sleep_token, spawn::parse_spawn_token,
             synth::parse_synth_token,
         },
-        statement::{ Statement },
+        statement::Statement,
     },
     store::global::GlobalStore,
 };
@@ -43,10 +41,10 @@ pub fn parse_identifier_token(parser: &mut Parser, global_store: &mut GlobalStor
         "synth" => parse_synth_token(parser, current_token_clone, global_store),
         "automate" => parse_automate_token(parser, current_token_clone, global_store),
         "print" => parse_print_token(parser, current_token_clone, global_store),
+        "on" => parse_on_token(parser, global_store),
+        "emit" => parse_emit_token(parser, current_token_clone, global_store),
         _ => {
             parser.advance(); // consume identifier
-
-            println!("Unrecognized identifier: {}", current_token_lexeme);
 
             return Statement::error(current_token_clone, "Unexpected identifier".to_string());
         }

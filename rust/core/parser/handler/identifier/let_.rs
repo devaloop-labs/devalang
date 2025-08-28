@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
 use crate::core::{
-    lexer::token::{ Token, TokenKind },
+    lexer::token::{Token, TokenKind},
     parser::{
         driver::Parser,
-        handler::{ dot::parse_dot_token, identifier::synth::parse_synth_token },
-        statement::{ Statement, StatementKind },
+        handler::{dot::parse_dot_token, identifier::synth::parse_synth_token},
+        statement::{Statement, StatementKind},
     },
     shared::value::Value,
     store::global::GlobalStore,
@@ -14,7 +14,7 @@ use crate::core::{
 pub fn parse_let_token(
     parser: &mut Parser,
     current_token: Token,
-    global_store: &mut GlobalStore
+    global_store: &mut GlobalStore,
 ) -> Statement {
     parser.advance(); // consume "let"
 
@@ -37,15 +37,30 @@ pub fn parse_let_token(
     // collect the rest of the line as a raw expression string.
     if let Some(tok) = parser.peek_clone() {
         let line = tok.line;
-        if tok.lexeme.starts_with('$') || matches!(tok.kind, TokenKind::Identifier | TokenKind::Number | TokenKind::LParen | TokenKind::LBracket) {
+        if tok.lexeme.starts_with('$')
+            || matches!(
+                tok.kind,
+                TokenKind::Identifier | TokenKind::Number | TokenKind::LParen | TokenKind::LBracket
+            )
+        {
             // Collect tokens until end of the current line
-            let collected = parser.collect_until(|t| t.line != line || matches!(t.kind, TokenKind::Newline | TokenKind::EOF));
+            let collected = parser.collect_until(|t| {
+                t.line != line || matches!(t.kind, TokenKind::Newline | TokenKind::EOF)
+            });
             let mut text = String::new();
             for t in collected.iter() {
-                if matches!(t.kind, TokenKind::Newline | TokenKind::EOF) { break; }
+                if matches!(t.kind, TokenKind::Newline | TokenKind::EOF) {
+                    break;
+                }
                 text.push_str(&t.lexeme);
             }
-            return Statement { kind: StatementKind::Let { name: identifier }, value: Value::String(text.trim().to_string()), indent: current_token.indent, line: current_token.line, column: current_token.column };
+            return Statement {
+                kind: StatementKind::Let { name: identifier },
+                value: Value::String(text.trim().to_string()),
+                indent: current_token.indent,
+                line: current_token.line,
+                column: current_token.column,
+            };
         }
     }
 

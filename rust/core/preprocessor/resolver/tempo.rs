@@ -1,6 +1,6 @@
 use crate::{
     core::{
-        parser::statement::{ Statement, StatementKind },
+        parser::statement::{Statement, StatementKind},
         preprocessor::module::Module,
         shared::value::Value,
         store::global::GlobalStore,
@@ -12,7 +12,7 @@ pub fn resolve_tempo(
     stmt: &Statement,
     module: &Module,
     _path: &str,
-    _global_store: &GlobalStore
+    _global_store: &GlobalStore,
 ) -> Statement {
     let mut new_stmt = stmt.clone();
     let logger = Logger::new();
@@ -24,9 +24,7 @@ pub fn resolve_tempo(
             } else {
                 let message = format!("Tempo identifier '{ident}' not found in variable table");
                 logger.log_error_with_stacktrace(&message, &module.path);
-                new_stmt.kind = StatementKind::Error {
-                    message,
-                };
+                new_stmt.kind = StatementKind::Error { message };
                 new_stmt.value = Value::Null;
             }
         }
@@ -36,7 +34,10 @@ pub fn resolve_tempo(
         }
 
         other => {
-            let message = format!("Expected a number or identifier for tempo, found {:?}", other);
+            let message = format!(
+                "Expected a number or identifier for tempo, found {:?}",
+                other
+            );
             logger.log_error_with_stacktrace(&message, &module.path);
             new_stmt.kind = StatementKind::Error {
                 message: "Expected a number or identifier for tempo".to_string(),

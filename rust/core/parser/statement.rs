@@ -1,5 +1,8 @@
-use serde::{ Deserialize, Serialize };
-use crate::core::{ lexer::token::Token, shared::{ duration::Duration, value::Value } };
+use crate::core::{
+    lexer::token::Token,
+    shared::{duration::Duration, value::Value},
+};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Statement {
@@ -21,6 +24,16 @@ impl Statement {
         }
     }
 
+    pub fn unknown_from_token(token: &Token) -> Self {
+        Statement {
+            kind: StatementKind::Unknown,
+            value: Value::Null,
+            indent: token.indent,
+            line: token.line,
+            column: token.column,
+        }
+    }
+
     pub fn error(token: Token, message: String) -> Self {
         Statement {
             kind: StatementKind::Error { message },
@@ -36,16 +49,21 @@ impl Statement {
 pub enum StatementKind {
     // ───── Core Instructions ─────
     Tempo,
-    Bank,
+    Bank {
+        alias: Option<String>,
+    },
     Print,
     Load {
         source: String,
         alias: String,
     },
+    Use {
+        name: String,
+        alias: Option<String>,
+    },
     Let {
         name: String,
     },
-    // Automation of parameters over time (percent-based envelopes)
     Automate {
         target: String,
     },
@@ -104,6 +122,17 @@ pub enum StatementKind {
     Indent,
     Dedent,
     NewLine,
+
+    // ───── Events / Live coding ─────
+    On {
+        event: String,
+        args: Option<Vec<Value>>,
+        body: Vec<Statement>,
+    },
+    Emit {
+        event: String,
+        payload: Option<Value>,
+    },
 
     // ───── Error Handling ─────
     Unknown,

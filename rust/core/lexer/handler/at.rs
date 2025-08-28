@@ -7,7 +7,7 @@ pub fn handle_at_lexer(
     _indent_stack: &mut Vec<usize>,
     tokens: &mut Vec<Token>,
     line: &mut usize,
-    column: &mut usize
+    column: &mut usize,
 ) {
     tokens.push(Token {
         kind: TokenKind::At,

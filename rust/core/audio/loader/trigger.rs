@@ -1,6 +1,6 @@
 use crate::core::{
     parser::statement::StatementKind,
-    shared::{ duration::Duration, value::Value },
+    shared::{duration::Duration, value::Value},
     store::variable::VariableTable,
 };
 
@@ -9,7 +9,7 @@ pub fn load_trigger(
     duration: &Duration,
     _effects: &Option<Value>,
     base_duration: f32,
-    variable_table: VariableTable
+    variable_table: VariableTable,
 ) -> (String, f32) {
     let mut trigger_path = String::new();
     let mut duration_as_secs = 0.0;
@@ -37,10 +37,18 @@ pub fn load_trigger(
             trigger_path = src.to_string();
         }
         Value::Statement(stmt) => {
-            if let StatementKind::Trigger { entity, duration: _, effects: _ } = &stmt.kind {
+            if let StatementKind::Trigger {
+                entity,
+                duration: _,
+                effects: _,
+            } = &stmt.kind
+            {
                 trigger_path = entity.clone();
             } else {
-                eprintln!("❌ Trigger statement must be of type 'Trigger', found: {:?}", stmt.kind);
+                eprintln!(
+                    "❌ Trigger statement must be of type 'Trigger', found: {:?}",
+                    stmt.kind
+                );
             }
         }
         _ => {
@@ -59,8 +67,7 @@ pub fn load_trigger(
                 duration_as_secs = *num;
             } else if let Some(Value::String(num_str)) = variable_table.get(duration_identifier) {
                 duration_as_secs = num_str.parse::<f32>().unwrap_or(base_duration);
-            } else if
-                let Some(Value::Identifier(num_str)) = variable_table.get(duration_identifier)
+            } else if let Some(Value::Identifier(num_str)) = variable_table.get(duration_identifier)
             {
                 duration_as_secs = num_str.parse::<f32>().unwrap_or(base_duration);
             } else {
@@ -87,7 +94,6 @@ pub fn load_trigger(
                 eprintln!("❌ Invalid beat duration format: {}", beat_str);
             }
         }
-
     }
 
     (trigger_path, duration_as_secs)

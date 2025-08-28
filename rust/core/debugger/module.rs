@@ -1,17 +1,21 @@
-use std::{ fs::create_dir_all };
 use crate::core::{
     debugger::Debugger,
-    store::{ function::FunctionTable, variable::VariableTable },
+    store::{function::FunctionTable, variable::VariableTable},
 };
+use std::fs::create_dir_all;
 
 pub fn write_module_variable_log_file(
     output_dir: &str,
     module_path: &str,
-    variable_table: &VariableTable
+    variable_table: &VariableTable,
 ) {
     let debugger = Debugger::new();
     let mut content = String::new();
-    let module_name = module_path.split('/').last().unwrap_or("index").replace(".deva", "");
+    let module_name = module_path
+        .split('/')
+        .last()
+        .unwrap_or("index")
+        .replace(".deva", "");
 
     let log_directory = format!("{}/logs/modules/{}", output_dir, module_name);
     create_dir_all(&log_directory).expect("Failed to create log directory");
@@ -28,11 +32,15 @@ pub fn write_module_variable_log_file(
 pub fn write_module_function_log_file(
     output_dir: &str,
     module_path: &str,
-    function_table: &FunctionTable
+    function_table: &FunctionTable,
 ) {
     let debugger = Debugger::new();
     let mut content = String::new();
-    let module_name = module_path.split('/').last().unwrap_or("index").replace(".deva", "");
+    let module_name = module_path
+        .split('/')
+        .last()
+        .unwrap_or("index")
+        .replace(".deva", "");
 
     let log_directory = format!("{}/logs/modules/{}", output_dir, module_name);
     create_dir_all(&log_directory).expect("Failed to create log directory");

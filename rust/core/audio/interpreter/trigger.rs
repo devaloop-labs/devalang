@@ -1,11 +1,12 @@
 use std::collections::HashMap;
 
 use crate::core::{
-    audio::{ engine::AudioEngine, loader::trigger::load_trigger },
-    parser::statement::{ Statement, StatementKind },
-    shared::{ duration::Duration, value::Value },
+    audio::{engine::AudioEngine, loader::trigger::load_trigger},
+    parser::statement::{Statement, StatementKind},
+    shared::{duration::Duration, value::Value},
     store::variable::VariableTable,
 };
+use crate::utils::logger::Logger;
 
 pub fn interprete_trigger_statement(
     stmt: &Statement,
@@ -13,9 +14,14 @@ pub fn interprete_trigger_statement(
     variable_table: &VariableTable,
     base_duration: f32,
     cursor_time: f32,
-    max_end_time: f32
+    max_end_time: f32,
 ) -> Option<(f32, f32, AudioEngine)> {
-    if let StatementKind::Trigger { entity, duration, effects } = &stmt.kind {
+    if let StatementKind::Trigger {
+        entity,
+        duration,
+        effects,
+    } = &stmt.kind
+    {
         let mut trigger_val = Value::String(entity.clone());
         let mut trigger_src = String::new();
 
@@ -26,7 +32,10 @@ pub fn interprete_trigger_statement(
                     if let Some(val) = global_table.get(id) {
                         trigger_val = val.clone();
                     } else {
-                        eprintln!("❌ Trigger entity '{}' not found in global variable table", id);
+                        eprintln!(
+                            "❌ Trigger entity '{}' not found in global variable table",
+                            id
+                        );
                         return None;
                     }
                 } else if let Some(val) = variable_table.get(id) {
@@ -58,6 +67,29 @@ pub fn interprete_trigger_statement(
             }
         }
 
+        // If trigger could not be resolved to a known mapping or explicit path, abort early
+        if let Value::String(s) = &trigger_val {
+            let is_protocol = s.starts_with("devalang://");
+            let is_var = variable_table.get(s).is_some()
+                || variable_table
+                    .parent
+                    .as_ref()
+                    .and_then(|p| p.get(s))
+                    .is_some();
+            let looks_like_path = s.contains('/')
+                || s.ends_with(".wav")
+                || s.ends_with(".mp3")
+                || s.ends_with(".ogg");
+            if !is_protocol && !is_var && !looks_like_path {
+                let logger = Logger::new();
+                logger.log_error_with_stacktrace(
+                    &format!("unknown trigger: {}", s),
+                    &format!("{}:{}:{}", audio_engine.module_name, stmt.line, stmt.column),
+                );
+                return None;
+            }
+        }
+
         let duration_secs = match duration {
             Duration::Number(n) => *n,
 
@@ -71,8 +103,7 @@ pub fn interprete_trigger_statement(
                         Some(other) => {
                             eprintln!(
                                 "❌ Invalid duration reference '{}': expected number, got {:?}",
-                                id,
-                                other
+                                id, other
                             );
                             return None;
                         }
@@ -116,7 +147,7 @@ pub fn interprete_trigger_statement(
             duration,
             effects,
             base_duration,
-            final_variable_table.clone()
+            final_variable_table.clone(),
         );
 
         if trigger_src.is_empty() {
@@ -127,12 +158,10 @@ pub fn interprete_trigger_statement(
         let one_shot = effects
             .as_ref()
             .and_then(|map| map.get("one_shot"))
-            .and_then(|v| {
-                match v {
-                    Value::Identifier(id) if id == "true" => Some(true),
-                    Value::String(s) if s == "true" => Some(true),
-                    _ => None,
-                }
+            .and_then(|v| match v {
+                Value::Identifier(id) if id == "true" => Some(true),
+                Value::String(s) if s == "true" => Some(true),
+                _ => None,
             })
             .unwrap_or(false);
 
@@ -162,7 +191,7 @@ pub fn interprete_trigger_statement(
                 cursor_time,
                 play_length,
                 Some(effects_map),
-                &final_variable_table
+                &final_variable_table,
             );
         } else {
             audio_engine.insert_sample(
@@ -170,7 +199,7 @@ pub fn interprete_trigger_statement(
                 cursor_time,
                 play_length,
                 None,
-                &final_variable_table
+                &final_variable_table,
             );
         }
 

@@ -1,20 +1,13 @@
-use std::collections::HashMap;
 use crate::{
     core::{
-        parser::statement::{ Statement, StatementKind },
+        parser::statement::{Statement, StatementKind},
         preprocessor::{
             loader::ModuleLoader,
             module::Module,
             resolver::{
-                bank::resolve_bank,
-                call::resolve_call,
-                condition::resolve_condition,
-                function::resolve_function,
-                group::resolve_group,
-                let_::resolve_let,
-                loop_::resolve_loop,
-                spawn::resolve_spawn,
-                tempo::resolve_tempo,
+                bank::resolve_bank, call::resolve_call, condition::resolve_condition,
+                function::resolve_function, group::resolve_group, let_::resolve_let,
+                loop_::resolve_loop, spawn::resolve_spawn, tempo::resolve_tempo,
                 trigger::resolve_trigger,
             },
         },
@@ -23,6 +16,7 @@ use crate::{
     },
     utils::logger::Logger,
 };
+use std::collections::HashMap;
 
 pub fn resolve_all_modules(module_loader: &ModuleLoader, global_store: &mut GlobalStore) {
     for _module in global_store.clone().modules.values_mut() {
@@ -34,26 +28,54 @@ pub fn resolve_statement(
     stmt: &Statement,
     module: &Module,
     path: &str,
-    global_store: &mut GlobalStore
+    global_store: &mut GlobalStore,
 ) -> Statement {
     match &stmt.kind {
-        StatementKind::Trigger { entity, duration, effects } =>
-            resolve_trigger(
-                stmt,
-                entity,
-                &mut duration.clone(),
-                effects.clone(),
-                module,
-                path,
-                global_store
-            ),
+        StatementKind::On { event, args, body } => {
+            let resolved_body: Vec<Statement> = body
+                .iter()
+                .map(|s| resolve_statement(s, module, path, global_store))
+                .collect();
+            Statement {
+                kind: StatementKind::On {
+                    event: event.clone(),
+                    args: args.clone(),
+                    body: resolved_body,
+                },
+                value: resolve_value(&stmt.value, module, global_store),
+                ..stmt.clone()
+            }
+        }
+        StatementKind::Emit { event, payload: _ } => Statement {
+            kind: StatementKind::Emit {
+                event: event.clone(),
+                payload: Some(resolve_value(&stmt.value, module, global_store)),
+            },
+            value: resolve_value(&stmt.value, module, global_store),
+            ..stmt.clone()
+        },
+        StatementKind::Trigger {
+            entity,
+            duration,
+            effects,
+        } => resolve_trigger(
+            stmt,
+            entity,
+            &mut duration.clone(),
+            effects.clone(),
+            module,
+            path,
+            global_store,
+        ),
         StatementKind::If => resolve_condition(stmt, module, path, global_store),
         StatementKind::Group => resolve_group(stmt, module, path, global_store),
-        StatementKind::Call { name, args } =>
-            resolve_call(stmt, name.clone(), args.clone(), module, path, global_store),
-        StatementKind::Spawn { name, args } =>
-            resolve_spawn(stmt, name.clone(), args.clone(), module, path, global_store),
-        StatementKind::Bank => resolve_bank(stmt, module, path, global_store),
+        StatementKind::Call { name, args } => {
+            resolve_call(stmt, name.clone(), args.clone(), module, path, global_store)
+        }
+        StatementKind::Spawn { name, args } => {
+            resolve_spawn(stmt, name.clone(), args.clone(), module, path, global_store)
+        }
+        StatementKind::Bank { .. } => resolve_bank(stmt, module, path, global_store),
         StatementKind::Tempo => resolve_tempo(stmt, module, path, global_store),
         StatementKind::Loop => resolve_loop(stmt, module, path, global_store),
         StatementKind::Let { name, .. } => resolve_let(stmt, name, module, path, global_store),
@@ -151,7 +173,7 @@ pub fn resolve_imports(_module_loader: &ModuleLoader, global_store: &mut GlobalS
 }
 
 pub fn resolve_and_flatten_all_modules(
-    global_store: &mut GlobalStore
+    global_store: &mut GlobalStore,
 ) -> HashMap<String, Vec<Statement>> {
     let logger = Logger::new();
     let snapshot = global_store.clone();
@@ -167,21 +189,21 @@ pub fn resolve_and_flatten_all_modules(
                         } else {
                             logger.log_error_with_stacktrace(
                                 &format!("'{name}' not found in exports of '{source_path_str}'"),
-                                module_path
+                                module_path,
                             );
                         }
                     }
                     None => {
                         logger.log_error_with_stacktrace(
                             &format!("Cannot find source module '{source_path_str}'"),
-                            module_path
+                            module_path,
                         );
                     }
                 }
             } else {
                 logger.log_error_with_stacktrace(
                     &format!("Expected string for import source, found {:?}", source_path),
-                    module_path
+                    module_path,
                 );
             }
         }
@@ -201,7 +223,11 @@ pub fn resolve_and_flatten_all_modules(
                     resolved.push(resolved_stmt);
                 }
 
-                StatementKind::Trigger { entity, duration, effects } => {
+                StatementKind::Trigger {
+                    entity,
+                    duration,
+                    effects,
+                } => {
                     let resolved_stmt = resolve_trigger(
                         &stmt,
                         entity.as_str(),
@@ -209,7 +235,7 @@ pub fn resolve_and_flatten_all_modules(
                         effects.clone(),
                         &module,
                         &path,
-                        global_store
+                        global_store,
                     );
                     resolved.push(resolved_stmt);
                 }
@@ -219,7 +245,7 @@ pub fn resolve_and_flatten_all_modules(
                     resolved.push(resolved_stmt);
                 }
 
-                StatementKind::Bank => {
+                StatementKind::Bank { .. } => {
                     let resolved_stmt = resolve_bank(&stmt, &module, &path, global_store);
                     resolved.push(resolved_stmt);
                 }
@@ -240,7 +266,7 @@ pub fn resolve_and_flatten_all_modules(
                         args.clone(),
                         &module,
                         &path,
-                        global_store
+                        global_store,
                     );
                     resolved.push(resolved_stmt);
                 }
@@ -252,7 +278,7 @@ pub fn resolve_and_flatten_all_modules(
                         args.clone(),
                         &module,
                         &path,
-                        global_store
+                        global_store,
                     );
                     resolved.push(resolved_stmt);
                 }
@@ -262,7 +288,11 @@ pub fn resolve_and_flatten_all_modules(
                     resolved.push(resolved_stmt);
                 }
 
-                StatementKind::Function { name: _, parameters: _, body: _ } => {
+                StatementKind::Function {
+                    name: _,
+                    parameters: _,
+                    body: _,
+                } => {
                     let resolved_function = resolve_function(&stmt, &module, &path, global_store);
                     resolved.push(resolved_function);
                 }

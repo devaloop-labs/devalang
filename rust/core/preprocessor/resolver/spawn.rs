@@ -1,11 +1,11 @@
 use crate::{
     core::{
-        parser::statement::{ Statement, StatementKind },
+        parser::statement::{Statement, StatementKind},
         preprocessor::module::Module,
         shared::value::Value,
         store::global::GlobalStore,
     },
-    utils::logger::{ Logger, LogLevel },
+    utils::logger::{LogLevel, Logger},
 };
 
 pub fn resolve_spawn(
@@ -14,11 +14,11 @@ pub fn resolve_spawn(
     args: Vec<Value>,
     module: &Module,
     _path: &str,
-    global_store: &mut GlobalStore
+    global_store: &mut GlobalStore,
 ) -> Statement {
     let logger = Logger::new();
 
-    // ✅ Si c'est une fonction
+    // If it's a function
     if let Some(func) = global_store.functions.functions.get(&name) {
         let mut resolved_map = std::collections::HashMap::new();
         resolved_map.insert("name".to_string(), Value::String(name.clone()));
@@ -32,7 +32,7 @@ pub fn resolve_spawn(
         };
     }
 
-    // ✅ Si c'est un group dans les variables
+    // If it's a group stored in variables
     if let Some(variable) = global_store.variables.variables.get(&name) {
         if let Value::Statement(stmt_box) = variable {
             if let StatementKind::Group = stmt_box.kind {
@@ -54,11 +54,14 @@ pub fn resolve_spawn(
         }
     }
 
-    // ❌ Sinon erreur
+    // Otherwise, log an error
     let stacktrace = format!("{}:{}:{}", module.path, stmt.line, stmt.column);
     logger.log_message(
         LogLevel::Error,
-        &format!("Function or group '{}' not found for spawn\n  → at {stacktrace}", name)
+        &format!(
+            "Function or group '{}' not found for spawn\n  → at {stacktrace}",
+            name
+        ),
     );
 
     Statement {

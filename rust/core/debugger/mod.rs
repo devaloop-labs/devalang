@@ -1,7 +1,7 @@
-pub mod preprocessor;
 pub mod lexer;
-pub mod store;
 pub mod module;
+pub mod preprocessor;
+pub mod store;
 
 use std::io::Write;
 
@@ -18,6 +18,7 @@ impl Debugger {
         let file_path = format!("{}/{}", path, filename);
         let mut file = std::fs::File::create(file_path).expect("Failed to create file");
 
-        file.write_all(content.as_bytes()).expect("Failed to write to file");
+        file.write_all(content.as_bytes())
+            .expect("Failed to write to file");
     }
 }

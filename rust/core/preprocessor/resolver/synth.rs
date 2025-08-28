@@ -1,29 +1,35 @@
 use crate::{
     core::{
-        parser::statement::{ Statement, StatementKind },
-        preprocessor::{ module::Module, resolver::driver::resolve_statement },
+        parser::statement::{Statement, StatementKind},
+        preprocessor::{module::Module, resolver::driver::resolve_statement},
         shared::value::Value,
         store::global::GlobalStore,
     },
-    utils::logger::{ LogLevel, Logger },
+    utils::logger::{LogLevel, Logger},
 };
 
 pub fn resolve_synth(
     stmt: &Statement,
     module: &Module,
     path: &str,
-    global_store: &mut GlobalStore
+    global_store: &mut GlobalStore,
 ) -> Statement {
     let logger = Logger::new();
 
     let Value::Map(synth_map) = &stmt.value else {
-        return type_error(&logger, module, stmt, "Expected a map in synth statement".to_string());
+        return type_error(
+            &logger,
+            module,
+            stmt,
+            "Expected a map in synth statement".to_string(),
+        );
     };
 
     let mut resolved_map = synth_map.clone();
 
     if let Some(Value::Block(body)) = synth_map.get("body") {
-        let resolved_body = body.iter()
+        let resolved_body = body
+            .iter()
             .map(|s| resolve_statement(s, module, path, global_store))
             .collect::<Vec<_>>();
         resolved_map.insert("body".to_string(), Value::Block(resolved_body));

@@ -1,5 +1,4 @@
 import path from "path";
-import fs from "fs";
 
 import { bumpVersion } from "./bump";
 import { syncVersion } from "./sync";

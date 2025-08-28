@@ -1,6 +1,9 @@
 use crate::core::{
     lexer::token::TokenKind,
-    parser::{ driver::Parser, statement::{ Statement, StatementKind } },
+    parser::{
+        driver::Parser,
+        statement::{Statement, StatementKind},
+    },
     shared::value::Value,
     store::global::GlobalStore,
 };
@@ -14,6 +17,82 @@ pub fn parse_at_token(parser: &mut Parser, _global_store: &mut GlobalStore) -> S
     let keyword = token.lexeme.as_str();
 
     match keyword {
+        "use" => {
+            parser.advance(); // consume 'use'
+            let Some(use_token) = parser.previous_clone() else {
+                return Statement::unknown();
+            };
+
+            // Expect plugin author
+            let Some(author_token) = parser.peek_clone() else {
+                return Statement::error(use_token, "Expected plugin author".to_string());
+            };
+            if author_token.kind != TokenKind::Identifier {
+                return Statement::error(
+                    author_token,
+                    "Expected identifier for plugin author".to_string(),
+                );
+            }
+            parser.advance(); // consume author
+
+            // Expect '.'
+            if !parser.match_token(TokenKind::Dot) {
+                return Statement::error(
+                    author_token,
+                    "Expected '.' after plugin author".to_string(),
+                );
+            }
+
+            // Expect plugin name
+            let Some(plugin_token) = parser.peek_clone() else {
+                return Statement::error(author_token, "Expected plugin name".to_string());
+            };
+
+            let name = match plugin_token.kind {
+                TokenKind::Identifier | TokenKind::Number => {
+                    parser.advance();
+                    format!("{}.{}", author_token.lexeme, plugin_token.lexeme)
+                }
+                _ => {
+                    return Statement::error(
+                        plugin_token,
+                        "Expected identifier or number for plugin name".to_string(),
+                    );
+                }
+            };
+
+            // Optional alias
+            let alias = if parser.match_token(TokenKind::As) {
+                let Some(alias_token) = parser.peek_clone() else {
+                    return Statement::error(
+                        use_token,
+                        "Expected identifier after 'as'".to_string(),
+                    );
+                };
+                if alias_token.kind != TokenKind::Identifier {
+                    return Statement::error(
+                        alias_token,
+                        "Expected identifier after 'as'".to_string(),
+                    );
+                }
+                parser.advance();
+                Some(alias_token.lexeme.clone())
+            } else {
+                None
+            };
+
+            Statement {
+                kind: StatementKind::Use {
+                    name: name.clone(),
+                    alias,
+                },
+                value: Value::Null,
+                indent: use_token.indent,
+                line: use_token.line,
+                column: use_token.column,
+            }
+        }
+
         "import" => {
             parser.advance(); // consume 'import'
 
@@ -36,10 +115,8 @@ pub fn parse_at_token(parser: &mut Parser, _global_store: &mut GlobalStore) -> S
                         break;
                     }
                     _ => {
-                        let message = format!(
-                            "Unexpected token in import list: {:?}",
-                            token.kind.clone()
-                        );
+                        let message =
+                            format!("Unexpected token in import list: {:?}", token.kind.clone());
                         return Statement::error(token.clone(), message);
                     }
                 }
@@ -110,7 +187,7 @@ pub fn parse_at_token(parser: &mut Parser, _global_store: &mut GlobalStore) -> S
         "load" => {
             parser.advance(); // consume 'load'
 
-            // Exemple : @load "preset.mydeva"
+            // Example: @load "preset.mydeva"
             let Some(path_token) = parser.peek() else {
                 return Statement::error(token, "Expected string after 'load'".to_string());
             };
@@ -122,23 +199,29 @@ pub fn parse_at_token(parser: &mut Parser, _global_store: &mut GlobalStore) -> S
             let path = path_token.lexeme.clone();
 
             parser.advance(); // consume string
-            parser.advance(); // consume 'as'
 
-            let Some(as_token) = parser.peek_clone() else {
+            if !parser.match_token(TokenKind::As) {
                 return Statement::error(
                     token,
-                    "Expected 'as' after path in load statement".to_string()
-                );
-            };
-
-            if as_token.kind != TokenKind::Identifier {
-                return Statement::error(
-                    token,
-                    "Expected identifier after 'as' in load statement".to_string()
+                    "Expected 'as' after path in load statement".to_string(),
                 );
             }
 
-            let alias = as_token.lexeme.clone();
+            let Some(alias_token) = parser.peek_clone() else {
+                return Statement::error(
+                    token,
+                    "Expected identifier after 'as' in load statement".to_string(),
+                );
+            };
+
+            if alias_token.kind != TokenKind::Identifier {
+                return Statement::error(
+                    token,
+                    "Expected identifier after 'as' in load statement".to_string(),
+                );
+            }
+
+            let alias = alias_token.lexeme.clone();
 
             parser.advance(); // consume identifier
 

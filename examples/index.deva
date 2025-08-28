@@ -1,3 +1,5 @@
+# This file demonstrates general uses of Devalang.
+
 bpm 120
 
 group main:
@@ -37,9 +39,5 @@ group main:
 	lead -> note(E4, { duration: 400 })
 	lead -> note(G4, { duration: 600, glide: true, target_freq: 659.25 })
 	lead -> note(B3, { duration: 400, slide: true, target_amp: 0.3 })
-
-	# Simple looped fill
-	for i in [1, 2, 3]:
-		lead -> note(C5, { duration: 200 })
 
 call main

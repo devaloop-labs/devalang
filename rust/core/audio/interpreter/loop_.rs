@@ -1,5 +1,5 @@
 use crate::core::{
-    audio::{ engine::AudioEngine, interpreter::driver::execute_audio_block },
+    audio::{engine::AudioEngine, interpreter::driver::execute_audio_block},
     parser::statement::Statement,
     shared::value::Value,
     store::{function::FunctionTable, global::GlobalStore, variable::VariableTable},
@@ -14,11 +14,15 @@ pub fn interprete_loop_statement(
     base_bpm: f32,
     base_duration: f32,
     max_end_time: f32,
-    cursor_time: f32
+    cursor_time: f32,
 ) -> (f32, f32) {
     if let Value::Map(loop_value) = &stmt.value {
         // Foreach form: { foreach: Identifier(name), array: Array([...]), body: Block }
-        if let (Some(Value::Identifier(var_name)), Some(Value::Array(items)), Some(Value::Block(loop_body))) = (
+        if let (
+            Some(Value::Identifier(var_name)),
+            Some(Value::Array(items)),
+            Some(Value::Block(loop_body)),
+        ) = (
             loop_value.get("foreach"),
             loop_value.get("array"),
             loop_value.get("body"),
@@ -72,7 +76,10 @@ pub fn interprete_loop_statement(
         let loop_body = match loop_value.get("body") {
             Some(Value::Block(body)) => body.clone(),
             _ => {
-                eprintln!("❌ Loop body must be a block, found: {:?}", loop_value.get("body"));
+                eprintln!(
+                    "❌ Loop body must be a block, found: {:?}",
+                    loop_value.get("body")
+                );
                 return (max_end_time, cursor_time);
             }
         };
@@ -91,7 +98,7 @@ pub fn interprete_loop_statement(
                 base_bpm,
                 base_duration,
                 max_time,
-                cur_time
+                cur_time,
             );
 
             cur_time = new_cursor.max(block_end_time);

@@ -2,14 +2,14 @@ pub mod driver;
 
 pub mod value;
 
-pub mod trigger;
-pub mod loop_;
 pub mod bank;
-pub mod tempo;
-pub mod group;
-pub mod condition;
-pub mod spawn;
 pub mod call;
-pub mod synth;
-pub mod let_;
+pub mod condition;
 pub mod function;
+pub mod group;
+pub mod let_;
+pub mod loop_;
+pub mod spawn;
+pub mod synth;
+pub mod tempo;
+pub mod trigger;

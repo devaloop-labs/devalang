@@ -2,9 +2,9 @@ use std::collections::HashMap;
 
 use crate::{
     core::{
-        parser::statement::{ Statement, StatementKind },
+        parser::statement::{Statement, StatementKind},
         preprocessor::module::Module,
-        shared::{ duration::Duration, value::Value },
+        shared::{duration::Duration, value::Value},
         store::global::GlobalStore,
     },
     utils::logger::Logger,
@@ -17,7 +17,7 @@ pub fn resolve_trigger(
     _effects: Option<Value>,
     module: &Module,
     path: &str,
-    global_store: &GlobalStore
+    global_store: &GlobalStore,
 ) -> Statement {
     let logger = Logger::new();
 
@@ -49,7 +49,7 @@ pub fn resolve_trigger(
             resolve_identifier(ident, module, global_store).unwrap_or_else(|| {
                 logger.log_error_with_stacktrace(
                     &format!("'{path}': value identifier '{ident}' not found"),
-                    &format!("{}:{}:{}", module.path, stmt.line, stmt.column)
+                    &format!("{}:{}:{}", module.path, stmt.line, stmt.column),
                 );
                 Value::Null
             })
@@ -99,10 +99,8 @@ fn resolve_identifier(ident: &str, module: &Module, global_store: &GlobalStore) 
 
 fn resolve_value(val: &Value, module: &Module, global_store: &GlobalStore) -> Value {
     match val {
-        Value::Identifier(inner) =>
-            resolve_identifier(inner, module, global_store).unwrap_or(
-                Value::Identifier(inner.clone())
-            ),
+        Value::Identifier(inner) => resolve_identifier(inner, module, global_store)
+            .unwrap_or(Value::Identifier(inner.clone())),
         Value::Map(map) => {
             let mut resolved = HashMap::new();
             for (k, v) in map {

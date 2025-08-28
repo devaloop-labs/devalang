@@ -20,7 +20,9 @@ fn adsr_envelope_value_t(attack: f32, decay: f32, sustain: f32, release: f32, t:
 
     // Normalize phases so that the whole ADSR spans t in [0,1]
     let total = (a + d + r).max(1e-6);
-    let ap = a / total; let dp = d / total; let rp = r / total;
+    let ap = a / total;
+    let dp = d / total;
+    let rp = r / total;
 
     if t < ap {
         // attack (0->1)
@@ -53,8 +55,16 @@ fn eval_mod_func(func: &str, args: &[f32], beat: f32) -> Option<f32> {
         // $mod.envelope(attack, decay, sustain, release, t)
         "envelope" | "mod.envelope" => {
             if args.len() >= 5 {
-                Some(adsr_envelope_value_t(args[0], args[1], args[2], args[3], args[4].clamp(0.0, 1.0)))
-            } else { None }
+                Some(adsr_envelope_value_t(
+                    args[0],
+                    args[1],
+                    args[2],
+                    args[3],
+                    args[4].clamp(0.0, 1.0),
+                ))
+            } else {
+                None
+            }
         }
         _ => None,
     }
@@ -68,12 +78,17 @@ fn parse_top_level_args(s: &str) -> Vec<&str> {
         match ch {
             '(' => depth += 1,
             ')' => depth -= 1,
-            ',' if depth == 0 => { args.push(s[start..i].trim()); start = i + 1; }
+            ',' if depth == 0 => {
+                args.push(s[start..i].trim());
+                start = i + 1;
+            }
             _ => {}
         }
     }
     let last = s[start..].trim();
-    if !last.is_empty() { args.push(last); }
+    if !last.is_empty() {
+        args.push(last);
+    }
     args
 }
 
@@ -99,7 +114,13 @@ where
     for (i, ch) in s[open..].char_indices() {
         match ch {
             '(' => depth += 1,
-            ')' => { depth -= 1; if depth == 0 { close_abs = Some(open + i); break; } }
+            ')' => {
+                depth -= 1;
+                if depth == 0 {
+                    close_abs = Some(open + i);
+                    break;
+                }
+            }
             _ => {}
         }
     }
@@ -108,7 +129,9 @@ where
     let inner = &s[open + 1..close];
     let raw_args = parse_top_level_args(inner);
     let mut args: Vec<f32> = Vec::with_capacity(raw_args.len());
-    for a in raw_args { args.push(eval(a, vars, bpm, beat)?); }
+    for a in raw_args {
+        args.push(eval(a, vars, bpm, beat)?);
+    }
 
     let result = eval_mod_func(func, &args, beat)?;
 

@@ -1,12 +1,12 @@
 use std::fs;
 
-use serde::Deserialize;
 use crate::{
     common::cdn::get_cdn_url,
-    config::loader::{ load_config, remove_bank_from_config, update_bank_version_in_config },
-    core::shared::bank::{ BankFile, BankInfo },
+    config::loader::{load_config, remove_bank_from_config, update_bank_version_in_config},
+    core::shared::bank::{BankFile, BankInfo},
     installer::bank::install_bank,
 };
+use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
 pub struct BankList {
@@ -32,8 +32,7 @@ pub async fn handle_update_bank_command(name: Option<String>) -> Result<(), Stri
     let bank_dir = deva_dir.join("bank");
 
     if !bank_dir.exists() {
-        fs
-            ::create_dir_all(bank_dir.clone())
+        fs::create_dir_all(bank_dir.clone())
             .map_err(|e| format!("Failed to create bank directory: {}", e))?;
     }
 
@@ -53,16 +52,17 @@ pub async fn handle_update_bank_command(name: Option<String>) -> Result<(), Stri
         };
 
         let local_bank_info_path = bank_path.join("bank.toml");
-        let local_version = match
-            fs
-                ::read_to_string(&local_bank_info_path)
-                .ok()
-                .and_then(|content| toml::from_str::<BankFile>(&content).ok())
-                .map(|bf| bf.bank.version)
+        let local_version = match fs::read_to_string(&local_bank_info_path)
+            .ok()
+            .and_then(|content| toml::from_str::<BankFile>(&content).ok())
+            .map(|bf| bf.bank.version)
         {
             Some(version) => version,
             None => {
-                eprintln!("⚠️ Unable to read local version for '{}', forcing reinstall...", name);
+                eprintln!(
+                    "⚠️ Unable to read local version for '{}', forcing reinstall...",
+                    name
+                );
                 "".to_string() // Force update
             }
         };
@@ -71,14 +71,23 @@ pub async fn handle_update_bank_command(name: Option<String>) -> Result<(), Stri
             if let Err(e) = update_bank(&name, &latest_version.version).await {
                 eprintln!("❌ Error updating bank '{}': {}", name, e);
             } else {
-                println!("✅ Bank '{}' updated to version '{}'", name, latest_version.version);
+                println!(
+                    "✅ Bank '{}' updated to version '{}'",
+                    name, latest_version.version
+                );
             }
         } else {
-            println!("Bank '{}' is already up-to-date (version {})", name, latest_version.version);
+            println!(
+                "Bank '{}' is already up-to-date (version {})",
+                name, latest_version.version
+            );
 
             // Verify if the bank directory exists
             if !bank_path.exists() {
-                eprintln!("❌ Bank directory for '{}' does not exist, reinstalling...", name);
+                eprintln!(
+                    "❌ Bank directory for '{}' does not exist, reinstalling...",
+                    name
+                );
                 if let Err(e) = install_bank(&name, deva_dir).await {
                     eprintln!("❌ Error reinstalling bank '{}': {}", name, e);
                 } else {
@@ -94,17 +103,14 @@ pub async fn handle_update_bank_command(name: Option<String>) -> Result<(), Stri
 
         let config_path = root_dir.join(".devalang");
         if !config_path.exists() {
-            return Err(
-                format!(
-                    "Config file not found at '{}'. Please run 'devalang init' before adding an addon",
-                    config_path.display()
-                )
-            );
+            return Err(format!(
+                "Config file not found at '{}'. Please run 'devalang init' before adding an addon",
+                config_path.display()
+            ));
         }
 
-        let config = load_config(Some(&config_path)).ok_or_else(||
-            format!("Failed to load config from '{}'", config_path.display())
-        )?;
+        let config = load_config(Some(&config_path))
+            .ok_or_else(|| format!("Failed to load config from '{}'", config_path.display()))?;
 
         let config_banks = config.banks.clone();
 
@@ -112,7 +118,8 @@ pub async fn handle_update_bank_command(name: Option<String>) -> Result<(), Stri
 
         if let Some(banks) = config_banks {
             for bank in banks {
-                let bank_name = bank.path
+                let bank_name = bank
+                    .path
                     .strip_prefix("devalang://bank/")
                     .unwrap_or(&bank.path)
                     .to_string();
@@ -120,7 +127,10 @@ pub async fn handle_update_bank_command(name: Option<String>) -> Result<(), Stri
                 let latest_version = match fetch_latest_version(bank_name.clone()).await {
                     Ok(version) => version,
                     Err(err) => {
-                        eprintln!("❌ Error fetching latest version for '{}': {}", bank_name, err);
+                        eprintln!(
+                            "❌ Error fetching latest version for '{}': {}",
+                            bank_name, err
+                        );
                         continue;
                     }
                 };
@@ -132,22 +142,23 @@ pub async fn handle_update_bank_command(name: Option<String>) -> Result<(), Stri
                         } else {
                             println!(
                                 "✅ Bank '{}' updated to version '{}'",
-                                bank_name,
-                                latest_version.version
+                                bank_name, latest_version.version
                             );
                         }
                     } else {
                         println!(
                             "Bank '{}' is already up-to-date (version {})",
-                            bank_name,
-                            local_bank_version
+                            bank_name, local_bank_version
                         );
 
                         // Verify if the bank directory exists
                         let bank_path = bank_dir.join(&bank_name);
 
                         if !bank_path.exists() {
-                            eprintln!("❌ Bank directory for '{}' does not exist, reinstalling...", bank_name);
+                            eprintln!(
+                                "❌ Bank directory for '{}' does not exist, reinstalling...",
+                                bank_name
+                            );
                             if let Err(e) = install_bank(&bank_name, deva_dir).await {
                                 eprintln!("❌ Error reinstalling bank '{}': {}", bank_name, e);
                             } else {
@@ -178,7 +189,10 @@ async fn update_bank(bank_name: &str, latest_version: &str) -> Result<(), String
 
     if bank_dir.exists() {
         std::fs::remove_dir_all(&bank_dir).unwrap_or_else(|_| {
-            eprintln!("⚠️ Failed to remove old bank directory for '{}', aborting !", bank_name);
+            eprintln!(
+                "⚠️ Failed to remove old bank directory for '{}', aborting !",
+                bank_name
+            );
             std::process::exit(1);
         });
     }
@@ -196,17 +210,14 @@ async fn update_bank(bank_name: &str, latest_version: &str) -> Result<(), String
 
     let config_path = root_dir.join(".devalang");
     if !config_path.exists() {
-        return Err(
-            format!(
-                "Config file not found at '{}'. Please run 'devalang init' before adding an addon",
-                config_path.display()
-            )
-        );
+        return Err(format!(
+            "Config file not found at '{}'. Please run 'devalang init' before adding an addon",
+            config_path.display()
+        ));
     }
 
-    let mut config = load_config(Some(&config_path)).ok_or_else(||
-        format!("Failed to load config from '{}'", config_path.display())
-    )?;
+    let mut config = load_config(Some(&config_path))
+        .ok_or_else(|| format!("Failed to load config from '{}'", config_path.display()))?;
 
     // Update the bank version in the config
     update_bank_version_in_config(&mut config, bank_name, latest_version);
@@ -233,17 +244,14 @@ pub async fn handle_remove_bank_command(name: String) -> Result<(), String> {
 
     let config_path = root_dir.join(".devalang");
     if !config_path.exists() {
-        return Err(
-            format!(
-                "Config file not found at '{}'. Please run 'devalang init' before adding an addon",
-                config_path.display()
-            )
-        );
+        return Err(format!(
+            "Config file not found at '{}'. Please run 'devalang init' before adding an addon",
+            config_path.display()
+        ));
     }
 
-    let mut config = load_config(Some(&config_path)).ok_or_else(||
-        format!("Failed to load config from '{}'", config_path.display())
-    )?;
+    let mut config = load_config(Some(&config_path))
+        .ok_or_else(|| format!("Failed to load config from '{}'", config_path.display()))?;
 
     remove_bank_from_config(&mut config, &name);
 
@@ -255,7 +263,7 @@ pub async fn handle_remove_bank_command(name: String) -> Result<(), String> {
 pub async fn handle_bank_available_command() -> Result<(), String> {
     let bank_list = match list_external_banks().await {
         Ok(list) => list,
-    Err(_err) => {
+        Err(_err) => {
             eprintln!("❌ Error fetching bank list");
             return Err("Failed to fetch bank list".into());
         }
@@ -276,14 +284,14 @@ pub async fn handle_bank_available_command() -> Result<(), String> {
 }
 
 pub async fn handle_bank_info_command(
-    name: String
+    name: String,
 ) -> Result<BankInfo, Box<dyn std::error::Error>> {
     let cdn_url = get_cdn_url();
     let url = format!("{}/bank/{}/info", cdn_url, name);
 
     let response = match reqwest::get(&url).await {
         Ok(resp) => resp,
-    Err(_err) => {
+        Err(_err) => {
             return Err("Failed to fetch bank info".into());
         }
     };
@@ -294,7 +302,7 @@ pub async fn handle_bank_info_command(
 
     let bytes = match response.bytes().await {
         Ok(b) => b,
-    Err(_err) => {
+        Err(_err) => {
             eprintln!("❌ Error reading response body");
             return Err("Failed to read response body".into());
         }
@@ -314,7 +322,7 @@ pub async fn handle_bank_info_command(
 pub async fn handle_bank_list_command() -> Result<(), String> {
     let bank_list = match list_installed_banks().await {
         Ok(list) => list,
-    Err(_err) => {
+        Err(_err) => {
             eprintln!("❌ Error fetching bank list");
             return Err("Failed to fetch bank list".into());
         }
@@ -325,7 +333,7 @@ pub async fn handle_bank_list_command() -> Result<(), String> {
     for bank_toml in bank_list {
         let latest_version = match fetch_latest_version(bank_toml.bank.name.clone()).await {
             Ok(version) => version,
-        Err(_err) => {
+            Err(_err) => {
                 eprintln!(
                     "❌ Error fetching latest version for '{}'",
                     bank_toml.bank.name
@@ -334,15 +342,17 @@ pub async fn handle_bank_list_command() -> Result<(), String> {
             }
         };
 
-        let is_latest = if latest_version.version == bank_toml.bank.version { "✅" } else { "❗" };
+        let is_latest = if latest_version.version == bank_toml.bank.version {
+            "✅"
+        } else {
+            "❗"
+        };
 
         println!(" ");
         println!("📦 {}", bank_toml.bank.name);
         println!(
             "  - Version: v{} {} (latest: v{})",
-            bank_toml.bank.version,
-            is_latest,
-            latest_version.version
+            bank_toml.bank.version, is_latest, latest_version.version
         );
         println!("  - Description: {}", bank_toml.bank.description);
         println!("  - Author: {}", bank_toml.bank.author);
@@ -352,7 +362,7 @@ pub async fn handle_bank_list_command() -> Result<(), String> {
 }
 
 async fn fetch_latest_version(
-    bank_name: String
+    bank_name: String,
 ) -> Result<BankVersion, Box<dyn std::error::Error>> {
     let cdn_url = get_cdn_url();
     let url = format!("{}/bank/{}/version", cdn_url, bank_name);
@@ -408,23 +418,21 @@ async fn list_installed_banks() -> Result<Vec<BankFile>, String> {
 
     let config_path = root_dir.join(".devalang");
     if !config_path.exists() {
-        return Err(
-            format!(
-                "Config file not found at '{}'. Please run 'devalang init' before adding an addon",
-                config_path.display()
-            )
-        );
+        return Err(format!(
+            "Config file not found at '{}'. Please run 'devalang init' before adding an addon",
+            config_path.display()
+        ));
     }
 
-    let config = load_config(Some(&config_path)).ok_or_else(||
-        format!("Failed to load config from '{}'", config_path.display())
-    )?;
+    let config = load_config(Some(&config_path))
+        .ok_or_else(|| format!("Failed to load config from '{}'", config_path.display()))?;
 
     let config_banks = config.banks.clone();
 
     if let Some(banks_in_toml) = config_banks {
         for bank in banks_in_toml {
-            let bank_name = bank.path
+            let bank_name = bank
+                .path
                 .strip_prefix("devalang://bank/")
                 .unwrap_or(&bank.path)
                 .to_string();
@@ -434,8 +442,7 @@ async fn list_installed_banks() -> Result<Vec<BankFile>, String> {
                 let bank_info_path = bank_path.join("bank.toml");
 
                 if bank_info_path.exists() {
-                    let content = std::fs
-                        ::read_to_string(&bank_info_path)
+                    let content = std::fs::read_to_string(&bank_info_path)
                         .map_err(|e| format!("Failed to read bank info: {}", e))?;
 
                     match toml::from_str::<BankFile>(&content) {

@@ -1,11 +1,11 @@
-use std::{ collections::HashMap, path::Path };
+use std::{collections::HashMap, path::Path};
 
 use crate::core::{
     parser::statement::StatementKind,
     preprocessor::loader::ModuleLoader,
     shared::value::Value,
     store::global::GlobalStore,
-    utils::path::{ normalize_path, resolve_relative_path },
+    utils::path::{normalize_path, resolve_relative_path},
 };
 
 pub fn process_modules(_module_loader: &ModuleLoader, global_store: &mut GlobalStore) {
@@ -15,10 +15,10 @@ pub fn process_modules(_module_loader: &ModuleLoader, global_store: &mut GlobalS
                 StatementKind::Let { name } => {
                     if let Value::Null = stmt.value {
                         eprintln!("❌ Variable '{}' is declared but not initialized.", name);
-                        
+
                         module.variable_table.variables.insert(
                             name.clone(),
-                            Value::StatementKind(Box::new(stmt.kind.clone()))
+                            Value::StatementKind(Box::new(stmt.kind.clone())),
                         );
 
                         continue;
@@ -32,13 +32,15 @@ pub fn process_modules(_module_loader: &ModuleLoader, global_store: &mut GlobalS
                     if let Some(module_variable) = module.variable_table.variables.get(name) {
                         eprintln!(
                             "❌ Variable '{}' is already defined globally with value: {:?}",
-                            name,
-                            module_variable
+                            name, module_variable
                         );
                         continue;
                     }
 
-                    module.variable_table.variables.insert(name.clone(), stmt.value.clone());
+                    module
+                        .variable_table
+                        .variables
+                        .insert(name.clone(), stmt.value.clone());
                 }
 
                 StatementKind::Load { source, alias } => {
@@ -46,10 +48,10 @@ pub fn process_modules(_module_loader: &ModuleLoader, global_store: &mut GlobalS
 
                     let resolved_path = normalize_path(&module_dir.join(source));
 
-                    module.variable_table.variables.insert(
-                        alias.clone(),
-                        Value::Sample(resolved_path)
-                    );
+                    module
+                        .variable_table
+                        .variables
+                        .insert(alias.clone(), Value::Sample(resolved_path));
                 }
 
                 StatementKind::Export { names, source: _ } => {
@@ -63,31 +65,27 @@ pub fn process_modules(_module_loader: &ModuleLoader, global_store: &mut GlobalS
                 StatementKind::Import { names, source } => {
                     let resolved = resolve_relative_path(&module.path, source);
                     for name in names {
-                        module.import_table.add_import(
-                            name.clone(),
-                            Value::String(resolved.clone())
-                        );
+                        module
+                            .import_table
+                            .add_import(name.clone(), Value::String(resolved.clone()));
                     }
                 }
 
                 StatementKind::Group => {
                     if let Value::Map(map) = &stmt.value {
-                        if
-                            let (Some(Value::String(name)), Some(Value::Block(body))) = (
-                                map.get("identifier"),
-                                map.get("body"),
-                            )
+                        if let (Some(Value::String(name)), Some(Value::Block(body))) =
+                            (map.get("identifier"), map.get("body"))
                         {
                             let mut stored_map = HashMap::new();
 
-                            stored_map.insert(
-                                "identifier".to_string(),
-                                Value::String(name.clone())
-                            );
+                            stored_map
+                                .insert("identifier".to_string(), Value::String(name.clone()));
 
                             stored_map.insert("body".to_string(), Value::Block(body.clone()));
 
-                            module.variable_table.set(name.to_string(), Value::Map(stored_map));
+                            module
+                                .variable_table
+                                .set(name.to_string(), Value::Map(stored_map));
                         } else {
                             eprintln!("❌ Invalid group definition: {:?}", stmt.value);
                         }

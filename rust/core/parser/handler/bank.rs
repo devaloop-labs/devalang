@@ -1,69 +1,94 @@
 use crate::core::{
     lexer::token::TokenKind,
-    parser::{ statement::{ Statement, StatementKind }, driver::Parser },
+    parser::{
+        driver::Parser,
+        statement::{Statement, StatementKind},
+    },
     shared::value::Value,
     store::global::GlobalStore,
 };
 
 pub fn parse_bank_token(parser: &mut Parser, _global_store: &mut GlobalStore) -> Statement {
-    parser.advance(); // consume 'bank'
+    // consume 'bank'
+    parser.advance();
 
-    let Some(bank_token) = parser.previous_clone() else {
+    let Some(bank_tok) = parser.previous_clone() else {
         return Statement::unknown();
     };
 
-    let bank_value = if let Some(token) = parser.peek_clone() {
-        match token.kind {
+    // Parse bank name
+    let bank_value: Value = match parser.peek_clone() {
+        Some(tok) => match tok.kind {
             TokenKind::Identifier | TokenKind::Number => {
-                parser.advance(); // consume identifier or number
-
-                let mut value = token.lexeme.clone();
-
-                // Support namespaced banks: <author>.<bank_name>
-                if let Some(next) = parser.peek_clone() {
-                    if next.kind == TokenKind::Dot {
-                        parser.advance(); // consume '.'
-                        if let Some(last) = parser.peek_clone() {
-                            match last.kind {
+                // base name
+                parser.advance();
+                let mut base = tok.lexeme.clone();
+                // optional .suffix (identifier or number)
+                if let Some(dot) = parser.peek_clone() {
+                    if dot.kind == TokenKind::Dot {
+                        // consume '.' and the following ident/number
+                        parser.advance();
+                        if let Some(suffix) = parser.peek_clone() {
+                            match suffix.kind {
                                 TokenKind::Identifier | TokenKind::Number => {
                                     parser.advance();
-                                    value = format!("{}.{}", value, last.lexeme);
-                                    Value::String(value)
+                                    base.push('.');
+                                    base.push_str(&suffix.lexeme);
+                                    Value::String(base)
                                 }
-                                _ => Value::Unknown,
+                                _ => Value::Identifier(base),
                             }
                         } else {
-                            Value::Unknown
+                            Value::Identifier(base)
                         }
                     } else {
-                        match token.kind {
-                            TokenKind::Identifier => Value::Identifier(value),
-                            TokenKind::Number => Value::Number(value.parse::<f32>().unwrap_or(0.0)),
+                        match tok.kind {
+                            TokenKind::Identifier => Value::String(base),
+                            TokenKind::Number => Value::Number(base.parse::<f32>().unwrap_or(0.0)),
                             _ => Value::Unknown,
                         }
                     }
                 } else {
-                    match token.kind {
-                        TokenKind::Identifier => Value::Identifier(value),
-                        TokenKind::Number => Value::Number(value.parse::<f32>().unwrap_or(0.0)),
+                    match tok.kind {
+                        TokenKind::Identifier => Value::String(base),
+                        TokenKind::Number => Value::Number(base.parse::<f32>().unwrap_or(0.0)),
                         _ => Value::Unknown,
                     }
                 }
             }
+            TokenKind::String => {
+                parser.advance();
+                Value::String(tok.lexeme.clone())
+            }
             _ => Value::Unknown,
-        }
-    } else {
-        return Statement::error(
-            bank_token,
-            "Expected identifier or number after 'bank'".to_string()
-        );
+        },
+        None => Value::Unknown,
     };
 
+    if matches!(bank_value, Value::Unknown | Value::Null) {
+        return Statement::error(bank_tok, "Expected a bank name".to_string());
+    }
+
+    // Optional alias: as <identifier>
+    let mut alias: Option<String> = None;
+    if parser.peek_is("as") {
+        // consume 'as'
+        parser.advance();
+        let Some(next) = parser.peek_clone() else {
+            return Statement::error(bank_tok, "Expected identifier after 'as'".to_string());
+        };
+        if next.kind != TokenKind::Identifier {
+            return Statement::error(next, "Expected identifier after 'as'".to_string());
+        }
+        parser.advance();
+        alias = Some(next.lexeme.clone());
+    }
+
     Statement {
-        kind: StatementKind::Bank,
+        kind: StatementKind::Bank { alias },
         value: bank_value,
-        indent: bank_token.indent,
-        line: bank_token.line,
-        column: bank_token.column,
+        indent: bank_tok.indent,
+        line: bank_tok.line,
+        column: bank_tok.column,
     }
 }

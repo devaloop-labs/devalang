@@ -70,7 +70,10 @@ pub fn interprete_call_statement(
             eprintln!("❌ Function or group '{}' not found", name);
         }
 
-        _ => eprintln!("❌ interprete_call_statement expected Call, got {:?}", stmt.kind),
+        _ => eprintln!(
+            "❌ interprete_call_statement expected Call, got {:?}",
+            stmt.kind
+        ),
     }
 
     (max_end_time, cursor_time)

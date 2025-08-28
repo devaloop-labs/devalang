@@ -1,11 +1,11 @@
 use crate::{
     core::{
-        parser::statement::{ Statement, StatementKind },
+        parser::statement::{Statement, StatementKind},
         preprocessor::module::Module,
         shared::value::Value,
         store::global::GlobalStore,
     },
-    utils::logger::{ Logger, LogLevel },
+    utils::logger::{LogLevel, Logger},
 };
 
 pub fn resolve_call(
@@ -14,7 +14,7 @@ pub fn resolve_call(
     args: Vec<Value>,
     module: &Module,
     _path: &str,
-    global_store: &mut GlobalStore
+    global_store: &mut GlobalStore,
 ) -> Statement {
     let logger = Logger::new();
 
@@ -30,8 +30,8 @@ pub fn resolve_call(
                         func.parameters
                             .iter()
                             .map(|p| Value::Identifier(p.clone()))
-                            .collect()
-                    )
+                            .collect(),
+                    ),
                 );
                 call_map.insert("args".to_string(), Value::Array(args.clone()));
                 call_map.insert("body".to_string(), Value::Block(func.body.clone()));
@@ -50,10 +50,8 @@ pub fn resolve_call(
                         if let Value::Map(map) = &stmt_box.value {
                             if let Some(Value::Block(body)) = map.get("body") {
                                 let mut resolved_map = std::collections::HashMap::new();
-                                resolved_map.insert(
-                                    "identifier".to_string(),
-                                    Value::String(name.clone())
-                                );
+                                resolved_map
+                                    .insert("identifier".to_string(), Value::String(name.clone()));
                                 resolved_map.insert("args".to_string(), Value::Array(args.clone()));
                                 resolved_map.insert("body".to_string(), Value::Block(body.clone()));
 
@@ -69,7 +67,10 @@ pub fn resolve_call(
             }
 
             // Otherwise, log an error
-            logger.log_message(LogLevel::Error, &format!("Function or group '{}' not found", name));
+            logger.log_message(
+                LogLevel::Error,
+                &format!("Function or group '{}' not found", name),
+            );
             Statement {
                 kind: StatementKind::Error {
                     message: format!("Function or group '{}' not found", name),
@@ -82,9 +83,7 @@ pub fn resolve_call(
             let stacktrace = format!("{}:{}:{}", module.path, stmt.line, stmt.column);
             logger.log_message(
                 LogLevel::Error,
-                &format!(
-                    "Expected StatementKind::Call in resolve_call()\n  → at {stacktrace}"
-                )
+                &format!("Expected StatementKind::Call in resolve_call()\n  → at {stacktrace}"),
             );
 
             Statement {
@@ -94,7 +93,7 @@ pub fn resolve_call(
                 value: Value::Null,
                 ..stmt.clone()
             }
-        },
+        }
     }
 }
 

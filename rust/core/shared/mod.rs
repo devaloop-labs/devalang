@@ -1,3 +1,3 @@
-pub mod value;
-pub mod duration;
 pub mod bank;
+pub mod duration;
+pub mod value;

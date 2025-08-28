@@ -1,33 +1,32 @@
 use crate::{
-    config::driver::Config,
+    config::driver::ProjectConfig,
     core::{
         debugger::{
             lexer::write_lexer_log_file,
-            module::{ write_module_function_log_file, write_module_variable_log_file },
+            module::{write_module_function_log_file, write_module_variable_log_file},
             preprocessor::write_preprocessor_log_file,
-            store::{ write_function_log_file, write_variables_log_file },
+            store::{write_function_log_file, write_variables_log_file},
         },
         preprocessor::loader::ModuleLoader,
         store::global::GlobalStore,
-        utils::path::{ find_entry_file, normalize_path },
+        utils::path::{find_entry_file, normalize_path},
     },
     utils::{
-        error::collect_errors_recursively,
-        logger::{ LogLevel, Logger },
+        logger::{LogLevel, Logger},
         spinner::with_spinner,
         watcher::watch_directory,
     },
 };
-use std::{ thread, time::Duration };
+use std::{thread, time::Duration};
 
 #[cfg(feature = "cli")]
 pub fn handle_check_command(
-    config: Option<Config>,
+    config: Option<ProjectConfig>,
     entry: Option<String>,
     output: Option<String>,
     watch: bool,
-    debug: bool
-) {
+    debug: bool,
+) -> Result<(), String> {
     let fetched_entry = if entry.is_none() {
         config
             .as_ref()
@@ -60,46 +59,73 @@ pub fn handle_check_command(
     if fetched_entry.is_empty() {
         logger.log_message(
             LogLevel::Error,
-            "Entry path is not specified. Please provide a valid entry path."
+            "Entry path is not specified. Please provide a valid entry path.",
         );
-        std::process::exit(1);
+        return Err("missing entry path".to_string());
     }
     if fetched_output.is_empty() {
         logger.log_message(
             LogLevel::Error,
-            "Output directory is not specified. Please provide a valid output directory."
+            "Output directory is not specified. Please provide a valid output directory.",
         );
-        std::process::exit(1);
+        return Err("missing output directory".to_string());
     }
 
-    let entry_file = find_entry_file(&fetched_entry).unwrap_or_else(|| {
-        logger.log_message(
-            LogLevel::Error,
-            &format!("❌ index.deva not found in directory: {}", fetched_entry)
-        );
-        std::process::exit(1);
-    });
+    let entry_file = match find_entry_file(&fetched_entry) {
+        Some(p) => p,
+        None => {
+            logger.log_message(
+                LogLevel::Error,
+                &format!("❌ index.deva not found in directory: {}", fetched_entry),
+            );
+            return Err("index.deva not found".to_string());
+        }
+    };
 
     // SECTION Begin check
     if fetched_watch {
-        begin_check(entry_file.clone(), fetched_output.clone(), debug);
+        let _ = begin_check(
+            entry_file.clone(),
+            fetched_output.clone(),
+            debug,
+            config.clone(),
+        );
 
         logger.log_message(
             LogLevel::Watcher,
-            &format!("Watching for changes in '{}'...", fetched_entry)
+            &format!("Watching for changes in '{}'...", fetched_entry),
         );
 
+        let cfg_for_watch = config.clone();
         watch_directory(entry_file.clone(), move || {
             logger.log_message(LogLevel::Watcher, "Detected changes, re-checking...");
-
-            begin_check(entry_file.clone(), fetched_output.clone(), debug);
-        }).unwrap();
+            if let Err(e) = begin_check(
+                entry_file.clone(),
+                fetched_output.clone(),
+                debug,
+                cfg_for_watch.clone(),
+            ) {
+                eprintln!("[check] failed: {}", e);
+            }
+        })
+        .unwrap();
     } else {
-        begin_check(entry_file.clone(), fetched_output.clone(), debug);
+        begin_check(
+            entry_file.clone(),
+            fetched_output.clone(),
+            debug,
+            config.clone(),
+        )?;
     }
+    Ok(())
 }
 
-fn begin_check(entry: String, output: String, debug: bool) {
+fn begin_check(
+    entry: String,
+    output: String,
+    debug: bool,
+    config: Option<ProjectConfig>,
+) -> Result<(), String> {
     let spinner = with_spinner("Checking...", || {
         thread::sleep(Duration::from_millis(800));
     });
@@ -128,53 +154,68 @@ fn begin_check(entry: String, output: String, debug: bool) {
             write_module_variable_log_file(
                 &normalized_output_dir,
                 &module_path,
-                &module.variable_table
+                &module.variable_table,
             );
             write_module_function_log_file(
                 &normalized_output_dir,
                 &module_path,
-                &module.function_table
+                &module.function_table,
             );
         }
 
-        write_lexer_log_file(&normalized_output_dir, "lexer_tokens.log", modules.0.clone());
+        write_lexer_log_file(
+            &normalized_output_dir,
+            "lexer_tokens.log",
+            modules.0.clone(),
+        );
         write_preprocessor_log_file(
             &normalized_output_dir,
             "resolved_statements.log",
-            modules.1.clone()
+            modules.1.clone(),
         );
         write_variables_log_file(
             &normalized_output_dir,
             "global_variables.log",
-            global_store.variables.clone()
+            global_store.variables.clone(),
         );
         write_function_log_file(
             &normalized_output_dir,
             "global_functions.log",
-            global_store.functions.clone()
+            global_store.functions.clone(),
         );
     }
 
-    let mut all_errors = Vec::new();
-    for (_, statements) in &modules.1 {
-        all_errors.extend(collect_errors_recursively(statements));
-    }
+    let all_errors = crate::utils::error::collect_all_errors_with_modules(&modules.1);
 
-    if !all_errors.is_empty() {
-        logger.log_message(LogLevel::Error, "Errors detected during check:");
-        for error in all_errors {
-            logger.log_message(LogLevel::Error, &format!("- {}", error.message));
-        }
+    let (warnings, criticals) = crate::utils::error::partition_errors(all_errors);
+    crate::utils::error::log_errors_with_stack("Check", &warnings, &criticals);
+
+    if !criticals.is_empty() {
+        spinner.finish_and_clear();
+        return Err("check failed with critical errors".to_string());
     } else {
         logger.log_message(LogLevel::Success, "No errors detected.");
+
+        // Compute and persist rich stats
+        let stats = crate::config::stats::compute_from(
+            &modules.1,
+            &global_store,
+            &config,
+            Some(&normalized_output_dir),
+        );
+        crate::config::stats::set_memory_stats(stats.clone());
+        if let Err(e) = crate::config::stats::save_to_file(&stats) {
+            eprintln!("[stats] failed to save: {}", e);
+        }
+
+        let success_message = format!(
+            "Check completed successfully in {:.2?}. Output files written to: '{}'",
+            duration.elapsed(),
+            normalized_output_dir
+        );
+
+        spinner.finish_and_clear();
+        logger.log_message(LogLevel::Success, &success_message);
+        Ok(())
     }
-
-    let success_message = format!(
-        "Check completed successfully in {:.2?}. Output files written to: '{}'",
-        duration.elapsed(),
-        normalized_output_dir
-    );
-
-    spinner.finish_and_clear();
-    logger.log_message(LogLevel::Success, &success_message);
 }

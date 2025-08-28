@@ -1,4 +1,7 @@
-use crate::core::{ parser::statement::{ Statement, StatementKind }, shared::value::Value };
+use crate::core::{
+    parser::statement::{Statement, StatementKind},
+    shared::value::Value,
+};
 
 pub fn interprete_tempo_statement(stmt: &Statement) -> Option<(f32, f32)> {
     if let StatementKind::Tempo = &stmt.kind {

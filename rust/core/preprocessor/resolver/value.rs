@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
 use crate::core::{
-        preprocessor::{ module::Module, resolver::driver::resolve_statement },
-        shared::value::Value,
-        store::global::GlobalStore,
-    };
+    preprocessor::{module::Module, resolver::driver::resolve_statement},
+    shared::value::Value,
+    store::global::GlobalStore,
+};
 
 fn find_export_value(name: &str, global_store: &GlobalStore) -> Option<Value> {
     for (_path, module) in &global_store.modules {
@@ -21,7 +21,7 @@ pub fn resolve_value(value: &Value, module: &Module, global_store: &mut GlobalSt
         Value::String(s) => {
             // Keep raw strings as-is; they may be runtime-evaluated (e.g., expressions)
             Value::String(s.clone())
-        },
+        }
 
         Value::Identifier(name) => {
             if let Some(original_val) = module.variable_table.get(name) {

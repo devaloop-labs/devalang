@@ -77,7 +77,10 @@ pub fn interprete_spawn_statement(
             eprintln!("❌ Function or group '{}' not found", name);
         }
 
-        _ => eprintln!("❌ interprete_spawn_statement expected Spawn, got {:?}", stmt.kind),
+        _ => eprintln!(
+            "❌ interprete_spawn_statement expected Spawn, got {:?}",
+            stmt.kind
+        ),
     }
 
     (max_end_time, cursor_time)

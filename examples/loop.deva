@@ -1,16 +1,10 @@
-# This file demonstrates the use of a loop in Devalang.
-
-@import { duration, default_bank, params, loopCount, tempo } from "./variables.deva"
-
-@load "./samples/kick-808.wav" as kickCustom
-@load "./samples/hat-808.wav" as hatCustom
+# This file demonstrates the use of loops in Devalang.
 
 group myLoop:
-    loop loopCount:
-        .kickCustom duration params
+    for i in [1, 2, 3]:
+        print "looping with for" + i
 
-        # Uncomment the next line (.hatCustom) while executing "play" command
-        # with `--repeat` option to see magic happen !
-        # .hatCustom duration params
+    loop 3:
+        print "looping with loop"
 
 @export { myLoop }

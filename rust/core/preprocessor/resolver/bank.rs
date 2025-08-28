@@ -1,6 +1,6 @@
 use crate::{
     core::{
-        parser::statement::{ Statement, StatementKind },
+        parser::statement::{Statement, StatementKind},
         preprocessor::module::Module,
         shared::value::Value,
         store::global::GlobalStore,
@@ -12,7 +12,7 @@ pub fn resolve_bank(
     stmt: &Statement,
     module: &Module,
     _path: &str,
-    _global_store: &GlobalStore
+    _global_store: &GlobalStore,
 ) -> Statement {
     let mut new_stmt = stmt.clone();
     let logger = Logger::new();
@@ -35,7 +35,10 @@ pub fn resolve_bank(
         Value::Number(_) => {}
 
         other => {
-            let message = format!("Expected a string or identifier for bank, found {:?}", other);
+            let message = format!(
+                "Expected a string or identifier for bank, found {:?}",
+                other
+            );
             logger.log_error_with_stacktrace(&message, &module.path);
             new_stmt.kind = StatementKind::Error {
                 message: "Expected a string or identifier for bank".to_string(),

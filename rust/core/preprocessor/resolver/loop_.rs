@@ -2,10 +2,10 @@ use std::collections::HashMap;
 
 use crate::{
     core::{
-        parser::statement::{ Statement, StatementKind },
+        parser::statement::{Statement, StatementKind},
         preprocessor::{
             module::Module,
-            resolver::{ driver::resolve_statement, value::resolve_value },
+            resolver::{driver::resolve_statement, value::resolve_value},
         },
         shared::value::Value,
         store::global::GlobalStore,
@@ -17,7 +17,7 @@ pub fn resolve_loop(
     stmt: &Statement,
     module: &Module,
     path: &str,
-    global_store: &mut GlobalStore
+    global_store: &mut GlobalStore,
 ) -> Statement {
     let logger = Logger::new();
 
@@ -33,11 +33,149 @@ pub fn resolve_loop(
     }
 
     // Foreach form takes precedence if present
-    if let (Some(Value::Identifier(var_name)), Some(array_val)) = (resolved_map.get("foreach"), resolved_map.get("array")) {
-        // Resolve array elements
+    if let (Some(Value::Identifier(var_name)), Some(array_val)) =
+        (resolved_map.get("foreach"), resolved_map.get("array"))
+    {
+        // Normalize array_val into an iterable Array
         let resolved_array = match array_val {
-            Value::Array(items) => Value::Array(items.iter().map(|v| resolve_value(v, module, global_store)).collect()),
-            other => resolve_value(other, module, global_store),
+            Value::Array(items) => Value::Array(
+                items
+                    .iter()
+                    .map(|v| resolve_value(v, module, global_store))
+                    .collect(),
+            ),
+            Value::Number(n) => {
+                // Iterate 0..n-1
+                let count = (*n).max(0.0) as usize;
+                let mut items = Vec::with_capacity(count);
+                for i in 0..count {
+                    items.push(Value::Number(i as f32));
+                }
+                Value::Array(items)
+            }
+            Value::String(s) => {
+                // Try to parse a simple comma-separated list: "a,b,c" -> ["a","b","c"]
+                // If numeric string: iterate 0..n-1
+                if let Ok(n) = s.parse::<f32>() {
+                    let count = n.max(0.0) as usize;
+                    let mut items = Vec::with_capacity(count);
+                    for i in 0..count {
+                        items.push(Value::Number(i as f32));
+                    }
+                    Value::Array(items)
+                } else if s.contains(',') {
+                    let parts: Vec<Value> = s
+                        .split(',')
+                        .map(|p| Value::String(p.trim().to_string()))
+                        .collect();
+                    Value::Array(parts)
+                } else {
+                    // Fallback: iterate characters
+                    let parts: Vec<Value> =
+                        s.chars().map(|c| Value::String(c.to_string())).collect();
+                    Value::Array(parts)
+                }
+            }
+            Value::Identifier(name) => {
+                // Resolve identifier from module variables (already resolved map above)
+                let v = if let Some(v) = module.variable_table.get(name) {
+                    v.clone()
+                } else {
+                    Value::Null
+                };
+                match v {
+                    Value::Array(items) => Value::Array(
+                        items
+                            .iter()
+                            .map(|v| resolve_value(v, module, global_store))
+                            .collect(),
+                    ),
+                    Value::Number(n) => {
+                        let count = n.max(0.0) as usize;
+                        let mut items = Vec::with_capacity(count);
+                        for i in 0..count {
+                            items.push(Value::Number(i as f32));
+                        }
+                        Value::Array(items)
+                    }
+                    Value::String(s) => {
+                        if let Ok(n) = s.parse::<f32>() {
+                            let count = n.max(0.0) as usize;
+                            let mut items = Vec::with_capacity(count);
+                            for i in 0..count {
+                                items.push(Value::Number(i as f32));
+                            }
+                            Value::Array(items)
+                        } else if s.contains(',') {
+                            let parts: Vec<Value> = s
+                                .split(',')
+                                .map(|p| Value::String(p.trim().to_string()))
+                                .collect();
+                            Value::Array(parts)
+                        } else {
+                            let parts: Vec<Value> =
+                                s.chars().map(|c| Value::String(c.to_string())).collect();
+                            Value::Array(parts)
+                        }
+                    }
+                    other => {
+                        error_value(
+                            &logger,
+                            module,
+                            stmt,
+                            &format!(
+                                "Foreach identifier '{}' resolves to unsupported value: {:?}",
+                                name, other
+                            ),
+                        );
+                        Value::Array(vec![])
+                    }
+                }
+            }
+            other => {
+                // Resolve and normalize if possible
+                let v = resolve_value(other, module, global_store);
+                match v {
+                    Value::Array(items) => Value::Array(items),
+                    Value::Number(n) => {
+                        let count = n.max(0.0) as usize;
+                        let mut items = Vec::with_capacity(count);
+                        for i in 0..count {
+                            items.push(Value::Number(i as f32));
+                        }
+                        Value::Array(items)
+                    }
+                    Value::String(s) => {
+                        if let Ok(n) = s.parse::<f32>() {
+                            let count = n.max(0.0) as usize;
+                            let mut items = Vec::with_capacity(count);
+                            for i in 0..count {
+                                items.push(Value::Number(i as f32));
+                            }
+                            Value::Array(items)
+                        } else if s.contains(',') {
+                            let parts: Vec<Value> = s
+                                .split(',')
+                                .map(|p| Value::String(p.trim().to_string()))
+                                .collect();
+                            Value::Array(parts)
+                        } else {
+                            let parts: Vec<Value> =
+                                s.chars().map(|c| Value::String(c.to_string())).collect();
+                            Value::Array(parts)
+                        }
+                    }
+                    other => {
+                        error_value(
+                            &logger,
+                            module,
+                            stmt,
+                            &format!("Unsupported foreach array value: {:?}", other),
+                        );
+                        Value::Array(vec![])
+                    }
+                }
+            }
         };
 
         let body_value = match resolved_map.get("body") {
@@ -59,17 +197,78 @@ pub fn resolve_loop(
         final_map.insert("array".to_string(), resolved_array);
         final_map.insert("body".to_string(), body_value);
 
-        return Statement { kind: StatementKind::Loop, value: Value::Map(final_map), ..stmt.clone() };
+        return Statement {
+            kind: StatementKind::Loop,
+            value: Value::Map(final_map),
+            ..stmt.clone()
+        };
     }
 
     let iterator_value = match resolved_map.get("iterator") {
         Some(Value::Number(n)) => Value::Number(*n),
+        Some(Value::String(s)) => {
+            if let Ok(n) = s.parse::<f32>() {
+                Value::Number(n)
+            } else {
+                error_value(
+                    &logger,
+                    module,
+                    stmt,
+                    &format!("Loop iterator string not numeric: '{}'", s),
+                );
+                Value::Number(1.0)
+            }
+        }
+        Some(Value::Identifier(name)) => {
+            // Try resolving from module vars (may be number or numeric string)
+            if let Some(v) = module.variable_table.get(name) {
+                match v {
+                    Value::Number(n) => Value::Number(*n),
+                    Value::String(s) => {
+                        if let Ok(n) = s.parse::<f32>() {
+                            Value::Number(n)
+                        } else {
+                            error_value(
+                                &logger,
+                                module,
+                                stmt,
+                                &format!(
+                                    "Loop iterator '{}' resolves to non-numeric string: '{}'",
+                                    name, s
+                                ),
+                            );
+                            Value::Number(1.0)
+                        }
+                    }
+                    other => {
+                        error_value(
+                            &logger,
+                            module,
+                            stmt,
+                            &format!(
+                                "Loop iterator '{}' resolves to non-number: {:?}",
+                                name, other
+                            ),
+                        );
+                        Value::Number(1.0)
+                    }
+                }
+            } else {
+                error_value(
+                    &logger,
+                    module,
+                    stmt,
+                    &format!("Loop iterator identifier '{}' not found", name),
+                );
+                Value::Number(1.0)
+            }
+        }
         Some(other) => {
             error_value(
                 &logger,
                 module,
                 stmt,
-                &format!("Loop iterator must be a number, found: {:?}", other)
+                &format!("Loop iterator must be a number, found: {:?}", other),
             );
             Value::Number(1.0)
         }

@@ -1,6 +1,9 @@
 use crate::core::{
     lexer::token::TokenKind,
-    parser::{ statement::{ Statement, StatementKind }, driver::Parser },
+    parser::{
+        driver::Parser,
+        statement::{Statement, StatementKind},
+    },
     shared::value::Value,
     store::global::GlobalStore,
 };
@@ -16,7 +19,7 @@ pub fn parse_tempo_token(parser: &mut Parser, _global_store: &mut GlobalStore) -
     let Some(value_token) = parser.peek_clone() else {
         return Statement::error(
             tempo_token,
-            "Expected a number or identifier after 'bpm'".to_string()
+            "Expected a number or identifier after 'bpm'".to_string(),
         );
     };
 
@@ -32,7 +35,10 @@ pub fn parse_tempo_token(parser: &mut Parser, _global_store: &mut GlobalStore) -
         _ => {
             return Statement::error(
                 value_token.clone(),
-                format!("Expected a number or identifier after 'bpm', got {:?}", value_token.kind)
+                format!(
+                    "Expected a number or identifier after 'bpm', got {:?}",
+                    value_token.kind
+                ),
             );
         }
     };

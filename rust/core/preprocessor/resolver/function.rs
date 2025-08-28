@@ -1,21 +1,22 @@
-
-use crate::{
-    core::{
-        parser::statement::{ Statement, StatementKind },
-        preprocessor::{ module::Module, resolver::driver::resolve_statement },
-        shared::value::Value,
-        store::{ function::FunctionDef, global::GlobalStore },
-    },
-    
+use crate::core::{
+    parser::statement::{Statement, StatementKind},
+    preprocessor::{module::Module, resolver::driver::resolve_statement},
+    shared::value::Value,
+    store::{function::FunctionDef, global::GlobalStore},
 };
 
 pub fn resolve_function(
     stmt: &Statement,
     module: &Module,
     path: &str,
-    global_store: &mut GlobalStore
+    global_store: &mut GlobalStore,
 ) -> Statement {
-    if let StatementKind::Function { name, parameters, body } = &stmt.kind {
+    if let StatementKind::Function {
+        name,
+        parameters,
+        body,
+    } = &stmt.kind
+    {
         let resolved_body = resolve_block_statements(body, &module, path, global_store);
 
         global_store.functions.add_function(FunctionDef {
@@ -58,7 +59,7 @@ fn resolve_block_statements(
     body: &[Statement],
     module: &Module,
     path: &str,
-    global_store: &mut GlobalStore
+    global_store: &mut GlobalStore,
 ) -> Vec<Statement> {
     body.iter()
         .map(|stmt| resolve_statement(stmt, module, path, global_store))

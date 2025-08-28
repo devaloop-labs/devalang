@@ -1,11 +1,11 @@
 # This file demonstrates the use of main features in Devalang.
 bpm 135
 
-bank 808
+bank devaloop.808 as myBank
 
-let entityTest1 = .808.kick auto
-let entityTest2 = .808.clap auto
-let entityTest3 = .808.snare auto
+let entityTest1 = .myBank.kick auto
+let entityTest2 = .myBank.clap auto
+let entityTest3 = .myBank.snare auto
 
 fn myFirstGroup(entity1, entity2, entity3):
     .entity1

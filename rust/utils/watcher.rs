@@ -1,10 +1,11 @@
-use notify::{ Watcher, RecursiveMode, Config, RecommendedWatcher };
+use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
 use std::sync::mpsc::channel;
 
-use std::time::{ Duration, Instant };
+use std::time::{Duration, Instant};
 
 pub fn watch_directory<F>(entry: String, callback: F) -> notify::Result<()>
-    where F: Fn() + Send + 'static
+where
+    F: Fn() + Send + 'static,
 {
     let (tx, rx) = channel();
 

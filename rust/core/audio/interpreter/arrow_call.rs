@@ -1,6 +1,6 @@
 use crate::core::{
     audio::engine::AudioEngine,
-    parser::statement::{ Statement, StatementKind },
+    parser::statement::{Statement, StatementKind},
     shared::value::Value,
     store::variable::VariableTable,
 };
@@ -15,21 +15,26 @@ pub fn interprete_call_arrow_statement(
     base_duration: f32,
     max_end_time: &mut f32,
     mut cursor_time: Option<&mut f32>,
-    update_cursor: bool
+    update_cursor: bool,
 ) -> (f32, f32) {
-    let cursor_copy = cursor_time
-        .as_ref()
-        .map(|c| **c)
-        .unwrap_or(0.0);
+    let cursor_copy = cursor_time.as_ref().map(|c| **c).unwrap_or(0.0);
 
-    if let StatementKind::ArrowCall { target, method, args } = &stmt.kind {
+    if let StatementKind::ArrowCall {
+        target,
+        method,
+        args,
+    } = &stmt.kind
+    {
         let Some(Value::Statement(synth_stmt)) = variable_table.get(target) else {
             println!("❌ Synth '{}' not found in variable table", target);
             return (*max_end_time, cursor_copy);
         };
 
         let Value::Map(synth_map) = &synth_stmt.value else {
-            println!("❌ Invalid synth statement for '{}', expected a map.", target);
+            println!(
+                "❌ Invalid synth statement for '{}', expected a map.",
+                target
+            );
             return (*max_end_time, cursor_copy);
         };
 
@@ -59,8 +64,8 @@ pub fn interprete_call_arrow_statement(
         };
 
         // Synth parameters
-    let synth_params = params.clone();
-    let amp = extract_f32(&synth_params, "amp", base_bpm).unwrap_or(1.0);
+        let synth_params = params.clone();
+        let amp = extract_f32(&synth_params, "amp", base_bpm).unwrap_or(1.0);
 
         if method == "note" {
             let filtered_args: Vec<_> = args
@@ -68,8 +73,12 @@ pub fn interprete_call_arrow_statement(
                 .filter(|arg| !matches!(arg, Value::Unknown))
                 .collect();
 
-            let Some(Value::Identifier(note_name)) = filtered_args.get(0).map(|v| (*v).clone()) else {
-                println!("❌ Invalid or missing argument for 'note' method on '{}'.", target);
+            let Some(Value::Identifier(note_name)) = filtered_args.get(0).map(|v| (*v).clone())
+            else {
+                println!(
+                    "❌ Invalid or missing argument for 'note' method on '{}'.",
+                    target
+                );
                 return (*max_end_time, cursor_copy);
             };
 
@@ -87,9 +96,9 @@ pub fn interprete_call_arrow_statement(
 
             // Note parameters and calculations
             let amp_note = extract_f32(&note_params, "amp", base_bpm).unwrap_or(amp);
-            let duration_ms = extract_f32(&note_params, "duration", base_bpm)
-                .unwrap_or(base_duration * 1000.0);
-            
+            let duration_ms =
+                extract_f32(&note_params, "duration", base_bpm).unwrap_or(base_duration * 1000.0);
+
             let duration_secs = duration_ms / 1000.0;
             let final_freq = note_to_freq(&note_name);
             let start_time = cursor_copy;
@@ -114,7 +123,12 @@ pub fn interprete_call_arrow_statement(
 
             // Merge: per-note overrides synth automation per key (volume/pan/pitch)
             let automation = match (synth_automation, note_automation) {
-                (Some(mut a), Some(n)) => { for (k, v) in n { a.insert(k, v); } Some(a) },
+                (Some(mut a), Some(n)) => {
+                    for (k, v) in n {
+                        a.insert(k, v);
+                    }
+                    Some(a)
+                }
                 (None, Some(n)) => Some(n),
                 (Some(a), None) => Some(a),
                 _ => None,
@@ -128,7 +142,7 @@ pub fn interprete_call_arrow_statement(
                 duration_ms,
                 synth_params,
                 note_params,
-                automation
+                automation,
             );
 
             *max_end_time = (*max_end_time).max(end_time);
@@ -149,37 +163,34 @@ pub fn interprete_call_arrow_statement(
 }
 
 fn extract_f32(map: &HashMap<String, Value>, key: &str, base_bpm: f32) -> Option<f32> {
-    map.get(key).and_then(|v| {
-        match v {
-            Value::Number(n) => Some(*n),
-            Value::Beat(beat_str) => {
-                let parts: Vec<&str> = beat_str.split('/').collect();
-                if parts.len() == 2 {
-                    let numerator = parts[0].parse::<f32>().ok()?;
-                    let denominator = parts[1].parse::<f32>().ok()?;
+    map.get(key).and_then(|v| match v {
+        Value::Number(n) => Some(*n),
+        Value::Beat(beat_str) => {
+            let parts: Vec<&str> = beat_str.split('/').collect();
+            if parts.len() == 2 {
+                let numerator = parts[0].parse::<f32>().ok()?;
+                let denominator = parts[1].parse::<f32>().ok()?;
 
-                    Some((numerator / denominator) * ((60.0 / base_bpm) * 1000.0))
-                } else {
-                    None
-                }
+                Some((numerator / denominator) * ((60.0 / base_bpm) * 1000.0))
+            } else {
+                None
             }
-            _ => None,
         }
+        _ => None,
     })
 }
 
 fn note_to_freq(note: &str) -> f32 {
-    let notes = vec!["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+    let notes = vec![
+        "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B",
+    ];
 
     if note.len() < 2 || note.len() > 3 {
         return 440.0;
     }
 
     let (name, octave_str) = note.split_at(note.len() - 1);
-    let semitone = notes
-        .iter()
-        .position(|&n| n == name)
-        .unwrap_or(9) as i32;
+    let semitone = notes.iter().position(|&n| n == name).unwrap_or(9) as i32;
     let octave = octave_str.parse::<i32>().unwrap_or(4);
     let midi_note = (octave + 1) * 12 + semitone;
 

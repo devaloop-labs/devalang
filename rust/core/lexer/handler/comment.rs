@@ -7,7 +7,7 @@ pub fn handle_comment_lexer(
     _indent_stack: &mut Vec<usize>,
     tokens: &mut Vec<Token>,
     line: &mut usize,
-    column: &mut usize
+    column: &mut usize,
 ) {
     let mut comment = String::new();
 

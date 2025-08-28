@@ -1,5 +1,5 @@
 use crate::core::{
-    lexer::token::{ Token, TokenKind },
+    lexer::token::{Token, TokenKind},
     parser::{
         handler::{
             arrow_call::parse_arrow_call,
@@ -7,7 +7,7 @@ use crate::core::{
             bank::parse_bank_token,
             condition::parse_condition_token,
             dot::parse_dot_token,
-            identifier::{ function::parse_function_token, parse_identifier_token },
+            identifier::{function::parse_function_token, parse_identifier_token},
             loop_::parse_loop_token,
             tempo::parse_tempo_token,
         },
@@ -89,7 +89,7 @@ impl Parser {
     pub fn parse_block(
         &self,
         tokens: Vec<Token>,
-        global_store: &mut GlobalStore
+        global_store: &mut GlobalStore,
     ) -> Vec<Statement> {
         let mut inner_parser = Parser {
             resolve_modules: self.resolve_modules,
@@ -105,10 +105,10 @@ impl Parser {
     pub fn parse_tokens(
         &mut self,
         tokens: Vec<Token>,
-        global_store: &mut GlobalStore
+        global_store: &mut GlobalStore,
     ) -> Vec<Statement> {
-        // Filtrer uniquement les espaces, mais conserver les Newline car
-        // certaines constructions (ex: print ...) s'appuient sur la fin de ligne.
+        // Filter out Whitespace tokens but keep Newline tokens because some constructs (e.g., print ...)
+        // rely on end-of-line semantics.
         self.tokens = tokens
             .into_iter()
             .filter(|t| t.kind != TokenKind::Whitespace)
@@ -149,6 +149,8 @@ impl Parser {
                 TokenKind::Loop => parse_loop_token(self, global_store),
                 TokenKind::If => parse_condition_token(self, global_store),
                 TokenKind::Function => parse_function_token(self, global_store),
+                TokenKind::On => crate::core::parser::handler::identifier::on::parse_on_token(self, global_store),
+                TokenKind::Emit => crate::core::parser::handler::identifier::emit::parse_emit_token(self, token.clone(), global_store),
 
                 | TokenKind::Else // Ignore else, already handled in `parse_condition_token`
                 | TokenKind::Comment
@@ -170,9 +172,8 @@ impl Parser {
                 }
 
                 _ => {
-                    println!("Unhandled token: {:?}", token);
                     self.advance();
-                    Statement::unknown()
+                    Statement::unknown_from_token(&token)
                 }
             };
 
@@ -199,12 +200,11 @@ impl Parser {
 
         while !self.check_token(TokenKind::RBrace) && !self.is_eof() {
             // Skip separators and formatting before the key
-            while
-                self.check_token(TokenKind::Newline) ||
-                self.check_token(TokenKind::Whitespace) ||
-                self.check_token(TokenKind::Indent) ||
-                self.check_token(TokenKind::Dedent) ||
-                self.check_token(TokenKind::Comma)
+            while self.check_token(TokenKind::Newline)
+                || self.check_token(TokenKind::Whitespace)
+                || self.check_token(TokenKind::Indent)
+                || self.check_token(TokenKind::Dedent)
+                || self.check_token(TokenKind::Comma)
             {
                 self.advance();
             }
@@ -216,7 +216,7 @@ impl Parser {
 
             let key = if let Some(token) = self.advance() {
                 match token.kind {
-                    | TokenKind::Whitespace
+                    TokenKind::Whitespace
                     | TokenKind::Indent
                     | TokenKind::Dedent
                     | TokenKind::Newline => {
@@ -239,12 +239,11 @@ impl Parser {
             }
 
             // Skip separators and formatting before value
-            while
-                self.check_token(TokenKind::Newline) ||
-                self.check_token(TokenKind::Whitespace) ||
-                self.check_token(TokenKind::Indent) ||
-                self.check_token(TokenKind::Dedent) ||
-                self.check_token(TokenKind::Comma)
+            while self.check_token(TokenKind::Newline)
+                || self.check_token(TokenKind::Whitespace)
+                || self.check_token(TokenKind::Indent)
+                || self.check_token(TokenKind::Dedent)
+                || self.check_token(TokenKind::Comma)
             {
                 self.advance();
             }
@@ -301,7 +300,10 @@ impl Parser {
             map.insert(key, value);
 
             // Optionally skip a trailing comma after the value
-            while self.check_token(TokenKind::Comma) || self.check_token(TokenKind::Whitespace) || self.check_token(TokenKind::Newline) {
+            while self.check_token(TokenKind::Comma)
+                || self.check_token(TokenKind::Whitespace)
+                || self.check_token(TokenKind::Newline)
+            {
                 self.advance();
             }
         }
@@ -323,12 +325,11 @@ impl Parser {
 
         while !self.check_token(TokenKind::RBracket) && !self.is_eof() {
             // Skip formatting tokens
-            while
-                self.check_token(TokenKind::Newline) ||
-                self.check_token(TokenKind::Whitespace) ||
-                self.check_token(TokenKind::Indent) ||
-                self.check_token(TokenKind::Dedent) ||
-                self.check_token(TokenKind::Comma)
+            while self.check_token(TokenKind::Newline)
+                || self.check_token(TokenKind::Whitespace)
+                || self.check_token(TokenKind::Indent)
+                || self.check_token(TokenKind::Dedent)
+                || self.check_token(TokenKind::Comma)
             {
                 self.advance();
             }
@@ -339,7 +340,10 @@ impl Parser {
 
             if let Some(token) = self.peek_clone() {
                 let value = match token.kind {
-                    TokenKind::String => { self.advance(); Value::String(token.lexeme.clone()) }
+                    TokenKind::String => {
+                        self.advance();
+                        Value::String(token.lexeme.clone())
+                    }
                     TokenKind::Number => {
                         // Support simple decimals split as number '.' number
                         let mut number_str = token.lexeme.clone();
@@ -358,20 +362,36 @@ impl Parser {
                         }
                         Value::Number(number_str.parse::<f32>().unwrap_or(0.0))
                     }
-                    TokenKind::Identifier => { self.advance(); Value::Identifier(token.lexeme.clone()) }
+                    TokenKind::Identifier => {
+                        self.advance();
+                        Value::Identifier(token.lexeme.clone())
+                    }
                     TokenKind::LBrace => {
                         // Allow inline maps inside arrays
-                        if let Some(v) = self.parse_map_value() { v } else { Value::Null }
+                        if let Some(v) = self.parse_map_value() {
+                            v
+                        } else {
+                            Value::Null
+                        }
                     }
                     TokenKind::LBracket => {
                         // Nested arrays
-                        if let Some(v) = self.parse_array_value() { v } else { Value::Null }
+                        if let Some(v) = self.parse_array_value() {
+                            v
+                        } else {
+                            Value::Null
+                        }
                     }
-                    _ => { self.advance(); Value::Null }
+                    _ => {
+                        self.advance();
+                        Value::Null
+                    }
                 };
 
                 // Only push non-null (retain alignment with permissive parsing)
-                if value != Value::Null { arr.push(value); }
+                if value != Value::Null {
+                    arr.push(value);
+                }
 
                 // Optional trailing comma handled by the skipper at loop start
             } else {
@@ -416,7 +436,10 @@ impl Parser {
         tokens
     }
 
-    pub fn collect_until<F>(&mut self, condition: F) -> Vec<Token> where F: Fn(&Token) -> bool {
+    pub fn collect_until<F>(&mut self, condition: F) -> Vec<Token>
+    where
+        F: Fn(&Token) -> bool,
+    {
         let mut collected = Vec::new();
         while let Some(token) = self.peek() {
             if condition(token) {
@@ -438,7 +461,7 @@ impl Parser {
     pub fn parse_block_until_next_else(
         &mut self,
         base_indent: usize,
-        global_store: &mut GlobalStore
+        global_store: &mut GlobalStore,
     ) -> Vec<Statement> {
         let mut block_tokens = Vec::new();
 
@@ -471,7 +494,7 @@ impl Parser {
     pub fn parse_block_until_else_or_dedent(
         &mut self,
         base_indent: usize,
-        global_store: &mut GlobalStore
+        global_store: &mut GlobalStore,
     ) -> Vec<Statement> {
         let mut tokens = Vec::new();
 

@@ -1,8 +1,8 @@
-pub mod at;
-pub mod identifier;
-pub mod dot;
-pub mod tempo;
-pub mod bank;
-pub mod loop_;
-pub mod condition;
 pub mod arrow_call;
+pub mod at;
+pub mod bank;
+pub mod condition;
+pub mod dot;
+pub mod identifier;
+pub mod loop_;
+pub mod tempo;

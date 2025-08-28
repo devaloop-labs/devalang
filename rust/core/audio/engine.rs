@@ -1,11 +1,9 @@
-use std::{ collections::HashMap, fs::File, io::BufReader, path::Path };
-use hound::{ SampleFormat, WavSpec, WavWriter };
-use rodio::{ Decoder, Source };
 use crate::core::{
-    shared::value::Value,
-    store::variable::VariableTable,
-    utils::path::normalize_path,
+    shared::value::Value, store::variable::VariableTable, utils::path::normalize_path,
 };
+use hound::{SampleFormat, WavSpec, WavWriter};
+use rodio::{Decoder, Source};
+use std::{collections::HashMap, fs::File, io::BufReader, path::Path};
 
 const SAMPLE_RATE: u32 = 44100;
 const CHANNELS: u16 = 2;
@@ -31,10 +29,7 @@ impl AudioEngine {
     }
 
     pub fn get_normalized_buffer(&self) -> Vec<f32> {
-        self.buffer
-            .iter()
-            .map(|&s| (s as f32) / 32768.0)
-            .collect()
+        self.buffer.iter().map(|&s| (s as f32) / 32768.0).collect()
     }
 
     pub fn mix(&mut self, other: &AudioEngine) {
@@ -81,15 +76,18 @@ impl AudioEngine {
             sample_format: SampleFormat::Int,
         };
 
-        let mut writer = WavWriter::create(output_dir, spec).map_err(|e|
-            format!("Error creating WAV file: {}", e)
-        )?;
+        let mut writer = WavWriter::create(output_dir, spec)
+            .map_err(|e| format!("Error creating WAV file: {}", e))?;
 
         for sample in &self.buffer {
-            writer.write_sample(*sample).map_err(|e| format!("Error writing sample: {:?}", e))?;
+            writer
+                .write_sample(*sample)
+                .map_err(|e| format!("Error writing sample: {:?}", e))?;
         }
 
-        writer.finalize().map_err(|e| format!("Error finalizing WAV: {:?}", e))?;
+        writer
+            .finalize()
+            .map_err(|e| format!("Error finalizing WAV: {:?}", e))?;
 
         Ok(())
     }
@@ -103,7 +101,7 @@ impl AudioEngine {
         duration_ms: f32,
         synth_params: HashMap<String, Value>,
         note_params: HashMap<String, Value>,
-        automation: Option<HashMap<String, Value>>
+        automation: Option<HashMap<String, Value>>,
     ) {
         let valid_synth_params = vec!["attack", "decay", "sustain", "release"];
         let valid_note_params = vec![
@@ -117,7 +115,7 @@ impl AudioEngine {
             "modulation",
             "expression",
             // allow per-note automation map
-            "automate"
+            "automate",
         ];
 
         // Synth params validation
@@ -139,9 +137,17 @@ impl AudioEngine {
         let decay = self.extract_f32(&synth_params, "decay").unwrap_or(0.0);
         let sustain = self.extract_f32(&synth_params, "sustain").unwrap_or(1.0);
         let release = self.extract_f32(&synth_params, "release").unwrap_or(0.0);
-        let attack_s = if attack > 10.0 { attack / 1000.0 } else { attack };
+        let attack_s = if attack > 10.0 {
+            attack / 1000.0
+        } else {
+            attack
+        };
         let decay_s = if decay > 10.0 { decay / 1000.0 } else { decay };
-        let release_s = if release > 10.0 { release / 1000.0 } else { release };
+        let release_s = if release > 10.0 {
+            release / 1000.0
+        } else {
+            release
+        };
         let sustain_level = if sustain > 1.0 {
             (sustain / 100.0).clamp(0.0, 1.0)
         } else {
@@ -149,12 +155,14 @@ impl AudioEngine {
         };
 
         // Note parameters
-        let duration_ms = self.extract_f32(&note_params, "duration").unwrap_or(duration_ms);
+        let duration_ms = self
+            .extract_f32(&note_params, "duration")
+            .unwrap_or(duration_ms);
         let velocity = self.extract_f32(&note_params, "velocity").unwrap_or(1.0);
         let glide = self.extract_boolean(&note_params, "glide").unwrap_or(false);
         let slide = self.extract_boolean(&note_params, "slide").unwrap_or(false);
 
-    let _amplitude = (i16::MAX as f32) * amp.clamp(0.0, 1.0) * velocity.clamp(0.0, 1.0);
+        let _amplitude = (i16::MAX as f32) * amp.clamp(0.0, 1.0) * velocity.clamp(0.0, 1.0);
 
         // Logic for glide and slide
         let freq_start = freq;
@@ -209,7 +217,8 @@ impl AudioEngine {
             };
 
             // Pitch automation (in semitones), applied as frequency multiplier
-            let pitch_semi = Self::eval_env_map(&pitch_env, (i as f32) / (total_samples as f32), 0.0);
+            let pitch_semi =
+                Self::eval_env_map(&pitch_env, (i as f32) / (total_samples as f32), 0.0);
             let current_freq = current_freq * (2.0_f32).powf(pitch_semi / 12.0);
 
             // Slide
@@ -272,7 +281,7 @@ impl AudioEngine {
         time_secs: f32,
         dur_sec: f32,
         effects: Option<HashMap<String, Value>>,
-        variable_table: &VariableTable
+        variable_table: &VariableTable,
     ) {
         if filepath.is_empty() {
             eprintln!("❌ Empty file path provided for audio sample.");
@@ -324,7 +333,7 @@ impl AudioEngine {
 
         // Verify if the file exists
         if !Path::new(&resolved_path).exists() {
-            eprintln!("❌ Audio file not found at: {}", resolved_path);
+            eprintln!("❌ Unknown trigger or missing audio file: {}", filepath);
             return;
         }
 
@@ -371,7 +380,7 @@ impl AudioEngine {
         &mut self,
         samples: &[i16],
         time_secs: f32,
-        effects_map: Option<HashMap<String, Value>>
+        effects_map: Option<HashMap<String, Value>>,
     ) {
         let offset = (time_secs * (SAMPLE_RATE as f32) * (CHANNELS as f32)) as usize;
         let total_samples = samples.len();
@@ -422,12 +431,20 @@ impl AudioEngine {
         let fade_in_samples = (fade_in * (SAMPLE_RATE as f32)) as usize;
         let fade_out_samples = (fade_out * (SAMPLE_RATE as f32)) as usize;
 
-        let delay_samples = if delay > 0.0 { (delay * (SAMPLE_RATE as f32)) as usize } else { 0 };
+        let delay_samples = if delay > 0.0 {
+            (delay * (SAMPLE_RATE as f32)) as usize
+        } else {
+            0
+        };
         let mut delay_buffer: Vec<f32> = vec![0.0; total_samples + delay_samples];
 
         for i in 0..total_samples {
             // PITCH FIRST
-            let pitch_index = if pitch != 1.0 { ((i as f32) / pitch) as usize } else { i };
+            let pitch_index = if pitch != 1.0 {
+                ((i as f32) / pitch) as usize
+            } else {
+                i
+            };
 
             let mut adjusted = if pitch_index < total_samples {
                 samples[pitch_index] as f32
@@ -493,7 +510,7 @@ impl AudioEngine {
     // ===== Helper methods to keep long functions modular and readable =====
 
     fn env_maps_from_automation(
-        automation: &Option<HashMap<String, Value>>
+        automation: &Option<HashMap<String, Value>>,
     ) -> (
         Option<HashMap<String, Value>>,
         Option<HashMap<String, Value>>,
@@ -533,7 +550,11 @@ impl AudioEngine {
         let mut points: Vec<(f32, f32)> = Vec::with_capacity(env.len());
         for (k, v) in env.iter() {
             // accept keys like "0" or "0%"
-            let key = if k.ends_with('%') { &k[..k.len() - 1] } else { &k[..] };
+            let key = if k.ends_with('%') {
+                &k[..k.len() - 1]
+            } else {
+                &k[..]
+            };
             if let Ok(mut p) = key.parse::<f32>() {
                 p = (p / 100.0).clamp(0.0, 1.0);
                 let val = match v {
@@ -576,7 +597,11 @@ impl AudioEngine {
         match waveform {
             "sine" => phase.sin(),
             "square" => {
-                if phase.sin() >= 0.0 { 1.0 } else { -1.0 }
+                if phase.sin() >= 0.0 {
+                    1.0
+                } else {
+                    -1.0
+                }
             }
             "saw" => 2.0 * (current_freq * t - (current_freq * t + 0.5).floor()),
             "triangle" => (2.0 * (2.0 * (current_freq * t).fract() - 1.0)).abs() * 2.0 - 1.0,
@@ -648,10 +673,22 @@ impl AudioEngine {
             Some(Value::Boolean(b)) => Some(*b),
             Some(Value::Number(n)) => Some(*n != 0.0),
             Some(Value::Identifier(s)) => {
-                if s == "true" { Some(true) } else if s == "false" { Some(false) } else { None }
+                if s == "true" {
+                    Some(true)
+                } else if s == "false" {
+                    Some(false)
+                } else {
+                    None
+                }
             }
             Some(Value::String(s)) => {
-                if s == "true" { Some(true) } else if s == "false" { Some(false) } else { None }
+                if s == "true" {
+                    Some(true)
+                } else if s == "false" {
+                    Some(false)
+                } else {
+                    None
+                }
             }
             _ => None,
         }

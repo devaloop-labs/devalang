@@ -17,7 +17,12 @@ pub fn resolve_group(
     let logger = Logger::new();
 
     let Value::Map(group_map) = &stmt.value else {
-        return type_error(&logger, module, stmt, "Expected a map in group statement".to_string());
+        return type_error(
+            &logger,
+            module,
+            stmt,
+            "Expected a map in group statement".to_string(),
+        );
     };
 
     // Check for the presence of the identifier field
@@ -29,7 +34,7 @@ pub fn resolve_group(
                 module,
                 stmt,
                 "Group statement must have an 'identifier' field".to_string(),
-            )
+            );
         }
     };
 
@@ -60,10 +65,10 @@ pub fn resolve_group(
     };
 
     // Store the Statement directly in the global variable_table
-    global_store
-        .variables
-        .variables
-        .insert(identifier.clone(), Value::Statement(Box::new(resolved_group_stmt.clone())));
+    global_store.variables.variables.insert(
+        identifier.clone(),
+        Value::Statement(Box::new(resolved_group_stmt.clone())),
+    );
 
     resolved_group_stmt
 }

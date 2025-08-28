@@ -1,4 +1,4 @@
-pub mod module;
 pub mod loader;
-pub mod resolver;
+pub mod module;
 pub mod processor;
+pub mod resolver;

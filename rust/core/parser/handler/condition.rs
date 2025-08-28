@@ -1,10 +1,13 @@
-use std::collections::HashMap;
 use crate::core::{
     lexer::token::TokenKind,
-    parser::{statement::{Statement, StatementKind}, driver::Parser},
+    parser::{
+        driver::Parser,
+        statement::{Statement, StatementKind},
+    },
     shared::value::Value,
     store::global::GlobalStore,
 };
+use std::collections::HashMap;
 
 pub fn parse_condition_token(parser: &mut Parser, global_store: &mut GlobalStore) -> Statement {
     parser.advance(); // consume 'if'
@@ -40,7 +43,10 @@ pub fn parse_condition_token(parser: &mut Parser, global_store: &mut GlobalStore
         let next_condition = if parser.peek_is("if") {
             parser.advance(); // consume 'if'
             let Some(cond) = parser.parse_condition_until_colon() else {
-                return Statement::error(tok.clone(), "Expected condition after 'else if'".to_string());
+                return Statement::error(
+                    tok.clone(),
+                    "Expected condition after 'else if'".to_string(),
+                );
             };
             parser.advance_if(TokenKind::Colon);
             Some(cond)

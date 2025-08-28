@@ -8,74 +8,137 @@ fn easing_value(func: &str, t: f32) -> Option<f32> {
         "easeInQuad" => Some(x * x),
         "easeOutQuad" => Some(x * (2.0 - x)),
         "easeInOutQuad" => {
-            if x < 0.5 { Some(2.0 * x * x) } else { Some(-1.0 + (4.0 - 2.0 * x) * x) }
+            if x < 0.5 {
+                Some(2.0 * x * x)
+            } else {
+                Some(-1.0 + (4.0 - 2.0 * x) * x)
+            }
         }
         // Cubic
         "easeInCubic" => Some(x * x * x),
         "easeOutCubic" => Some(1.0 - (1.0 - x).powi(3)),
         "easeInOutCubic" => {
-            if x < 0.5 { Some(4.0 * x * x * x) } else { Some(1.0 - (-2.0 * x + 2.0).powi(3) / 2.0) }
+            if x < 0.5 {
+                Some(4.0 * x * x * x)
+            } else {
+                Some(1.0 - (-2.0 * x + 2.0).powi(3) / 2.0)
+            }
         }
         // Quartic
         "easeInQuart" => Some(x.powi(4)),
         "easeOutQuart" => Some(1.0 - (1.0 - x).powi(4)),
         "easeInOutQuart" => {
-            if x < 0.5 { Some(8.0 * x.powi(4)) } else { Some(1.0 - (-2.0 * x + 2.0).powi(4) / 2.0) }
+            if x < 0.5 {
+                Some(8.0 * x.powi(4))
+            } else {
+                Some(1.0 - (-2.0 * x + 2.0).powi(4) / 2.0)
+            }
         }
         // Exponential
-        "easeInExpo" => Some(if x <= 0.0 { 0.0 } else { 2.0_f32.powf(10.0 * x - 10.0) }),
-        "easeOutExpo" => Some(if x >= 1.0 { 1.0 } else { 1.0 - 2.0_f32.powf(-10.0 * x) }),
-        "easeInOutExpo" => Some(if x <= 0.0 { 0.0 } else if x >= 1.0 { 1.0 } else if x < 0.5 { 2.0_f32.powf(20.0 * x - 10.0) / 2.0 } else { (2.0 - 2.0_f32.powf(-20.0 * x + 10.0)) / 2.0 }),
+        "easeInExpo" => Some(if x <= 0.0 {
+            0.0
+        } else {
+            2.0_f32.powf(10.0 * x - 10.0)
+        }),
+        "easeOutExpo" => Some(if x >= 1.0 {
+            1.0
+        } else {
+            1.0 - 2.0_f32.powf(-10.0 * x)
+        }),
+        "easeInOutExpo" => Some(if x <= 0.0 {
+            0.0
+        } else if x >= 1.0 {
+            1.0
+        } else if x < 0.5 {
+            2.0_f32.powf(20.0 * x - 10.0) / 2.0
+        } else {
+            (2.0 - 2.0_f32.powf(-20.0 * x + 10.0)) / 2.0
+        }),
         // Back (overshoot c ~ 1.70158)
-        "easeInBack" => { let c = 1.70158; Some((c + 1.0) * x * x * x - c * x * x) }
-        "easeOutBack" => { let c = 1.70158; let y = 1.0 - x; Some(1.0 - ((c + 1.0) * y * y * y - c * y * y)) }
+        "easeInBack" => {
+            let c = 1.70158;
+            Some((c + 1.0) * x * x * x - c * x * x)
+        }
+        "easeOutBack" => {
+            let c = 1.70158;
+            let y = 1.0 - x;
+            Some(1.0 - ((c + 1.0) * y * y * y - c * y * y))
+        }
         "easeInOutBack" => {
-            let c1 = 1.70158; let c2 = c1 * 1.525; let x2 = x * 2.0;
-            if x2 < 1.0 { Some((x2 * x2 * ((c2 + 1.0) * x2 - c2)) / 2.0) } else {
-                let x2 = x2 - 2.0; Some((x2 * x2 * ((c2 + 1.0) * x2 + c2)) / 2.0 + 1.0)
+            let c1 = 1.70158;
+            let c2 = c1 * 1.525;
+            let x2 = x * 2.0;
+            if x2 < 1.0 {
+                Some((x2 * x2 * ((c2 + 1.0) * x2 - c2)) / 2.0)
+            } else {
+                let x2 = x2 - 2.0;
+                Some((x2 * x2 * ((c2 + 1.0) * x2 + c2)) / 2.0 + 1.0)
             }
         }
         // Elastic
         "easeInElastic" => {
-            if x == 0.0 { Some(0.0) } else if x == 1.0 { Some(1.0) } else {
+            if x == 0.0 {
+                Some(0.0)
+            } else if x == 1.0 {
+                Some(1.0)
+            } else {
                 let c = 2.0 * std::f32::consts::PI / 3.0;
-                Some(- (2.0_f32.powf(10.0 * x - 10.0)) * ((x * 10.0 - 10.75) * c).sin())
+                Some(-(2.0_f32.powf(10.0 * x - 10.0)) * ((x * 10.0 - 10.75) * c).sin())
             }
         }
         "easeOutElastic" => {
-            if x == 0.0 { Some(0.0) } else if x == 1.0 { Some(1.0) } else {
+            if x == 0.0 {
+                Some(0.0)
+            } else if x == 1.0 {
+                Some(1.0)
+            } else {
                 let c = 2.0 * std::f32::consts::PI / 3.0;
                 Some(2.0_f32.powf(-10.0 * x) * ((x * 10.0 - 0.75) * c).sin() + 1.0)
             }
         }
         "easeInOutElastic" => {
-            if x == 0.0 { Some(0.0) } else if x == 1.0 { Some(1.0) } else {
+            if x == 0.0 {
+                Some(0.0)
+            } else if x == 1.0 {
+                Some(1.0)
+            } else {
                 let c = 2.0 * std::f32::consts::PI / 4.5;
                 if x < 0.5 {
                     Some(-(2.0_f32.powf(20.0 * x - 10.0)) * ((20.0 * x - 11.125) * c).sin() / 2.0)
                 } else {
-                    Some(2.0_f32.powf(-20.0 * x + 10.0) * ((20.0 * x - 11.125) * c).sin() / 2.0 + 1.0)
+                    Some(
+                        2.0_f32.powf(-20.0 * x + 10.0) * ((20.0 * x - 11.125) * c).sin() / 2.0
+                            + 1.0,
+                    )
                 }
             }
         }
         // Bounce helpers
         "easeInBounce" => Some(1.0 - bounce_out(1.0 - x)),
         "easeOutBounce" => Some(bounce_out(x)),
-        "easeInOutBounce" => Some(if x < 0.5 { (1.0 - bounce_out(1.0 - 2.0 * x)) / 2.0 } else { (1.0 + bounce_out(2.0 * x - 1.0)) / 2.0 }),
+        "easeInOutBounce" => Some(if x < 0.5 {
+            (1.0 - bounce_out(1.0 - 2.0 * x)) / 2.0
+        } else {
+            (1.0 + bounce_out(2.0 * x - 1.0)) / 2.0
+        }),
         _ => None,
     }
 }
 
 fn bounce_out(x: f32) -> f32 {
-    let n1 = 7.5625; let d1 = 2.75;
+    let n1 = 7.5625;
+    let d1 = 2.75;
     if x < 1.0 / d1 {
         n1 * x * x
     } else if x < 2.0 / d1 {
-        let x = x - 1.5 / d1; n1 * x * x + 0.75
+        let x = x - 1.5 / d1;
+        n1 * x * x + 0.75
     } else if x < 2.5 / d1 {
-        let x = x - 2.25 / d1; n1 * x * x + 0.9375
+        let x = x - 2.25 / d1;
+        n1 * x * x + 0.9375
     } else {
-        let x = x - 2.625 / d1; n1 * x * x + 0.984375
+        let x = x - 2.625 / d1;
+        n1 * x * x + 0.984375
     }
 }
 
@@ -102,7 +165,13 @@ where
     for (i, ch) in s[open..].char_indices() {
         match ch {
             '(' => depth += 1,
-            ')' => { depth -= 1; if depth == 0 { close_abs = Some(open + i); break; } }
+            ')' => {
+                depth -= 1;
+                if depth == 0 {
+                    close_abs = Some(open + i);
+                    break;
+                }
+            }
             _ => {}
         }
     }

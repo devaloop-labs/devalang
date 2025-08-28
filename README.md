@@ -1,5 +1,5 @@
 <div align="center">
-    <img src="https://devalang.com/images/devalang-logo.svg" alt="Devalang Logo" width="300" />
+    <img src="https://devalang.com/images/devalang-logo-min.png" alt="Devalang Logo" width="100" />
 </div>
 
 ![Rust](https://img.shields.io/badge/Made%20with-Rust-orange?logo=rust)

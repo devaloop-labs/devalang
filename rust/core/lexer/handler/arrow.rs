@@ -1,4 +1,4 @@
-use crate::core::lexer::token::{ Token, TokenKind };
+use crate::core::lexer::token::{Token, TokenKind};
 
 pub fn handle_arrow_lexer(
     ch: char,
@@ -7,7 +7,7 @@ pub fn handle_arrow_lexer(
     _indent_stack: &mut Vec<usize>,
     tokens: &mut Vec<Token>,
     line: &mut usize,
-    column: &mut usize
+    column: &mut usize,
 ) {
     // If next char is '>', this is an arrow '->'.
     if let Some(&c) = chars.peek() {

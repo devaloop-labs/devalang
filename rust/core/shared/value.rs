@@ -1,7 +1,10 @@
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use serde::{ Deserialize, Serialize };
 
-use crate::core::{parser::statement::{Statement, StatementKind}, shared::duration::Duration};
+use crate::core::{
+    parser::statement::{Statement, StatementKind},
+    shared::duration::Duration,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum Value {

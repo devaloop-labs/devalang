@@ -1,4 +1,3 @@
-
 // NOTE: Deprecated functions, kept for reference
 
 // pub fn is_valid_entity(entity: &str, module: &Module, global_store: &GlobalStore) -> bool {

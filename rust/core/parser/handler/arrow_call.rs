@@ -1,6 +1,9 @@
 use crate::core::{
     lexer::token::TokenKind,
-    parser::{ driver::Parser, statement::{ Statement, StatementKind } },
+    parser::{
+        driver::Parser,
+        statement::{Statement, StatementKind},
+    },
     shared::value::Value,
     store::global::GlobalStore,
 };
@@ -9,7 +12,9 @@ fn parse_map_literal(parser: &mut Parser) -> Value {
     // Assumes '{' has already been consumed by caller
     let mut map = std::collections::HashMap::new();
     loop {
-        let Some(inner_token) = parser.peek_clone() else { break; };
+        let Some(inner_token) = parser.peek_clone() else {
+            break;
+        };
 
         match inner_token.kind {
             TokenKind::RBrace => {
@@ -76,18 +81,30 @@ fn parse_map_literal(parser: &mut Parser) -> Value {
                                     if let Some(after) = parser.peek_clone() {
                                         if after.kind == TokenKind::Number {
                                             parser.advance();
-                                            let combined = format!("{}.{}", value_token.lexeme, after.lexeme);
-                                            map.insert(key, Value::Number(combined.parse::<f32>().unwrap_or(0.0)));
+                                            let combined =
+                                                format!("{}.{}", value_token.lexeme, after.lexeme);
+                                            map.insert(
+                                                key,
+                                                Value::Number(
+                                                    combined.parse::<f32>().unwrap_or(0.0),
+                                                ),
+                                            );
                                             continue;
                                         }
                                     }
                                 }
                             }
-                            map.insert(key, Value::Number(value_token.lexeme.parse::<f32>().unwrap_or(0.0)));
+                            map.insert(
+                                key,
+                                Value::Number(value_token.lexeme.parse::<f32>().unwrap_or(0.0)),
+                            );
                         }
                         TokenKind::Boolean => {
                             parser.advance();
-                            map.insert(key, Value::Boolean(value_token.lexeme.parse::<bool>().unwrap_or(false)));
+                            map.insert(
+                                key,
+                                Value::Boolean(value_token.lexeme.parse::<bool>().unwrap_or(false)),
+                            );
                         }
                         _ => {
                             // Unknown value type, consume and store Unknown
@@ -109,40 +126,28 @@ pub fn parse_arrow_call(parser: &mut Parser, _global_store: &mut GlobalStore) ->
 
     if target_token.kind != TokenKind::Identifier {
         parser.advance(); // consume target token
-        return Statement::unknown();
+        return Statement::unknown_from_token(&target_token);
     }
 
     let Some(arrow_token) = parser.peek_nth(1).cloned() else {
         parser.advance(); // consume arrow token
-        return Statement {
-            kind: StatementKind::Unknown,
-            value: Value::String(target_token.lexeme.clone()),
-            indent: target_token.indent,
-            line: target_token.line,
-            column: target_token.column,
-        };
+        return Statement::unknown_from_token(&target_token);
     };
 
     if arrow_token.kind != TokenKind::Arrow {
         parser.advance(); // consume method token
-        return Statement {
-            kind: StatementKind::Unknown,
-            value: Value::String(target_token.lexeme.clone()),
-            indent: target_token.indent,
-            line: target_token.line,
-            column: target_token.column,
-        };
+        return Statement::unknown_from_token(&target_token);
     }
 
     // We have a valid arrow call, so we consume the arrow token
     let Some(method_token) = parser.peek_nth(2).cloned() else {
         parser.advance();
-        return Statement::unknown();
+        return Statement::unknown_from_token(&target_token);
     };
 
     if method_token.kind != TokenKind::Identifier {
         parser.advance();
-        return Statement::unknown();
+        return Statement::unknown_from_token(&method_token);
     }
 
     // Consume the tokens for target, arrow, and method
@@ -191,16 +196,16 @@ pub fn parse_arrow_call(parser: &mut Parser, _global_store: &mut GlobalStore) ->
 
         parser.advance();
 
-    let value = match token.kind {
+        let value = match token.kind {
             TokenKind::Identifier => Value::Identifier(token.lexeme.clone()),
             TokenKind::String => Value::String(token.lexeme.clone()),
             TokenKind::Number => Value::Number(token.lexeme.parse::<f32>().unwrap_or(0.0)),
             TokenKind::LBrace => {
-        // Handle map literal (supports nested maps)
-        let map_val = parse_map_literal(parser);
-        // We consumed the matching '}', so outer map_depth should be decremented
-        // if the caller tracks it.
-        map_val
+                // Handle map literal (supports nested maps)
+                let map_val = parse_map_literal(parser);
+                // We consumed the matching '}', so outer map_depth should be decremented
+                // if the caller tracks it.
+                map_val
             }
             _ => Value::Unknown,
         };
@@ -208,7 +213,8 @@ pub fn parse_arrow_call(parser: &mut Parser, _global_store: &mut GlobalStore) ->
         args.push(value);
 
         // Stop if we reach the end of the statement
-    if paren_depth == 0 && (token.kind == TokenKind::RParen || token.kind == TokenKind::RBrace) {
+        if paren_depth == 0 && (token.kind == TokenKind::RParen || token.kind == TokenKind::RBrace)
+        {
             break;
         }
     }

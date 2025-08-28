@@ -1,14 +1,27 @@
 use crate::core::lexer::{
     handler::{
-        arrow::handle_arrow_lexer, at::handle_at_lexer, brace::{ handle_lbrace_lexer, handle_rbrace_lexer }, colon::handle_colon_lexer, comment::handle_comment_lexer, dot::handle_dot_lexer, identifier::handle_identifier_lexer, indent::handle_indent_lexer, newline::handle_newline_lexer, number::handle_number_lexer, operator::handle_operator_lexer, parenthesis::{handle_lparen_lexer, handle_rparen_lexer}, slash::handle_slash_lexer, string::handle_string_lexer
+        arrow::handle_arrow_lexer,
+        at::handle_at_lexer,
+        brace::{handle_lbrace_lexer, handle_rbrace_lexer},
+        colon::handle_colon_lexer,
+        comment::handle_comment_lexer,
+        dot::handle_dot_lexer,
+        identifier::handle_identifier_lexer,
+        indent::handle_indent_lexer,
+        newline::handle_newline_lexer,
+        number::handle_number_lexer,
+        operator::handle_operator_lexer,
+        parenthesis::{handle_lparen_lexer, handle_rparen_lexer},
+        slash::handle_slash_lexer,
+        string::handle_string_lexer,
     },
-    token::{ Token, TokenKind },
+    token::{Token, TokenKind},
 };
 
 fn advance_char<I: Iterator<Item = char>>(
     chars: &mut std::iter::Peekable<I>,
     _line: &mut usize,
-    column: &mut usize
+    column: &mut usize,
 ) -> Option<char> {
     while let Some(c) = chars.next() {
         if c == '\r' {
@@ -43,7 +56,7 @@ pub fn handle_content_lexing(content: String) -> Result<Vec<Token>, String> {
                 &mut indent_stack,
                 &mut tokens,
                 &mut line,
-                &mut column
+                &mut column,
             );
 
             at_line_start = false;
@@ -62,7 +75,7 @@ pub fn handle_content_lexing(content: String) -> Result<Vec<Token>, String> {
                     &mut line,
                     &mut column,
                     &mut at_line_start,
-                    &mut current_indent
+                    &mut current_indent,
                 );
             }
             ' ' | '\t' => {
@@ -76,7 +89,7 @@ pub fn handle_content_lexing(content: String) -> Result<Vec<Token>, String> {
                     &mut indent_stack,
                     &mut tokens,
                     &mut line,
-                    &mut column
+                    &mut column,
                 );
             }
             ':' => {
@@ -87,7 +100,7 @@ pub fn handle_content_lexing(content: String) -> Result<Vec<Token>, String> {
                     &mut indent_stack,
                     &mut tokens,
                     &mut line,
-                    &mut column
+                    &mut column,
                 );
             }
             '=' | '!' | '<' | '>' | '+' | '*' => {
@@ -98,7 +111,7 @@ pub fn handle_content_lexing(content: String) -> Result<Vec<Token>, String> {
                     &mut indent_stack,
                     &mut tokens,
                     &mut line,
-                    &mut column
+                    &mut column,
                 );
             }
             '/' => {
@@ -109,7 +122,7 @@ pub fn handle_content_lexing(content: String) -> Result<Vec<Token>, String> {
                     &mut indent_stack,
                     &mut tokens,
                     &mut line,
-                    &mut column
+                    &mut column,
                 );
             }
             '-' => {
@@ -120,7 +133,7 @@ pub fn handle_content_lexing(content: String) -> Result<Vec<Token>, String> {
                     &mut indent_stack,
                     &mut tokens,
                     &mut line,
-                    &mut column
+                    &mut column,
                 );
                 // If not parsed as arrow or number, fallback as Minus token
                 if let Some(last) = tokens.last() {
@@ -145,7 +158,7 @@ pub fn handle_content_lexing(content: String) -> Result<Vec<Token>, String> {
                     &mut indent_stack,
                     &mut tokens,
                     &mut line,
-                    &mut column
+                    &mut column,
                 );
             }
             '}' => {
@@ -156,12 +169,36 @@ pub fn handle_content_lexing(content: String) -> Result<Vec<Token>, String> {
                     &mut indent_stack,
                     &mut tokens,
                     &mut line,
-                    &mut column
+                    &mut column,
                 );
             }
-            '[' => { tokens.push(Token { kind: TokenKind::LBracket, lexeme: "[".to_string(), line, column, indent: current_indent }); }
-            ']' => { tokens.push(Token { kind: TokenKind::RBracket, lexeme: "]".to_string(), line, column, indent: current_indent }); }
-            ',' => { tokens.push(Token { kind: TokenKind::Comma, lexeme: ",".to_string(), line, column, indent: current_indent }); }
+            '[' => {
+                tokens.push(Token {
+                    kind: TokenKind::LBracket,
+                    lexeme: "[".to_string(),
+                    line,
+                    column,
+                    indent: current_indent,
+                });
+            }
+            ']' => {
+                tokens.push(Token {
+                    kind: TokenKind::RBracket,
+                    lexeme: "]".to_string(),
+                    line,
+                    column,
+                    indent: current_indent,
+                });
+            }
+            ',' => {
+                tokens.push(Token {
+                    kind: TokenKind::Comma,
+                    lexeme: ",".to_string(),
+                    line,
+                    column,
+                    indent: current_indent,
+                });
+            }
             '(' => {
                 handle_lparen_lexer(
                     ch,
@@ -170,7 +207,7 @@ pub fn handle_content_lexing(content: String) -> Result<Vec<Token>, String> {
                     &mut indent_stack,
                     &mut tokens,
                     &mut line,
-                    &mut column
+                    &mut column,
                 );
             }
             ')' => {
@@ -181,7 +218,7 @@ pub fn handle_content_lexing(content: String) -> Result<Vec<Token>, String> {
                     &mut indent_stack,
                     &mut tokens,
                     &mut line,
-                    &mut column
+                    &mut column,
                 );
             }
             '.' => {
@@ -192,7 +229,7 @@ pub fn handle_content_lexing(content: String) -> Result<Vec<Token>, String> {
                     &mut indent_stack,
                     &mut tokens,
                     &mut line,
-                    &mut column
+                    &mut column,
                 );
             }
             '@' => {
@@ -203,7 +240,7 @@ pub fn handle_content_lexing(content: String) -> Result<Vec<Token>, String> {
                     &mut indent_stack,
                     &mut tokens,
                     &mut line,
-                    &mut column
+                    &mut column,
                 );
             }
             '$' => {
@@ -214,9 +251,17 @@ pub fn handle_content_lexing(content: String) -> Result<Vec<Token>, String> {
                         ident.push(c);
                         chars.next();
                         column += 1;
-                    } else { break; }
+                    } else {
+                        break;
+                    }
                 }
-                tokens.push(Token { kind: TokenKind::Identifier, lexeme: ident, line, column, indent: current_indent });
+                tokens.push(Token {
+                    kind: TokenKind::Identifier,
+                    lexeme: ident,
+                    line,
+                    column,
+                    indent: current_indent,
+                });
             }
             '0'..='9' => {
                 handle_number_lexer(

@@ -1,8 +1,12 @@
-import fs from "fs";
-import path from "path";
+/**
+ * NOTE: This script is deprecated since we use Github Actions
+ */
 
-const source = path.join(__dirname, "..", "..", "target", "release", "devalang.exe");
-const destination = path.join(__dirname, "..", "bin", "devalang.exe");
+// import fs from "fs";
+// import path from "path";
 
-fs.copyFileSync(source, destination);
-fs.chmodSync(destination, 0o755); 
+// const source = path.join(__dirname, "..", "..", "target", "release", "devalang.exe");
+// const destination = path.join(__dirname, "..", "bin", "devalang.exe");
+
+// fs.copyFileSync(source, destination);
+// fs.chmodSync(destination, 0o755);

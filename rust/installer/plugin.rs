@@ -1,9 +1,9 @@
-use std::path::{ Path, PathBuf };
 use crate::{
     common::cdn::get_cdn_url,
-    config::loader::{ add_plugin_to_config, load_config },
-    installer::utils::{ download_file, extract_archive },
+    config::loader::{add_plugin_to_config, load_config},
+    installer::utils::{download_file, extract_archive},
 };
+use std::path::{Path, PathBuf};
 
 pub async fn install_plugin(name: &str, target_dir: &Path) -> Result<(), String> {
     let cdn_url = get_cdn_url();
@@ -22,11 +22,13 @@ pub async fn install_plugin(name: &str, target_dir: &Path) -> Result<(), String>
         return Ok(());
     }
 
-    download_file(&url, &archive_path).await.map_err(|e| format!("Failed to download: {}", e))?;
+    download_file(&url, &archive_path)
+        .await
+        .map_err(|e| format!("Failed to download: {}", e))?;
 
-    extract_archive(&archive_path, &extract_path).await.map_err(|e|
-        format!("Failed to extract: {}", e)
-    )?;
+    extract_archive(&archive_path, &extract_path)
+        .await
+        .map_err(|e| format!("Failed to extract: {}", e))?;
 
     // Add the plugin to the config
     let root_dir = target_dir
@@ -35,17 +37,14 @@ pub async fn install_plugin(name: &str, target_dir: &Path) -> Result<(), String>
 
     let config_path = root_dir.join(".devalang");
     if !config_path.exists() {
-        return Err(
-            format!(
-                "Config file not found at '{}'. Please run 'devalang init' before adding an addon",
-                config_path.display()
-            )
-        );
+        return Err(format!(
+            "Config file not found at '{}'. Please run 'devalang init' before adding an addon",
+            config_path.display()
+        ));
     }
 
-    let mut config = load_config(Some(&config_path)).ok_or_else(||
-        format!("Failed to load config from '{}'", config_path.display())
-    )?;
+    let mut config = load_config(Some(&config_path))
+        .ok_or_else(|| format!("Failed to load config from '{}'", config_path.display()))?;
 
     let dependency_path = &format!("devalang://plugin/{}", name);
 

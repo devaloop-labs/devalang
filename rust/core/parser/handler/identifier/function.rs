@@ -1,6 +1,9 @@
 use crate::core::{
-    lexer::{ token::TokenKind },
-    parser::{ statement::{ Statement, StatementKind }, driver::Parser },
+    lexer::token::TokenKind,
+    parser::{
+        driver::Parser,
+        statement::{Statement, StatementKind},
+    },
     shared::value::Value,
     store::global::GlobalStore,
 };
@@ -21,7 +24,7 @@ pub fn parse_function_token(parser: &mut Parser, global_store: &mut GlobalStore)
     if name_token.kind != TokenKind::Identifier {
         return Statement::error(
             name_token.clone(),
-            "Expected function name to be an identifier".to_string()
+            "Expected function name to be an identifier".to_string(),
         );
     }
 
@@ -32,7 +35,10 @@ pub fn parse_function_token(parser: &mut Parser, global_store: &mut GlobalStore)
 
     // Expect '('
     if parser.peek_kind() != Some(TokenKind::LParen) {
-        return Statement::error(name_token.clone(), "Expected '(' after function name".to_string());
+        return Statement::error(
+            name_token.clone(),
+            "Expected '(' after function name".to_string(),
+        );
     }
     parser.advance(); // consume '('
 
@@ -47,7 +53,10 @@ pub fn parse_function_token(parser: &mut Parser, global_store: &mut GlobalStore)
     if parser.peek_kind() == Some(TokenKind::RParen) {
         parser.advance(); // consume ')'
     } else {
-        return Statement::error(name_token.clone(), "Expected ')' after parameters".to_string());
+        return Statement::error(
+            name_token.clone(),
+            "Expected ')' after parameters".to_string(),
+        );
     }
 
     // Expect colon

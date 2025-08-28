@@ -2,7 +2,10 @@ use std::collections::HashMap;
 
 use crate::core::{
     lexer::token::{Token, TokenKind},
-    parser::{driver::Parser, statement::{Statement, StatementKind}},
+    parser::{
+        driver::Parser,
+        statement::{Statement, StatementKind},
+    },
     shared::value::Value,
     store::global::GlobalStore,
 };
@@ -21,20 +24,32 @@ pub fn parse_automate_token(
 
     // Expect target identifier
     let Some(target_token) = parser.peek_clone() else {
-        return Statement::error(current_token, "Expected target after 'automate'".to_string());
+        return Statement::error(
+            current_token,
+            "Expected target after 'automate'".to_string(),
+        );
     };
 
     if target_token.kind != TokenKind::Identifier && target_token.kind != TokenKind::String {
-        return Statement::error(target_token, "Expected valid target after 'automate'".to_string());
+        return Statement::error(
+            target_token,
+            "Expected valid target after 'automate'".to_string(),
+        );
     }
     parser.advance(); // consume target
 
     // Expect ':'
     let Some(colon_token) = parser.peek_clone() else {
-        return Statement::error(target_token, "Expected ':' after automate target".to_string());
+        return Statement::error(
+            target_token,
+            "Expected ':' after automate target".to_string(),
+        );
     };
     if colon_token.kind != TokenKind::Colon {
-        return Statement::error(colon_token, "Expected ':' after automate target".to_string());
+        return Statement::error(
+            colon_token,
+            "Expected ':' after automate target".to_string(),
+        );
     }
     parser.advance(); // consume ':'
 
@@ -70,7 +85,10 @@ pub fn parse_automate_token(
                 local.advance(); // consume 'param'
                 // param name
                 let Some(name_tok) = local.peek_clone() else {
-                    return Statement::error(tok, "Expected parameter name after 'param'".to_string());
+                    return Statement::error(
+                        tok,
+                        "Expected parameter name after 'param'".to_string(),
+                    );
                 };
                 if name_tok.kind != TokenKind::Identifier && name_tok.kind != TokenKind::String {
                     return Statement::error(name_tok, "Expected valid parameter name".to_string());
@@ -79,15 +97,27 @@ pub fn parse_automate_token(
 
                 // Expect '{'
                 if !local.match_token(TokenKind::LBrace) {
-                    return Statement::error(name_tok, "Expected '{' to start parameter block".to_string());
+                    return Statement::error(
+                        name_tok,
+                        "Expected '{' to start parameter block".to_string(),
+                    );
                 }
 
                 // Collect entries like: 0% = 0.0
                 let mut envelope: HashMap<String, Value> = HashMap::new();
                 while let Some(inner) = local.peek_clone() {
-                    if inner.kind == TokenKind::RBrace { local.advance(); break; }
+                    if inner.kind == TokenKind::RBrace {
+                        local.advance();
+                        break;
+                    }
                     // Skip formatting tokens inside the param block
-                    if matches!(inner.kind, TokenKind::Newline | TokenKind::Indent | TokenKind::Dedent | TokenKind::Comma) {
+                    if matches!(
+                        inner.kind,
+                        TokenKind::Newline
+                            | TokenKind::Indent
+                            | TokenKind::Dedent
+                            | TokenKind::Comma
+                    ) {
                         local.advance();
                         continue;
                     }
@@ -102,17 +132,32 @@ pub fn parse_automate_token(
                     // Expect '='
                     // Skip any stray formatting between key and '='
                     while let Some(t) = local.peek_kind() {
-                        if matches!(t, TokenKind::Indent | TokenKind::Dedent | TokenKind::Newline) { local.advance(); continue; }
+                        if matches!(
+                            t,
+                            TokenKind::Indent | TokenKind::Dedent | TokenKind::Newline
+                        ) {
+                            local.advance();
+                            continue;
+                        }
                         break;
                     }
                     if !local.match_token(TokenKind::Equals) {
-                        return Statement::error(percent_token, "Expected '=' in param entry".to_string());
+                        return Statement::error(
+                            percent_token,
+                            "Expected '=' in param entry".to_string(),
+                        );
                     }
 
                     // Read value (number or identifier)
                     // Skip formatting before value
                     while let Some(t) = local.peek_kind() {
-                        if matches!(t, TokenKind::Indent | TokenKind::Dedent | TokenKind::Newline) { local.advance(); continue; }
+                        if matches!(
+                            t,
+                            TokenKind::Indent | TokenKind::Dedent | TokenKind::Newline
+                        ) {
+                            local.advance();
+                            continue;
+                        }
                         break;
                     }
 
@@ -165,27 +210,45 @@ pub fn parse_automate_token(
                                 }
                                 Value::Number(number_str.parse::<f32>().unwrap_or(0.0))
                             }
-                            TokenKind::Identifier => { local.advance(); Value::Identifier(vtok.lexeme.clone()) }
-                            TokenKind::String => { local.advance(); Value::String(vtok.lexeme.clone()) }
-                            _ => { local.advance(); Value::Unknown }
+                            TokenKind::Identifier => {
+                                local.advance();
+                                Value::Identifier(vtok.lexeme.clone())
+                            }
+                            TokenKind::String => {
+                                local.advance();
+                                Value::String(vtok.lexeme.clone())
+                            }
+                            _ => {
+                                local.advance();
+                                Value::Unknown
+                            }
                         }
-                    } else { Value::Null };
+                    } else {
+                        Value::Null
+                    };
 
                     envelope.insert(percent_key, value);
                 }
 
                 params.insert(name_tok.lexeme.clone(), Value::Map(envelope));
             }
-            _ => { local.advance(); }
+            _ => {
+                local.advance();
+            }
         }
     }
 
     let mut value_map = HashMap::new();
-    value_map.insert("target".to_string(), Value::String(target_token.lexeme.clone()));
+    value_map.insert(
+        "target".to_string(),
+        Value::String(target_token.lexeme.clone()),
+    );
     value_map.insert("params".to_string(), Value::Map(params));
 
     Statement {
-        kind: StatementKind::Automate { target: target_token.lexeme.clone() },
+        kind: StatementKind::Automate {
+            target: target_token.lexeme.clone(),
+        },
         value: Value::Map(value_map),
         indent: current_token.indent,
         line: current_token.line,

@@ -1,30 +1,31 @@
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use serde::{ Deserialize, Serialize };
-
 #[derive(Debug, Deserialize, Clone, Serialize)]
-pub struct Config {
-    pub defaults: ConfigDefaults,
-    pub banks: Option<Vec<BankEntry>>,
+pub struct ProjectConfig {
+    pub defaults: ProjectConfigDefaults,
+    pub banks: Option<Vec<ProjectConfigBankEntry>>,
     pub plugins: Option<Vec<PluginEntry>>,
 }
 
 #[derive(Debug, Deserialize, Clone, Serialize)]
-pub struct ConfigDefaults {
+pub struct ProjectConfigDefaults {
     pub entry: Option<String>,
     pub output: Option<String>,
     pub watch: Option<bool>,
     pub repeat: Option<bool>,
+    pub debug: Option<bool>,
+    pub compress: Option<bool>,
 }
 
 #[derive(Debug, Deserialize, Clone, Serialize)]
-pub struct BankMetadata {
+pub struct ProjectConfigBankMetadata {
     pub bank: HashMap<String, String>,
     pub triggers: Option<Vec<HashMap<String, String>>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-pub struct BankEntry {
+pub struct ProjectConfigBankEntry {
     pub path: String,
     pub version: Option<String>,
 }
@@ -37,14 +38,16 @@ pub struct PluginEntry {
     pub access: String,
 }
 
-impl Config {
+impl ProjectConfig {
     pub fn new() -> Self {
-        Config {
-            defaults: ConfigDefaults {
+        ProjectConfig {
+            defaults: ProjectConfigDefaults {
                 entry: None,
                 output: None,
                 watch: None,
                 repeat: None,
+                debug: None,
+                compress: None,
             },
             banks: Some(Vec::new()),
             plugins: Some(Vec::new()),
@@ -55,38 +58,59 @@ impl Config {
         entry: Option<String>,
         output: Option<String>,
         watch: Option<bool>,
-        repeat: Option<bool>
+        repeat: Option<bool>,
+        debug: Option<bool>,
+        compress: Option<bool>,
     ) -> Self {
-        Config {
-            defaults: ConfigDefaults {
+        ProjectConfig {
+            defaults: ProjectConfigDefaults {
                 entry,
                 output,
                 watch,
                 repeat,
+                debug,
+                compress,
             },
             banks: Some(Vec::new()),
             plugins: Some(Vec::new()),
         }
     }
 
+    pub fn get() -> Result<ProjectConfig, String> {
+        let root = std::env::current_dir().unwrap();
+        let config_path = root.join(".devalang");
+
+        if config_path.try_exists().is_err() {
+            return Err(format!(
+                "Config file not found at path: {}",
+                config_path.display()
+            ));
+        }
+
+        let config_content = std::fs::read_to_string(&config_path)
+            .map_err(|e| format!("Failed to read config file: {}", e))?;
+
+        let config: ProjectConfig = toml::from_str(&config_content)
+            .map_err(|e| format!("Failed to parse config file: {}", e))?;
+
+        Ok(config)
+    }
+
     pub fn from_string(config_string: &str) -> Result<(Self, String), String> {
-        let config: Config = toml
-            ::from_str(config_string)
+        let config: ProjectConfig = toml::from_str(config_string)
             .map_err(|e| format!("Failed to parse config string: {}", e))?;
         let config_path = ".devalang".to_string();
 
         Ok((config, config_path))
     }
 
-    pub fn write(&self, new_config: &Config) -> Result<(), String> {
+    pub fn write(&self, new_config: &ProjectConfig) -> Result<(), String> {
         let config_path = ".devalang";
 
-        let content = toml
-            ::to_string(new_config)
+        let content = toml::to_string(new_config)
             .map_err(|e| format!("Failed to serialize config: {}", e))?;
 
-        std::fs
-            ::write(config_path, content)
+        std::fs::write(config_path, content)
             .map_err(|e| format!("Failed to write config to file '{}': {}", config_path, e))?;
 
         Ok(())

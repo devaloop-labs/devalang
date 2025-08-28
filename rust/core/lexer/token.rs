@@ -1,4 +1,4 @@
-use serde::{ Deserialize, Serialize };
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Token {
@@ -30,6 +30,9 @@ pub enum TokenKind {
     Bank,
     Loop,
     Function,
+    As,
+    On,
+    Emit,
 
     // ───── Instruments ─────
     Synth,
@@ -64,15 +67,15 @@ pub enum TokenKind {
     Less,
 
     // ───── Brackets ─────
-    LBrace, // {
-    RBrace, // }
+    LBrace,   // {
+    RBrace,   // }
     LBracket, // [
     RBracket, // ]
-    LParen, // (
-    RParen, // )
+    LParen,   // (
+    RParen,   // )
 
     // ───── Quotes ─────
-    Quote, // '
+    Quote,   // '
     DbQuote, // "
 
     // ───── Formatting ─────

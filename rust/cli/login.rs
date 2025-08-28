@@ -1,25 +1,18 @@
-use std::fs;
-use tiny_http::{ Server, Response };
-use webbrowser;
-use serde::{ Serialize, Deserialize };
-use dirs::home_dir;
 use crate::common::sso::get_sso_url;
-use std::{ thread, time::Duration };
-use tiny_http::Header;
+use crate::config::settings::set_user_config_string;
 use std::str::FromStr;
-
-#[derive(Serialize, Deserialize)]
-struct UserConfig {
-    token: String,
-}
+use std::{thread, time::Duration};
+use tiny_http::Header;
+use tiny_http::{Response, Server};
+use webbrowser;
 
 /// Handle the login command
 /// This function initiates the login process by opening the browser and waiting for the callback.
 #[cfg(feature = "cli")]
 pub async fn handle_login_command() -> Result<(), String> {
-    use crate::utils::spinner::with_spinner;
-    use crate::utils::logger::Logger;
     use crate::utils::logger::LogLevel;
+    use crate::utils::logger::Logger;
+    use crate::utils::spinner::with_spinner;
 
     let logger = Logger::new();
 
@@ -41,12 +34,15 @@ pub async fn handle_login_command() -> Result<(), String> {
         logger.log_message(LogLevel::Info, "Opening browser for login...");
         logger.log_message(
             LogLevel::Info,
-            &format!("If the browser does not open, please visit the following URL: {}", login_url)
+            &format!(
+                "If the browser does not open, please visit the following URL: {}",
+                login_url
+            ),
         );
     } else {
         logger.log_message(
             LogLevel::Info,
-            "Please open the following URL in your browser to login:"
+            "Please open the following URL in your browser to login:",
         );
         logger.log_message(LogLevel::Info, &login_url);
     }
@@ -64,8 +60,7 @@ pub async fn handle_login_command() -> Result<(), String> {
                 let token = query.split("session=").nth(1).unwrap_or("").to_string();
 
                 if token.len() > 0 {
-                    let response_html =
-                        r#"
+                    let response_html = r#"
                         <html>
                             <body>
                                 <h1>Authentication Successful</h1>
@@ -86,14 +81,16 @@ pub async fn handle_login_command() -> Result<(), String> {
 
                     logger.log_message(
                         LogLevel::Success,
-                        "Authentication successful. Token saved to ~/.devalang/session_token.json"
+                        "Authentication successful. Token saved to ~/.devalang/config.json",
                     );
 
                     break;
                 } else {
                     spinner.finish_and_clear();
                     logger.log_message(LogLevel::Error, "Invalid session token.");
-                    request.respond(Response::from_string("Invalid session token.")).unwrap();
+                    request
+                        .respond(Response::from_string("Invalid session token."))
+                        .unwrap();
 
                     break;
                 }
@@ -102,7 +99,9 @@ pub async fn handle_login_command() -> Result<(), String> {
 
                 spinner.finish_and_clear();
                 logger.log_message(LogLevel::Error, "Invalid callback.");
-                request.respond(Response::from_string("Invalid callback.")).unwrap();
+                request
+                    .respond(Response::from_string("Invalid callback."))
+                    .unwrap();
 
                 break;
             }
@@ -111,7 +110,9 @@ pub async fn handle_login_command() -> Result<(), String> {
         } else {
             spinner.finish_and_clear();
             logger.log_message(LogLevel::Error, "Invalid request.");
-            request.respond(Response::from_string("Invalid request.")).unwrap();
+            request
+                .respond(Response::from_string("Invalid request."))
+                .unwrap();
 
             break;
         }
@@ -122,13 +123,5 @@ pub async fn handle_login_command() -> Result<(), String> {
 
 /// Save the session token to a file in the user's home directory
 fn save_token(token: &str) {
-    let config = UserConfig { token: token.to_string() };
-    let json = serde_json::to_string(&config).unwrap();
-
-    let mut path = home_dir().unwrap();
-    path.push(".devalang");
-    fs::create_dir_all(&path).unwrap();
-
-    path.push("session_token.json");
-    fs::write(path, json).unwrap();
+    set_user_config_string("session", token.to_string());
 }

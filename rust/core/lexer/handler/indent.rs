@@ -1,4 +1,4 @@
-use crate::core::lexer::token::{ Token, TokenKind };
+use crate::core::lexer::token::{Token, TokenKind};
 
 pub fn handle_indent_lexer(
     chars: &mut std::iter::Peekable<std::str::Chars>,
@@ -6,7 +6,7 @@ pub fn handle_indent_lexer(
     indent_stack: &mut Vec<usize>,
     tokens: &mut Vec<Token>,
     line: &mut usize,
-    column: &mut usize
+    column: &mut usize,
 ) {
     *current_indent = 0;
     let mut col = *column;

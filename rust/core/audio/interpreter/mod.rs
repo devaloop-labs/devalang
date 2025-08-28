@@ -1,14 +1,14 @@
 pub mod driver;
 
-pub mod load;
-pub mod let_;
-pub mod tempo;
-pub mod trigger;
-pub mod spawn;
-pub mod sleep;
-pub mod loop_;
+pub mod arrow_call;
+pub mod automate;
 pub mod call;
 pub mod condition;
-pub mod arrow_call;
 pub mod function;
-pub mod automate;
+pub mod let_;
+pub mod load;
+pub mod loop_;
+pub mod sleep;
+pub mod spawn;
+pub mod tempo;
+pub mod trigger;

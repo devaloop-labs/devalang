@@ -1,0 +1,12 @@
+bpm 120
+
+on beat:
+    print "kick on each beat"
+
+on bar:
+    print "bar!"
+
+on custom(value):
+    print "custom event with value: " + value
+
+emit custom(10)

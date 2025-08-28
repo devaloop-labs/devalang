@@ -1,7 +1,9 @@
 use crate::core::{
     lexer::token::Token,
     parser::statement::Statement,
-    store::{ export::ExportTable, function::FunctionTable, import::ImportTable, variable::VariableTable },
+    store::{
+        export::ExportTable, function::FunctionTable, import::ImportTable, variable::VariableTable,
+    },
 };
 
 #[derive(Debug, Clone)]

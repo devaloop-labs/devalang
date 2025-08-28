@@ -1,1 +1,3 @@
-// This file is part of the Devalang project
+/**
+ * TypeScript wrapper for Devalang.
+ */
