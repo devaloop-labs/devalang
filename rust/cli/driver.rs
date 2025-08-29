@@ -287,6 +287,18 @@ pub enum Commands {
         command: TelemetryCommand,
     },
 
+    /// Generate addon scaffolding for Devalang.
+    ///
+    /// ### Subcommands
+    /// - `bank` - Generates a bank scaffold.
+    /// - `plugin` - Generates a plugin scaffold.
+    /// - `preset` - Generates a preset scaffold.
+    ///
+    // Scaffold {
+    //     #[command(subcommand)]
+    //     command: ScaffoldCommand,
+    // },
+
     /// Log in to your Devaloop account.
     ///
     Login {},

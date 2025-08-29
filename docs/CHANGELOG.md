@@ -4,6 +4,16 @@
 
 # Changelog
 
+## Version 0.0.1-alpha.16-hotfix.2 (2025-08-29)
+
+### 🌎 Ecosystem
+
+- Published `@devaloop/devaforge` on npm. A tool for creating and managing Devalang addons.
+
+### 🔎 Telemetry
+
+- Patched first usage and user configuration.
+
 ## Version 0.0.1-alpha.16-hotfix.1 (2025-08-29)
 
 ### 🌎 Ecosystem

@@ -32,7 +32,9 @@ From studio sketches to live sets, Devalang gives you rhythmic control — with 
 >
 > Includes synthesis, playback, and rendering features, but is still in early development.
 >
-> NEW: Devalang is available for **Windows**, **Linux**, and **macOS**.
+> NEW: [Devaforge is now available for creating addons](https://github.com/devaloop-labs/devaforge).
+>
+> NEW: Devalang is now available for **Windows**, **Linux**, and **macOS**.
 
 ## 📚 Quick Access
 
@@ -43,7 +45,8 @@ From studio sketches to live sets, Devalang gives you rhythmic control — with 
 - [📜 Changelog](./docs/CHANGELOG.md)
 - [💡 Examples](./examples/)
 - [🌐 Project Website](https://devalang.com)
-- [📦 Devalang CLI on npm](https://www.npmjs.com/package/@devaloop/devalang)
+- [📦 Devaforge on npm](https://www.npmjs.com/package/@devaloop/devaforge)
+- [📦 Devalang on npm](https://www.npmjs.com/package/@devaloop/devalang)
 
 ## ⏱️ Try it now !
 
@@ -59,7 +62,6 @@ npm install -g @devaloop/devalang@latest
 
 # Create a new Devalang project
 devalang init --name my-project --template minimal
-cd my-project
 ```
 
 Create a new Devalang file `src/index.deva` in the project directory:

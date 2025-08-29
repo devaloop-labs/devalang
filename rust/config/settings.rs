@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::{any::Any, io::Write};
+use std::io::Write;
 
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct UserSettings {
@@ -15,12 +15,16 @@ pub struct TelemetrySettings {
     pub enabled: bool,
 }
 
-pub fn get_home_dir() -> std::path::PathBuf {
-    dirs::home_dir().unwrap_or_default()
+pub fn get_home_dir() -> Option<std::path::PathBuf> {
+    dirs::home_dir()
 }
 
 pub fn get_devalang_homedir() -> std::path::PathBuf {
-    get_home_dir().join(".devalang")
+    if let Some(home_dir) = get_home_dir() {
+        home_dir.join(".devalang")
+    } else {
+        std::path::PathBuf::from("~/.devalang")
+    }
 }
 
 pub fn get_default_user_config() -> UserSettings {
@@ -36,8 +40,7 @@ pub fn get_default_user_config() -> UserSettings {
 }
 
 pub fn get_user_config() -> Option<UserSettings> {
-    let config_path = get_devalang_homedir().join("config.json");
-    if config_path.try_exists().is_ok() {
+    if let Some(config_path) = get_devalang_homedir().join("config.json").into() {
         let file = std::fs::File::open(config_path).ok()?;
         let settings = serde_json::from_reader(file).ok()?;
         Some(settings)
@@ -47,13 +50,16 @@ pub fn get_user_config() -> Option<UserSettings> {
 }
 
 pub fn write_user_config_file() {
-    let settings = get_user_config().unwrap_or(get_default_user_config());
+    if let Some(config_path) = get_devalang_homedir().join("config.json").into() {
+        let settings = get_user_config().unwrap_or_else(get_default_user_config);
 
-    let config_path = get_devalang_homedir().join("config.json");
-    let mut file = std::fs::File::create(config_path).unwrap();
-    let config_json = serde_json::to_string(&settings).unwrap();
+        let mut file = std::fs::File::create(config_path).unwrap();
+        let config_json = serde_json::to_string(&settings).unwrap();
 
-    file.write_all(config_json.as_bytes()).unwrap();
+        file.write_all(config_json.as_bytes()).unwrap();
+    } else {
+        println!("Could not create config file");
+    }
 }
 
 pub fn set_user_config_bool(key: &str, value: bool) {
@@ -66,11 +72,14 @@ pub fn set_user_config_bool(key: &str, value: bool) {
         _ => {}
     }
 
-    let config_path = get_devalang_homedir().join("config.json");
-    let config_json = serde_json::to_string(&settings).unwrap();
-    let mut file = std::fs::File::create(config_path).unwrap();
+    if let Some(config_path) = get_devalang_homedir().join("config.json").into() {
+        let config_json = serde_json::to_string(&settings).unwrap();
+        let mut file = std::fs::File::create(config_path).unwrap();
 
-    file.write_all(config_json.as_bytes()).unwrap();
+        file.write_all(config_json.as_bytes()).unwrap();
+    } else {
+        println!("Could not create config file");
+    }
 }
 
 pub fn set_user_config_string(key: &str, value: String) {
@@ -83,9 +92,12 @@ pub fn set_user_config_string(key: &str, value: String) {
         _ => {}
     }
 
-    let config_path = get_devalang_homedir().join("config.json");
-    let config_json = serde_json::to_string(&settings).unwrap();
-    let mut file = std::fs::File::create(config_path).unwrap();
+    if let Some(config_path) = get_devalang_homedir().join("config.json").into() {
+        let config_json = serde_json::to_string(&settings).unwrap();
+        let mut file = std::fs::File::create(config_path).unwrap();
 
-    file.write_all(config_json.as_bytes()).unwrap();
+        file.write_all(config_json.as_bytes()).unwrap();
+    } else {
+        println!("Could not create config file");
+    }
 }

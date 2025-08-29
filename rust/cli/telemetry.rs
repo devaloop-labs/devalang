@@ -1,10 +1,12 @@
 use crate::config::settings::set_user_config_bool;
+use crate::utils::logger::{LogLevel, Logger};
 
 #[cfg(feature = "cli")]
 pub async fn handle_telemetry_enable_command() -> Result<(), String> {
     set_user_config_bool("telemetry", true);
 
-    println!("Telemetry has been enabled.");
+    let logger = Logger::new();
+    logger.log_message(LogLevel::Info, "Telemetry has been enabled.");
 
     Ok(())
 }
@@ -13,7 +15,8 @@ pub async fn handle_telemetry_enable_command() -> Result<(), String> {
 pub async fn handle_telemetry_disable_command() -> Result<(), String> {
     set_user_config_bool("telemetry", false);
 
-    println!("Telemetry has been disabled.");
+    let logger = Logger::new();
+    logger.log_message(LogLevel::Info, "Telemetry has been disabled.");
 
     Ok(())
 }

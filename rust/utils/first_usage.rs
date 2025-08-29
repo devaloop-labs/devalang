@@ -3,15 +3,14 @@ use std::fmt::Write;
 
 use crate::{
     config::settings::{get_devalang_homedir, set_user_config_bool, write_user_config_file},
-    utils::signature::get_signature,
+    utils::{
+        logger::{LogLevel, Logger},
+        signature::get_signature,
+    },
 };
 
 pub fn check_is_first_usage() {
-    if get_devalang_homedir()
-        .join("config.json")
-        .try_exists()
-        .is_ok()
-    {
+    if get_devalang_homedir().exists() == true {
         // Do nothing
     } else {
         first_usage_welcome();
@@ -20,18 +19,22 @@ pub fn check_is_first_usage() {
 }
 
 pub fn first_usage_welcome() {
+    std::fs::create_dir_all(get_devalang_homedir()).ok();
+
     let version = env!("CARGO_PKG_VERSION");
     print!("{}", get_signature(version));
 
-    let mut s = String::new();
+    let homedir = get_devalang_homedir().display().to_string();
+
     let welcome_msg = format!(
         "Welcome to Devalang ! \n\
         It looks like this is your first time using the tool.\n\
         A configuration file will be created in your home directory.\n\
-        ({})",
-        get_devalang_homedir().display()
+        (location: '{}')",
+        homedir
     );
 
+    let mut s = String::new();
     write!(&mut s, "{}", SetAttribute(Attribute::Bold)).unwrap();
     write!(&mut s, "{}", welcome_msg).unwrap();
     write!(&mut s, "{}", SetAttribute(Attribute::Reset)).unwrap();
@@ -56,17 +59,21 @@ pub fn first_usage_ask_for_telemetry() {
 
     write_user_config_file();
 
+    let logger = Logger::new();
+
     if telemetry_response == true {
         println!("");
-        println!(
-            "Telemetry enabled. You can opt-out at any time by using 'devalang telemetry disable'"
+        logger.log_message(
+            LogLevel::Info,
+            "Telemetry enabled. You can opt-out at any time by using 'devalang telemetry disable'",
         );
         println!("");
 
         set_user_config_bool("telemetry", true);
     } else {
         println!("");
-        println!(
+        logger.log_message(
+            LogLevel::Info,
             "Telemetry disabled. You can enable it at any time by using 'devalang telemetry enable'"
         );
         println!("");
