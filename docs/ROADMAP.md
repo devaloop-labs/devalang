@@ -25,6 +25,7 @@ Devalang is a work in progress. Here’s what we’re planning next:
 
 ## Upcoming
 
+- ⏳ **Addon generator**: Implement addon generation for creating reusable plugins, banks and presets.
 - ⏳ **Smart modules**: Let Devalang detect and use groups, samples, and variables without needing to import them manually.
-- ⏳ **Other statements**: Implement `pattern`, `function`, and other control structures.
+- ⏳ **Other statements**: Implement `pattern`, and other control structures.
 - ⏳ **Testing**: Expand test coverage for all features.

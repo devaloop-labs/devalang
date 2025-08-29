@@ -4,6 +4,13 @@
 
 # Changelog
 
+## Version 0.0.1-alpha.16-hotfix.1 (2025-08-29)
+
+### 🌎 Ecosystem
+
+- Fixed Github Actions to build and release binaries for multiple platforms.
+- Fixed `postinstall` script to launch properly postinstall.js when installing core package
+
 ## Version 0.0.1-alpha.16 (2025-08-28)
 
 ### 🌎 Ecosystem

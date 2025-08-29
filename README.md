@@ -9,12 +9,15 @@
 ![Project Status](https://img.shields.io/badge/status-alpha-red)
 ![Version](https://img.shields.io/npm/v/@devaloop/devalang)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
-![Platform](https://img.shields.io/badge/platform-Windows-blue)
+
+![Linux](https://img.shields.io/badge/linux-supported-blue?logo=linux)
+![macOS](https://img.shields.io/badge/macOS-supported-blue?logo=apple)
+![Windows](https://img.shields.io/badge/windows-supported-blue?logo=windows)
 
 ![npm](https://img.shields.io/npm/dt/@devaloop/devalang)
 ![crates](https://img.shields.io/crates/d/devalang)
 
-[![VSCode Extension](https://img.shields.io/visual-studio-marketplace/v/devaloop.devalang-vscode?label=VSCode%20Extension)](https://marketplace.visualstudio.com/items?itemName=devaloop.devalang-vscode)
+![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/devaloop-labs/devalang/.github/workflows/ci.yml)
 
 # 🦊 Devalang (CORE) — Compose music with code
 
@@ -29,8 +32,7 @@ From studio sketches to live sets, Devalang gives you rhythmic control — with 
 >
 > Includes synthesis, playback, and rendering features, but is still in early development.
 >
-> Currently, Devalang CLI is only available for **Windows**.
-> Linux and macOS binaries will be added in future releases via cross-platform builds.
+> NEW: Devalang is available for **Windows**, **Linux**, and **macOS**.
 
 ## 📚 Quick Access
 
@@ -53,7 +55,7 @@ From studio sketches to live sets, Devalang gives you rhythmic control — with 
 
 ```bash
 # Install Devalang CLI globally
-npm install -g @devaloop/devalang
+npm install -g @devaloop/devalang@latest
 
 # Create a new Devalang project
 devalang init --name my-project --template minimal
@@ -65,45 +67,40 @@ Create a new Devalang file `src/index.deva` in the project directory:
 ```deva
 # src/index.deva
 
-group main:
-    let lead = synth sine {
+group myGroup:
+    let myLead = synth sine {
         attack: 0,
         decay: 100,
         sustain: 100,
         release: 100
     }
 
-    # Global automation for this synth (applies to subsequent notes)
-    automate lead:
-        param volume {
-            0% = 0.0
-            100% = 1.0
-        }
-        param pan {
-            0% = -1.0
-            100% = 1.0
-        }
+    automate myLead:
         param pitch {
             0% = -12.0
             100% = 12.0
         }
 
-    lead -> note(C4, {
+    myLead -> note(C4, {
         duration: 400,
         velocity: 0.8,
-        automate: { pan: { 0%: -1.0, 100%: 0.0 } }
+        automate: {
+            pan: {
+                0%: -1.0,
+                100%: 0.0
+            }
+        }
     })
 
-    lead -> note(E4, { duration: 400 })
-    lead -> note(G4, { duration: 600, glide: true, target_freq: 659.25 })
-    lead -> note(B3, { duration: 400, slide: true, target_amp: 0.3 })
+    myLead -> note(E4, { duration: 400 })
+    myLead -> note(G4, { duration: 600, glide: true, target_freq: 659.25 })
+    myLead -> note(B3, { duration: 400, slide: true, target_amp: 0.3 })
 
     for i in [1, 2, 3]:
-        lead -> note(C5, { duration: 200 })
+        myLead -> note(C5, { duration: 200 })
+        print "Playing note C5 for " + i
 
-# Play the lead
-
-call main
+call myGroup
 ```
 
 ### And the best part ? You can play it directly from the command line:
@@ -156,9 +153,8 @@ devalang play --repeat
 
 For more info, see [docs/ROADMAP.md](./docs/ROADMAP.md)
 
-- ⏳ Other statements (e.g `function`, `pattern`, ...)
-- ⏳ Cross-platform support (Linux, macOS)
-- ⏳ More built-in instruments (e.g. snare, hi-hat, etc.)
+- ⏳ Other statements (e.g `pattern`, ...)
+- ⏳ Addon generator
 
 ## 🛡️ License
 

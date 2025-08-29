@@ -11,18 +11,15 @@ This is a list of tasks and features to be implemented in Devalang. Note that th
 - [x] Init project
   - [x] Implement init command
   - [x] Implement template selector
-  - [ ] Implement project name validation
 - [x] Template
   - [x] Implement template list
   - [x] Implement template info
 - [x] Checking
   - [x] Implement watch mode
   - [x] Implement debug mode
-  - [ ] Implement compilation mode
 - [x] Building
   - [x] Implement watch mode
   - [x] Implement debug mode
-  - [ ] Implement compilation mode
   - [x] Implement compression mode
 - [x] Play
   - [x] Implement Audio Engine
@@ -63,6 +60,21 @@ This is a list of tasks and features to be implemented in Devalang. Note that th
 
 - [x] Built-in triggers
 - [x] Custom triggers
+
+## Banks
+
+- [x] Implement bank management (e.g. install, remove, list)
+- [x] Create example banks
+
+## Plugins
+
+- [x] Implement plugin system (e.g. install, remove, list)
+- [ ] Create example plugins
+
+## Addon generator
+
+- [ ] Implement addon generator
+- [ ] Create example addons
 
 ## Other TODOs
 
