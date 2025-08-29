@@ -77,7 +77,6 @@ jobs:
           Copy-Item "target\${{ matrix.target }}\release\devalang${{ matrix.bin_ext }}" "out-tsc\bin\devalang-${{ matrix.target }}${{ matrix.bin_ext }}" -Force
 
       - name: Upload artifact (CI)
-        if: startsWith(github.ref, 'refs/heads/')
         uses: actions/upload-artifact@v4
         with:
           name: devalang-${{ matrix.target }}
