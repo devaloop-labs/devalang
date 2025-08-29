@@ -12,7 +12,7 @@ const projectVersionPath = path_2.default.join(__dirname, "../../project-version
 const version = fs_2.default.readFileSync(projectVersionPath, "utf-8").trim();
 const versionString = JSON.parse(version).version;
 const platform = process.platform;
-let binaryName;
+let binaryName = "";
 switch (platform) {
     case "win32":
         binaryName = "devalang-x86_64-pc-windows-msvc.exe";
@@ -23,27 +23,37 @@ switch (platform) {
     case "linux":
         binaryName = "devalang-x86_64-unknown-linux-gnu";
         break;
-    default:
-        console.error(`❌ Unsupported platform: ${platform}`);
-        process.exit(1);
 }
-const destDir = (0, path_1.join)(__dirname, "..", "..", "out-tsc", "bin");
-const dest = (0, path_1.join)(destDir, binaryName);
-const url = `https://github.com/devaloop-labs/devalang/releases/download/v${versionString}/${binaryName}`;
-(0, fs_1.mkdirSync)(destDir, { recursive: true });
-console.log(`⬇️  Downloading ${binaryName} from ${url}`);
-follow_redirects_1.https.get(url, (res) => {
-    if (res.statusCode !== 200) {
-        console.error(`❌ Failed (HTTP ${res.statusCode})`);
-        process.exit(1);
-    }
-    const file = (0, fs_1.createWriteStream)(dest, { mode: 0o755 });
-    res.pipe(file);
-    file.on("finish", () => {
-        file.close();
-        console.log(`✅ Downloaded ${binaryName} to ${dest}`);
+if (binaryName !== "") {
+    const destDir = (0, path_1.join)(__dirname, "..", "..", "out-tsc", "bin");
+    const dest = (0, path_1.join)(destDir, binaryName);
+    const url = `https://github.com/devaloop-labs/devalang/releases/download/v${versionString}/${binaryName}`;
+    (0, fs_1.mkdirSync)(destDir, { recursive: true });
+    console.log(`⬇️  Downloading ${binaryName} from ${url}`);
+    follow_redirects_1.https
+        .get(url, (res) => {
+        if (res.statusCode === 404) {
+            console.warn(`⚠️  Asset not found (HTTP 404). Skipping binary download.`);
+            res.resume();
+            return;
+        }
+        if (res.statusCode !== 200) {
+            console.error(`❌ Failed (HTTP ${res.statusCode}). Skipping binary download.`);
+            res.resume();
+            return;
+        }
+        const file = (0, fs_1.createWriteStream)(dest, { mode: 0o755 });
+        res.pipe(file);
+        file.on("finish", () => {
+            file.close();
+            console.log(`✅ Downloaded ${binaryName} to ${dest}`);
+        });
+    })
+        .on("error", (err) => {
+        // Network or other errors should not fail CI; log and continue
+        console.error(`❌ Error: ${err.message}. Skipping binary download.`);
     });
-}).on("error", (err) => {
-    console.error(`❌ Error: ${err.message}`);
-    process.exit(1);
-});
+}
+else {
+    console.error(`❌ Unsupported platform: ${platform}`);
+}

@@ -1,6 +1,6 @@
 [package]
 name = "devalang"
-version = "0.0.1-alpha.16-hotfix.2"
+version = "0.0.1-alpha.16-hotfix.3"
 authors = ["Devaloop <contact@devaloop.com>"]
 description = "Write music like code. Devalang is a domain-specific language (DSL) for sound designers and music hackers. Compose, automate, and control sound — in plain text."
 license = "MIT"
