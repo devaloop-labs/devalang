@@ -10,6 +10,12 @@ use std::path::Path;
 
 pub struct Lexer {}
 
+impl Default for Lexer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Lexer {
     pub fn new() -> Self {
         Lexer {}
@@ -19,36 +25,40 @@ impl Lexer {
         handle_content_lexing(source.to_string())
     }
 
-    pub fn lex_tokens(&self, entrypoint: &str) -> Vec<Token> {
+    pub fn lex_tokens(&self, entrypoint: &str) -> Result<Vec<Token>, String> {
         let path = normalize_path(entrypoint);
-        let resolved_path = Self::resolve_entry_path(&path);
+        let resolved_path = Self::resolve_entry_path(&path)?;
 
-        let file_content =
-            fs::read_to_string(&resolved_path).expect("Failed to read the entrypoint file");
+        let file_content = fs::read_to_string(&resolved_path).map_err(|e| {
+            format!(
+                "Failed to read the entrypoint file '{}': {}",
+                resolved_path, e
+            )
+        })?;
 
-        handle_content_lexing(file_content).expect("Failed to lex the content")
+        handle_content_lexing(file_content).map_err(|e| format!("Failed to lex the content: {}", e))
     }
 
-    fn resolve_entry_path(path: &str) -> String {
+    fn resolve_entry_path(path: &str) -> Result<String, String> {
         let candidate = Path::new(path);
 
         if candidate.is_dir() {
             let index_path = candidate.join("index.deva");
             if index_path.exists() {
-                return index_path.to_string_lossy().replace("\\", "/");
+                Ok(index_path.to_string_lossy().replace("\\", "/"))
             } else {
-                panic!(
+                Err(format!(
                     "Expected 'index.deva' in directory '{}', but it was not found",
                     path
-                );
+                ))
             }
         } else if candidate.is_file() {
-            return path.to_string();
+            return Ok(path.to_string());
         } else {
-            panic!(
+            return Err(format!(
                 "Provided entrypoint '{}' is not a valid file or directory",
                 path
-            );
+            ));
         }
     }
 }

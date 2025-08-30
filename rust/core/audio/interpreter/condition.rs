@@ -1,10 +1,11 @@
+use devalang_types::Value;
+
 use crate::core::{
     audio::{
         engine::AudioEngine, evaluator::evaluate_condition_string,
         interpreter::driver::execute_audio_block,
     },
     parser::statement::Statement,
-    shared::value::Value,
     store::{function::FunctionTable, global::GlobalStore, variable::VariableTable},
 };
 
@@ -43,7 +44,7 @@ pub fn interprete_condition_statement(
                     global_store,
                     variable_table.clone(),
                     functions_table.clone(),
-                    &block,
+                    block,
                     base_bpm,
                     base_duration,
                     max_time,

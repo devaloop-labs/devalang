@@ -1,3 +1,5 @@
+use devalang_types::Value;
+
 use crate::core::{
     lexer::token::{Token, TokenKind},
     parser::{
@@ -7,13 +9,15 @@ use crate::core::{
             bank::parse_bank_token,
             condition::parse_condition_token,
             dot::parse_dot_token,
-            identifier::{function::parse_function_token, parse_identifier_token},
+            identifier::{
+                emit::parse_emit_token, function::parse_function_token, on::parse_on_token,
+                parse_identifier_token,
+            },
             loop_::parse_loop_token,
             tempo::parse_tempo_token,
         },
         statement::Statement,
     },
-    shared::value::Value,
     store::global::GlobalStore,
 };
 
@@ -24,6 +28,12 @@ pub struct Parser {
     pub token_index: usize,
     pub current_module: String,
     pub previous: Option<Token>,
+}
+
+impl Default for Parser {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Parser {
@@ -53,7 +63,7 @@ impl Parser {
     }
 
     pub fn peek_is(&self, expected: &str) -> bool {
-        self.peek().map_or(false, |t| t.lexeme == expected)
+        self.peek().is_some_and(|t| t.lexeme == expected)
     }
 
     pub fn peek_nth(&self, n: usize) -> Option<&Token> {
@@ -69,7 +79,7 @@ impl Parser {
     }
 
     pub fn advance_if(&mut self, kind: TokenKind) -> bool {
-        if self.match_token(kind) { true } else { false }
+        self.match_token(kind)
     }
 
     pub fn match_token(&mut self, kind: TokenKind) -> bool {
@@ -149,8 +159,8 @@ impl Parser {
                 TokenKind::Loop => parse_loop_token(self, global_store),
                 TokenKind::If => parse_condition_token(self, global_store),
                 TokenKind::Function => parse_function_token(self, global_store),
-                TokenKind::On => crate::core::parser::handler::identifier::on::parse_on_token(self, global_store),
-                TokenKind::Emit => crate::core::parser::handler::identifier::emit::parse_emit_token(self, token.clone(), global_store),
+                TokenKind::On => parse_on_token(self, global_store),
+                TokenKind::Emit => parse_emit_token(self, token.clone(), global_store),
 
                 | TokenKind::Else // Ignore else, already handled in `parse_condition_token`
                 | TokenKind::Comment
@@ -173,7 +183,7 @@ impl Parser {
 
                 _ => {
                     self.advance();
-                    Statement::unknown_from_token(&token)
+                    Statement::unknown_with_pos(token.indent, token.line, token.column)
                 }
             };
 
@@ -184,7 +194,7 @@ impl Parser {
     }
 
     pub fn check_token(&self, kind: TokenKind) -> bool {
-        self.peek().map_or(false, |t| t.kind == kind)
+        self.peek().is_some_and(|t| t.kind == kind)
     }
 
     pub fn peek_kind(&self) -> Option<TokenKind> {
@@ -285,8 +295,34 @@ impl Parser {
                     }
 
                     TokenKind::Identifier => {
+                        // Support dotted identifiers in map values: alias.param or nested
+                        let current_line = token.line;
+                        let mut parts: Vec<String> = vec![token.lexeme.clone()];
                         self.advance();
-                        Value::Identifier(token.lexeme.clone())
+                        loop {
+                            let Some(next) = self.peek_clone() else { break };
+                            if next.line != current_line {
+                                break;
+                            }
+                            if next.kind == TokenKind::Dot {
+                                // Consume '.' and the following identifier/number on same line
+                                self.advance(); // dot
+                                if let Some(id2) = self.peek_clone() {
+                                    if id2.line == current_line
+                                        && (id2.kind == TokenKind::Identifier
+                                            || id2.kind == TokenKind::Number)
+                                    {
+                                        parts.push(id2.lexeme.clone());
+                                        self.advance(); // consume part
+                                        continue;
+                                    }
+                                }
+                                break;
+                            } else {
+                                break;
+                            }
+                        }
+                        Value::Identifier(parts.join("."))
                     }
                     _ => {
                         println!("Unexpected token in map value: {:?}", token);
@@ -430,7 +466,12 @@ impl Parser {
             if tok.indent <= base_indent && tok.kind != TokenKind::Newline {
                 break;
             }
-            tokens.push(self.advance().unwrap().clone());
+            if let Some(t) = self.advance() {
+                tokens.push(t.clone());
+            } else {
+                // Unexpected EOF while collecting block tokens: stop collecting
+                break;
+            }
         }
 
         tokens
@@ -448,7 +489,11 @@ impl Parser {
             if token.kind == TokenKind::EOF {
                 break;
             }
-            collected.push(self.advance().unwrap().clone());
+            if let Some(t) = self.advance() {
+                collected.push(t.clone());
+            } else {
+                break;
+            }
         }
 
         collected
@@ -470,7 +515,11 @@ impl Parser {
             if tok.lexeme == "else" && tok.indent == base_indent {
                 break;
             }
-            block_tokens.push(self.advance().unwrap().clone());
+            if let Some(t) = self.advance() {
+                block_tokens.push(t.clone());
+            } else {
+                break;
+            }
         }
 
         self.parse_block(block_tokens, global_store)
@@ -505,7 +554,11 @@ impl Parser {
             if tok.indent < base_indent && tok.kind != TokenKind::Newline {
                 break;
             }
-            tokens.push(self.advance().unwrap().clone());
+            if let Some(t) = self.advance() {
+                tokens.push(t.clone());
+            } else {
+                break;
+            }
         }
 
         self.parse_block(tokens, global_store)

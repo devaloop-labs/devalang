@@ -44,11 +44,11 @@ fn adsr_envelope_value_t(attack: f32, decay: f32, sustain: f32, release: f32, t:
 fn eval_mod_func(func: &str, args: &[f32], beat: f32) -> Option<f32> {
     match func {
         "lfo.sine" => {
-            let rate = args.get(0).copied().unwrap_or(1.0);
+            let rate = args.first().copied().unwrap_or(1.0);
             Some(lfo_sine(rate, beat))
         }
         "lfo.tri" | "lfo.triangle" => {
-            let rate = args.get(0).copied().unwrap_or(1.0);
+            let rate = args.first().copied().unwrap_or(1.0);
             Some(lfo_triangle(rate, beat))
         }
         // ADSR envelope normalized over t in [0,1]

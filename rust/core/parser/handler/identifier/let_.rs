@@ -7,9 +7,9 @@ use crate::core::{
         handler::{dot::parse_dot_token, identifier::synth::parse_synth_token},
         statement::{Statement, StatementKind},
     },
-    shared::value::Value,
     store::global::GlobalStore,
 };
+use devalang_types::Value;
 
 pub fn parse_let_token(
     parser: &mut Parser,
@@ -23,14 +23,23 @@ pub fn parse_let_token(
             parser.advance();
             token.lexeme.clone()
         } else {
-            return Statement::error(token, "Expected identifier after 'let'".to_string());
+            return crate::core::parser::statement::error_from_token(
+                token,
+                "Expected identifier after 'let'".to_string(),
+            );
         }
     } else {
-        return Statement::error(current_token, "Expected identifier after 'let'".to_string());
+        return crate::core::parser::statement::error_from_token(
+            current_token,
+            "Expected identifier after 'let'".to_string(),
+        );
     };
 
     if !parser.match_token(TokenKind::Equals) {
-        return Statement::error(current_token, "Expected '=' after identifier".to_string());
+        return crate::core::parser::statement::error_from_token(
+            current_token,
+            "Expected '=' after identifier".to_string(),
+        );
     }
 
     // If RHS begins with '$' or contains expression tokens ('+', '-', '*', '/', '(', '['),
@@ -101,14 +110,17 @@ pub fn parse_let_token(
                 }
 
                 if key_token.kind != TokenKind::Identifier {
-                    return Statement::error(token, "Expected key identifier in map".to_string());
+                    return crate::core::parser::statement::error_from_token(
+                        token,
+                        "Expected key identifier in map".to_string(),
+                    );
                 }
                 parser.advance();
                 let key = key_token.lexeme.clone();
 
                 if !parser.match_token(TokenKind::Colon) {
                     let message = format!("Expected ':' after key '{}'", key);
-                    return Statement::error(token, message);
+                    return crate::core::parser::statement::error_from_token(token, message);
                 }
 
                 let val = match parser.peek_clone() {
@@ -129,7 +141,7 @@ pub fn parse_let_token(
 
                 if val == Value::Null {
                     let message = format!("Invalid value for key '{}'", key);
-                    return Statement::error(token, message);
+                    return crate::core::parser::statement::error_from_token(token, message);
                 }
 
                 map.insert(key, val);
@@ -144,13 +156,16 @@ pub fn parse_let_token(
             Value::Map(map)
         }
         _ => {
-            return Statement::error(current_token, "Unhandled value type after '='".to_string());
+            return crate::core::parser::statement::error_from_token(
+                current_token,
+                "Unhandled value type after '='".to_string(),
+            );
         }
     };
 
     Statement {
         kind: StatementKind::Let { name: identifier },
-        value: value,
+        value,
         indent: current_token.indent,
         line: current_token.line,
         column: current_token.column,

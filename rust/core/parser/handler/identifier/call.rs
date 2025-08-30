@@ -4,9 +4,9 @@ use crate::core::{
         driver::Parser,
         statement::{Statement, StatementKind},
     },
-    shared::value::Value,
     store::global::GlobalStore,
 };
+use devalang_types::Value;
 
 pub fn parse_call_token(
     parser: &mut Parser,
@@ -19,7 +19,7 @@ pub fn parse_call_token(
     let name_token = match parser.peek_clone() {
         Some(t) => t,
         None => {
-            return Statement::error(
+            return crate::core::parser::statement::error_from_token(
                 current_token,
                 "Expected function name after 'call'".to_string(),
             );
@@ -27,7 +27,7 @@ pub fn parse_call_token(
     };
 
     if name_token.kind != TokenKind::Identifier {
-        return Statement::error(
+        return crate::core::parser::statement::error_from_token(
             name_token,
             "Expected function name to be an identifier".to_string(),
         );
@@ -68,7 +68,7 @@ pub fn parse_call_token(
                         parser.advance(); // skip comma
                     }
                     _ => {
-                        return Statement::error(
+                        return crate::core::parser::statement::error_from_token(
                             token,
                             "Unexpected token in call arguments".to_string(),
                         );

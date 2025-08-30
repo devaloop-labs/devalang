@@ -1,10 +1,11 @@
+use devalang_types::Value;
+
 use crate::core::{
     lexer::token::{Token, TokenKind},
     parser::{
         driver::Parser,
         statement::{Statement, StatementKind},
     },
-    shared::value::Value,
     store::global::GlobalStore,
 };
 use std::collections::HashMap;
@@ -17,7 +18,7 @@ pub fn parse_group_token(
     parser.advance(); // consume "group"
 
     let Some(identifier_token) = parser.peek_clone() else {
-        return Statement::error(
+        return crate::core::parser::statement::error_from_token(
             current_token,
             "Expected identifier after 'group'".to_string(),
         );
@@ -25,20 +26,23 @@ pub fn parse_group_token(
 
     if identifier_token.kind != TokenKind::Identifier && identifier_token.kind != TokenKind::String
     {
-        return Statement::error(identifier_token, "Expected valid identifier".to_string());
+        return crate::core::parser::statement::error_from_token(
+            identifier_token,
+            "Expected valid identifier".to_string(),
+        );
     }
 
     parser.advance(); // consume identifier
 
     let Some(colon_token) = parser.peek_clone() else {
-        return Statement::error(
+        return crate::core::parser::statement::error_from_token(
             identifier_token,
             "Expected ':' after group identifier".to_string(),
         );
     };
 
     if colon_token.kind != TokenKind::Colon {
-        return Statement::error(
+        return crate::core::parser::statement::error_from_token(
             colon_token.clone(),
             "Expected ':' after group identifier".to_string(),
         );
@@ -75,11 +79,11 @@ pub fn parse_group_token(
     );
     value_map.insert("body".to_string(), Value::Block(body));
 
-    return Statement {
+    Statement {
         kind: StatementKind::Group,
         value: Value::Map(value_map),
         indent: current_token.indent,
         line: current_token.line,
         column: current_token.column,
-    };
+    }
 }

@@ -23,7 +23,7 @@ fn advance_char<I: Iterator<Item = char>>(
     _line: &mut usize,
     column: &mut usize,
 ) -> Option<char> {
-    while let Some(c) = chars.next() {
+    for c in chars.by_ref() {
         if c == '\r' {
             continue;
         } else if c == '\n' {

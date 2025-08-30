@@ -4,9 +4,9 @@ use crate::core::{
         driver::Parser,
         statement::{Statement, StatementKind},
     },
-    shared::value::Value,
     store::global::GlobalStore,
 };
+use devalang_types::Value;
 use std::collections::HashMap;
 
 pub fn parse_condition_token(parser: &mut Parser, global_store: &mut GlobalStore) -> Statement {
@@ -16,7 +16,10 @@ pub fn parse_condition_token(parser: &mut Parser, global_store: &mut GlobalStore
     };
 
     let Some(condition) = parser.parse_condition_until_colon() else {
-        return Statement::error(if_token, "Expected condition after 'if'".to_string());
+        return crate::core::parser::statement::error_from_token(
+            if_token,
+            "Expected condition after 'if'".to_string(),
+        );
     };
 
     parser.advance_if(TokenKind::Colon);
@@ -43,7 +46,7 @@ pub fn parse_condition_token(parser: &mut Parser, global_store: &mut GlobalStore
         let next_condition = if parser.peek_is("if") {
             parser.advance(); // consume 'if'
             let Some(cond) = parser.parse_condition_until_colon() else {
-                return Statement::error(
+                return crate::core::parser::statement::error_from_token(
                     tok.clone(),
                     "Expected condition after 'else if'".to_string(),
                 );

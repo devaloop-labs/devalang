@@ -32,7 +32,7 @@ pub fn parse_identifier_token(parser: &mut Parser, global_store: &mut GlobalStor
     let current_token_clone = current_token.clone();
     let current_token_lexeme = current_token_clone.lexeme.clone();
 
-    let statement = match current_token_lexeme.as_str() {
+    match current_token_lexeme.as_str() {
         "let" => parse_let_token(parser, current_token_clone, global_store),
         "group" => parse_group_token(parser, current_token_clone, global_store),
         "call" => parse_call_token(parser, current_token_clone, global_store),
@@ -46,9 +46,10 @@ pub fn parse_identifier_token(parser: &mut Parser, global_store: &mut GlobalStor
         _ => {
             parser.advance(); // consume identifier
 
-            return Statement::error(current_token_clone, "Unexpected identifier".to_string());
+            crate::core::parser::statement::error_from_token(
+                current_token_clone,
+                "Unexpected identifier".to_string(),
+            )
         }
-    };
-
-    return statement;
+    }
 }

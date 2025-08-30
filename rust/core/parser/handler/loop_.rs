@@ -1,10 +1,11 @@
+use devalang_types::Value;
+
 use crate::core::{
     lexer::token::TokenKind,
     parser::{
         driver::Parser,
         statement::{Statement, StatementKind},
     },
-    shared::value::Value,
     store::global::GlobalStore,
 };
 
@@ -20,7 +21,12 @@ pub fn parse_loop_token(parser: &mut Parser, global_store: &mut GlobalStore) -> 
 
     // Peek next to decide
     let Some(next_token) = parser.peek_clone() else {
-        return Statement::error(loop_token, "Expected iterator after loop/for".to_string());
+        return Statement::error_with_pos(
+            loop_token.indent,
+            loop_token.line,
+            loop_token.column,
+            "Expected iterator after loop/for".to_string(),
+        );
     };
 
     // Try to detect 'for <ident> in [array]:' form
@@ -66,26 +72,35 @@ pub fn parse_loop_token(parser: &mut Parser, global_store: &mut GlobalStore) -> 
                     Value::Identifier(tok.lexeme.clone())
                 }
                 _ => {
-                    return Statement::error(
-                        loop_token,
+                    return Statement::error_with_pos(
+                        loop_token.indent,
+                        loop_token.line,
+                        loop_token.column,
                         "Expected array, number, string or identifier after 'in'".to_string(),
                     );
                 }
             }
         } else {
-            return Statement::error(
-                loop_token,
+            return Statement::error_with_pos(
+                loop_token.indent,
+                loop_token.line,
+                loop_token.column,
                 "Expected array, number, string or identifier after 'in'".to_string(),
             );
         };
 
         // Expect ':'
         if !parser.match_token(TokenKind::Colon) {
-            return Statement::error(loop_token, "Expected ':' after foreach header".to_string());
+            return Statement::error_with_pos(
+                loop_token.indent,
+                loop_token.line,
+                loop_token.column,
+                "Expected ':' after foreach header".to_string(),
+            );
         }
 
         let tokens =
-            parser.collect_until(|t| t.kind == TokenKind::Dedent || t.kind == TokenKind::EOF);
+            parser.collect_until(|t| (t.kind == TokenKind::Dedent || t.kind == TokenKind::EOF));
         let loop_body = parser.parse_block(tokens.clone(), global_store);
         if let Some(token) = parser.peek() {
             if token.kind == TokenKind::Dedent {
@@ -109,8 +124,10 @@ pub fn parse_loop_token(parser: &mut Parser, global_store: &mut GlobalStore) -> 
 
     // Fallback to legacy: loop <count>:
     let Some(iterator_token) = parser.peek_clone() else {
-        return Statement::error(
-            loop_token,
+        return Statement::error_with_pos(
+            loop_token.indent,
+            loop_token.line,
+            loop_token.column,
             "Expected number or identifier after 'loop'".to_string(),
         );
     };
@@ -133,8 +150,10 @@ pub fn parse_loop_token(parser: &mut Parser, global_store: &mut GlobalStore) -> 
             Value::String(s)
         }
         _ => {
-            return Statement::error(
-                iterator_token.clone(),
+            return Statement::error_with_pos(
+                iterator_token.clone().indent,
+                iterator_token.clone().line,
+                iterator_token.clone().column,
                 "Expected a number, string or identifier as loop count".to_string(),
             );
         }
@@ -145,10 +164,16 @@ pub fn parse_loop_token(parser: &mut Parser, global_store: &mut GlobalStore) -> 
             "Expected ':' after loop count, got {:?}",
             parser.peek_kind()
         );
-        return Statement::error(loop_token.clone(), message);
+        return Statement::error_with_pos(
+            loop_token.clone().indent,
+            loop_token.clone().line,
+            loop_token.clone().column,
+            message,
+        );
     }
 
-    let tokens = parser.collect_until(|t| t.kind == TokenKind::Dedent || t.kind == TokenKind::EOF);
+    let tokens =
+        parser.collect_until(|t| (t.kind == TokenKind::Dedent || t.kind == TokenKind::EOF));
     let loop_body = parser.parse_block(tokens.clone(), global_store);
     if let Some(token) = parser.peek() {
         if token.kind == TokenKind::Dedent {

@@ -4,6 +4,52 @@
 
 # Changelog
 
+## Version 0.0.1-alpha.17 (2025-08-31)
+
+### ✨ Addons
+
+- Discovering addons: use the CLI to discover plugins or banks : place compiled addons (.devabank, .devaplugin) anywhere into your `.deva` folder, then run:
+
+  ```bash
+  devalang discover
+  ```
+
+- Installing external addons: use the CLI to install addons:
+
+  ```bash
+  devalang install <plugin | bank> user.myPlugin
+  ```
+
+- Plugin usage: you can now reference installed plugins directly from Devalang source
+  using the `@use` directive and an optional alias. Examples:
+
+  - `@use user.myPlugin` — exposes the plugin under its default name
+  - `@use user.myPlugin as myAlias` — expose the plugin as `myAlias` for shorter calls
+
+### 🧩 Packaging & TypeScript
+
+- Improved packaging and postinstall logic for the TypeScript/WASM distribution; the
+  Node package now avoids hard-failing when optional native binaries are not available.
+- `out-tsc` postinstall now performs guarded downloads and better logging to help consumers diagnose installation issues on CI or constrained environments.
+
+### 🧠 Architecture & Refactor
+
+- Introduced a shared `devalang_types` crate to centralize project types and config structures — this simplifies cross-crate typing between the CLI, core, utils and WASM artifacts.
+- Split utilities into a reusable `devalang_utils` crate (logger, watcher, spinner, file helpers, telemetry) and moved several helpers (path resolution, file copying, safe archive extraction) to that crate.
+- Modularized CLI features, clean separation between build/process, realtime runner, IO helpers and stats collection.
+
+### 🐛 Bug fixes & stability
+
+- Multiple robustness fixes across the parser, preprocessor and audio engine:
+  - dotted identifiers and synth/provider resolution improvements,
+  - safer path resolution for `.deva` resources (banks, plugins, presets),
+  - improved error collection and logging with annotated stacks for better debug output.
+- Audio runtime: better BPM/duration estimation and loop handling in the realtime runner to avoid premature termination of periodic handlers while loops execute.
+
+### 🧪 Tests & CI
+
+- Added test scaffolding and types to centralize cross-crate tests (test harness and lightweight types prepared in `devalang_types`); this enables adding unit tests incrementally without duplicating type definitions. (Full test coverage is ongoing.)
+
 ## Version 0.0.1-alpha.16-hotfix.2 (2025-08-29)
 
 ### 🌎 Ecosystem

@@ -1,10 +1,11 @@
+use devalang_types::Value;
+
 use crate::core::{
     lexer::token::{Token, TokenKind},
     parser::{
         driver::Parser,
         statement::{Statement, StatementKind},
     },
-    shared::value::Value,
     store::global::GlobalStore,
 };
 
@@ -20,17 +21,23 @@ pub fn parse_sleep_token(
             parser.advance();
             token.lexeme.parse().unwrap_or(0.0)
         } else {
-            return Statement::error(token, "Expected number after 'sleep'".to_string());
+            return crate::core::parser::statement::error_from_token(
+                token,
+                "Expected number after 'sleep'".to_string(),
+            );
         }
     } else {
-        return Statement::error(current_token, "Expected number after 'sleep'".to_string());
+        return crate::core::parser::statement::error_from_token(
+            current_token,
+            "Expected number after 'sleep'".to_string(),
+        );
     };
 
-    return Statement {
+    Statement {
         kind: StatementKind::Sleep,
         value: Value::Number(duration),
         indent: current_token.indent,
         line: current_token.line,
         column: current_token.column,
-    };
+    }
 }

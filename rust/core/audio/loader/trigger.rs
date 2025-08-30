@@ -1,8 +1,5 @@
-use crate::core::{
-    parser::statement::StatementKind,
-    shared::{duration::Duration, value::Value},
-    store::variable::VariableTable,
-};
+use crate::core::{parser::statement::StatementKind, store::variable::VariableTable};
+use devalang_types::{Duration, Value};
 
 pub fn load_trigger(
     trigger: &Value,
@@ -24,9 +21,9 @@ pub fn load_trigger(
 
         Value::Map(map) => {
             if let Some(Value::String(src)) = map.get("entity") {
-                trigger_path = format!("devalang://bank/{}", src.to_string());
+                trigger_path = format!("devalang://bank/{}", src);
             } else if let Some(Value::Identifier(src)) = map.get("entity") {
-                trigger_path = format!("devalang://bank/{}", src.to_string());
+                trigger_path = format!("devalang://bank/{}", src);
             } else {
                 eprintln!(
                     "❌ Trigger map must contain an 'entity' key with a string or identifier value."

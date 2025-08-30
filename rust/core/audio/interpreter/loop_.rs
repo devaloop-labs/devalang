@@ -1,7 +1,8 @@
+use devalang_types::Value;
+
 use crate::core::{
     audio::{engine::AudioEngine, interpreter::driver::execute_audio_block},
     parser::statement::Statement,
-    shared::value::Value,
     store::{function::FunctionTable, global::GlobalStore, variable::VariableTable},
 };
 
@@ -27,7 +28,7 @@ pub fn interprete_loop_statement(
             loop_value.get("array"),
             loop_value.get("body"),
         ) {
-            let mut engine = audio_engine;
+            let engine = audio_engine;
             let mut cur_time = cursor_time;
             let mut max_time = max_end_time;
 
@@ -36,11 +37,11 @@ pub fn interprete_loop_statement(
                 scoped_vars.set(var_name.clone(), item.clone());
 
                 let (block_end_time, new_cursor) = execute_audio_block(
-                    &mut engine,
+                    engine,
                     global_store,
                     scoped_vars,
                     functions_table.clone(),
-                    &loop_body,
+                    loop_body,
                     base_bpm,
                     base_duration,
                     max_time,
@@ -84,13 +85,13 @@ pub fn interprete_loop_statement(
             }
         };
 
-        let mut engine = audio_engine;
+        let engine = audio_engine;
         let mut cur_time = cursor_time;
         let mut max_time = max_end_time;
 
         for _ in 0..loop_count {
             let (block_end_time, new_cursor) = execute_audio_block(
-                &mut engine,
+                engine,
                 global_store,
                 variable_table.clone(),
                 functions_table.clone(),

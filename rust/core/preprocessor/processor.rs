@@ -3,10 +3,10 @@ use std::{collections::HashMap, path::Path};
 use crate::core::{
     parser::statement::StatementKind,
     preprocessor::loader::ModuleLoader,
-    shared::value::Value,
     store::global::GlobalStore,
     utils::path::{normalize_path, resolve_relative_path},
 };
+use devalang_types::Value;
 
 pub fn process_modules(_module_loader: &ModuleLoader, global_store: &mut GlobalStore) {
     for module in global_store.modules.values_mut() {
@@ -46,7 +46,7 @@ pub fn process_modules(_module_loader: &ModuleLoader, global_store: &mut GlobalS
                 StatementKind::Load { source, alias } => {
                     let module_dir = Path::new(&module.path).parent().unwrap_or(Path::new(""));
 
-                    let resolved_path = normalize_path(&module_dir.join(source));
+                    let resolved_path = normalize_path(module_dir.join(source));
 
                     module
                         .variable_table

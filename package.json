@@ -1,12 +1,13 @@
 {
   "name": "@devaloop/devalang",
   "private": false,
-  "version": "0.0.1-alpha.16-hotfix.3",
+  "version": "0.0.1-alpha.17",
   "description": "Write music like code. Devalang is a domain-specific language (DSL) for sound designers and music hackers. Compose, automate, and control sound — in plain text.",
   "main": "out-tsc/index.js",
   "bin": {
     "devalang": "./out-tsc/bin/index.js"
   },
+  "types": "./out-tsc/index.d.ts",
   "scripts": {
     "rust:fmt": "cargo fmt",
     "rust:dev:build": "cargo run build --entry examples --output output --debug",
@@ -15,9 +16,15 @@
     "rust:wasm:web": "wasm-pack build --target=web --no-default-features",
     "rust:wasm:node": "wasm-pack build --target=nodejs --no-default-features",
     "rust:prepack": "cargo build --release",
-    "scripts:build": "tsc",
     "scripts:postbuild": "tsc && node out-tsc/scripts/postbuild.js",
     "scripts:version:bump": "tsc && node out-tsc/scripts/version/index.js",
+    "scripts:build": "tsc",
+    "types:build": "tsc --emitDeclarationOnly",
+    "types:wasm": "tsc && node out-tsc/scripts/copy-wasm-dts.js",
+    "types:all": "npm run rust:wasm:node && npm run types:wasm && npm run types:build",
+    "test:rust": "cargo test",
+    "test:ts": "mocha -r ts-node/register tests/typescript/**/*.spec.ts --exit",
+    "test": "npm run test:ts",
     "postinstall": "node out-tsc/scripts/postinstall.js"
   },
   "homepage": "https://devalang.com",
@@ -48,6 +55,11 @@
     "follow-redirects": "^1.15.11"
   },
   "devDependencies": {
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "mocha": "^10.2.0",
+    "chai": "^4.3.8",
+    "ts-node": "^10.9.1",
+    "@types/mocha": "^10.0.1",
+    "@types/chai": "^4.3.4"
   }
 }

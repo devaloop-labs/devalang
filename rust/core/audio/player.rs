@@ -8,6 +8,12 @@ pub struct AudioPlayer {
     last_path: Option<String>,
 }
 
+impl Default for AudioPlayer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AudioPlayer {
     pub fn new() -> Self {
         let (stream, handle) = OutputStream::try_default().unwrap();

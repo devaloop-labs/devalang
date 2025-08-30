@@ -1,16 +1,14 @@
+use devalang_types::Value;
+
 use crate::core::{
     lexer::token::TokenKind,
     parser::{
         driver::Parser,
         statement::{Statement, StatementKind},
     },
-    shared::value::Value,
     store::global::GlobalStore,
 };
 
-// Syntax:
-// on <identifier>:
-//   <indented block>
 pub fn parse_on_token(parser: &mut Parser, _global_store: &mut GlobalStore) -> Statement {
     // consume 'on'
     let on_tok = match parser.peek_clone() {
@@ -23,9 +21,17 @@ pub fn parse_on_token(parser: &mut Parser, _global_store: &mut GlobalStore) -> S
     let event_tok = match parser.peek_clone() {
         Some(tok) if tok.kind == TokenKind::Identifier => tok,
         Some(other) => {
-            return Statement::error(other, "Expected event name after 'on'".to_string());
+            return crate::core::parser::statement::error_from_token(
+                other,
+                "Expected event name after 'on'".to_string(),
+            );
         }
-        None => return Statement::error(on_tok, "Expected event name after 'on'".to_string()),
+        None => {
+            return crate::core::parser::statement::error_from_token(
+                on_tok,
+                "Expected event name after 'on'".to_string(),
+            );
+        }
     };
     let event_name = event_tok.lexeme.clone();
     parser.advance();
@@ -68,7 +74,10 @@ pub fn parse_on_token(parser: &mut Parser, _global_store: &mut GlobalStore) -> S
 
     // Expect ':' then block
     if parser.peek_kind() != Some(TokenKind::Colon) {
-        return Statement::error(event_tok, "Expected ':' after event name".to_string());
+        return crate::core::parser::statement::error_from_token(
+            event_tok,
+            "Expected ':' after event name".to_string(),
+        );
     }
     parser.advance(); // consume ':'
 

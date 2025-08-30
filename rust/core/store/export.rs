@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::core::shared::value::Value;
+use devalang_types::Value;
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct ExportTable {

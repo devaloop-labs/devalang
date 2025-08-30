@@ -4,9 +4,9 @@ use crate::core::{
         driver::Parser,
         statement::{Statement, StatementKind},
     },
-    shared::value::Value,
     store::global::GlobalStore,
 };
+use devalang_types::Value;
 
 fn parse_map_literal(parser: &mut Parser) -> Value {
     // Assumes '{' has already been consumed by caller
@@ -126,28 +126,48 @@ pub fn parse_arrow_call(parser: &mut Parser, _global_store: &mut GlobalStore) ->
 
     if target_token.kind != TokenKind::Identifier {
         parser.advance(); // consume target token
-        return Statement::unknown_from_token(&target_token);
+        return Statement::unknown_with_pos(
+            target_token.indent,
+            target_token.line,
+            target_token.column,
+        );
     }
 
     let Some(arrow_token) = parser.peek_nth(1).cloned() else {
         parser.advance(); // consume arrow token
-        return Statement::unknown_from_token(&target_token);
+        return Statement::unknown_with_pos(
+            target_token.indent,
+            target_token.line,
+            target_token.column,
+        );
     };
 
     if arrow_token.kind != TokenKind::Arrow {
         parser.advance(); // consume method token
-        return Statement::unknown_from_token(&target_token);
+        return Statement::unknown_with_pos(
+            target_token.indent,
+            target_token.line,
+            target_token.column,
+        );
     }
 
     // We have a valid arrow call, so we consume the arrow token
     let Some(method_token) = parser.peek_nth(2).cloned() else {
         parser.advance();
-        return Statement::unknown_from_token(&target_token);
+        return Statement::unknown_with_pos(
+            target_token.indent,
+            target_token.line,
+            target_token.column,
+        );
     };
 
     if method_token.kind != TokenKind::Identifier {
         parser.advance();
-        return Statement::unknown_from_token(&method_token);
+        return Statement::unknown_with_pos(
+            method_token.indent,
+            method_token.line,
+            method_token.column,
+        );
     }
 
     // Consume the tokens for target, arrow, and method
@@ -202,10 +222,10 @@ pub fn parse_arrow_call(parser: &mut Parser, _global_store: &mut GlobalStore) ->
             TokenKind::Number => Value::Number(token.lexeme.parse::<f32>().unwrap_or(0.0)),
             TokenKind::LBrace => {
                 // Handle map literal (supports nested maps)
-                let map_val = parse_map_literal(parser);
+
                 // We consumed the matching '}', so outer map_depth should be decremented
                 // if the caller tracks it.
-                map_val
+                parse_map_literal(parser)
             }
             _ => Value::Unknown,
         };

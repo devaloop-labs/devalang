@@ -1,9 +1,9 @@
 use crate::core::{
     parser::statement::Statement,
-    plugin::loader::PluginInfo,
     preprocessor::module::Module,
     store::{function::FunctionTable, variable::VariableTable},
 };
+use devalang_types::PluginInfo;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
@@ -13,6 +13,12 @@ pub struct GlobalStore {
     pub functions: FunctionTable,
     pub events: HashMap<String, Vec<Statement>>,
     pub plugins: HashMap<String, (PluginInfo, Vec<u8>)>,
+}
+
+impl Default for GlobalStore {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl GlobalStore {

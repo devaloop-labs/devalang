@@ -1,13 +1,61 @@
-# 🦊 Welcome to Devalang !
-# This is your first Devalang program ?
-# Let's start with a simple example that plays a sample in a loop.
+# 🦊 Welcome to Devalang
+# Happy live-coding !
 
-@import { bpmVar, bankVar, loopVar } from './variables.deva'
-@load "../samples/kick-808.wav" as sample
+@import { bpmVar } from './variables.deva'
+@load "../samples/kick-808.wav" as myKick
 
+# BPM definition
 bpm bpmVar
 
-bank bankVar
+group myGroup:
+    # Rhythmic (each beat playing a kick)
+    on beat:
+        .myKick 1/4
 
-loop loopVar:
-    .sample auto
+    # Synth definition with ADSR
+    let myLead = synth sine {
+        attack: 0,
+        decay: 100,
+        sustain: 100,
+        release: 100
+    }
+
+    # Global automation
+    automate myLead:
+        param volume {
+            0% = 0.0
+            100% = 0.5
+        }
+        param pitch {
+            0% = -12.0
+            100% = 12.0
+        }
+
+    # Notes in a loop with condition
+    for i in [1, 2, 3]:
+        if i == 3:
+            myLead -> note(C5, { duration: 200 })
+            print "Playing note C5 for " + i
+
+    # Pause runtime for 500ms
+    sleep 500
+
+    # Note with automation
+    myLead -> note(C4, {
+        duration: 400,
+        velocity: 0.8,
+        automate: {
+            pan: {
+                0%: -1.0,
+                100%: 0.0
+            }
+        }
+    })
+
+    # Notes with params
+    myLead -> note(E4, { duration: 400 })
+    myLead -> note(G4, { duration: 600, glide: true, target_freq: 659.25 })
+    myLead -> note(B3, { duration: 400, slide: true, target_amp: 0.3 })
+
+# Calling the group to play it
+call myGroup

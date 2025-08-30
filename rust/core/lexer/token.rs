@@ -11,14 +11,7 @@ pub struct Token {
 
 impl Token {
     pub fn is_error(&self) -> bool {
-        match &self.kind {
-            TokenKind::Error(_) => {
-                return true;
-            }
-            _ => {
-                return false;
-            }
-        };
+        matches!(&self.kind, TokenKind::Error(_))
     }
 }
 

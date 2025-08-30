@@ -1,14 +1,11 @@
-use std::collections::HashMap;
-
-use crate::{
-    core::{
-        parser::statement::{Statement, StatementKind},
-        preprocessor::module::Module,
-        shared::{duration::Duration, value::Value},
-        store::global::GlobalStore,
-    },
-    utils::logger::Logger,
+use crate::core::{
+    parser::statement::{Statement, StatementKind},
+    preprocessor::module::Module,
+    store::global::GlobalStore,
 };
+use devalang_types::{Duration, Value};
+use devalang_utils::logger::Logger;
+use std::collections::HashMap;
 
 pub fn resolve_trigger(
     stmt: &Statement,
@@ -44,15 +41,21 @@ pub fn resolve_trigger(
     // Params value resolution
     let final_value = match &stmt.value {
         Value::Identifier(ident) => {
-            println!("Resolving identifier: {}", ident);
+            logger.log_message(
+                devalang_utils::logger::LogLevel::Debug,
+                &format!("Resolving identifier: {}", ident),
+            );
 
-            resolve_identifier(ident, module, global_store).unwrap_or_else(|| {
-                logger.log_error_with_stacktrace(
-                    &format!("'{path}': value identifier '{ident}' not found"),
-                    &format!("{}:{}:{}", module.path, stmt.line, stmt.column),
-                );
-                Value::Null
-            })
+            match resolve_identifier(ident, module, global_store) {
+                Some(v) => v,
+                None => {
+                    logger.log_error_with_stacktrace(
+                        &format!("'{path}': value identifier '{ident}' not found"),
+                        &format!("{}:{}:{}", module.path, stmt.line, stmt.column),
+                    );
+                    Value::Null
+                }
+            }
         }
         Value::Map(map) => {
             let mut resolved_map = HashMap::new();
@@ -88,7 +91,7 @@ fn resolve_identifier(ident: &str, module: &Module, global_store: &GlobalStore) 
         return Some(resolve_value(val, module, global_store));
     }
 
-    for (_, other_mod) in &global_store.modules {
+    for other_mod in global_store.modules.values() {
         if let Some(val) = other_mod.variable_table.get(ident) {
             return Some(resolve_value(val, other_mod, global_store));
         }

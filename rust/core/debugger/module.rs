@@ -13,7 +13,7 @@ pub fn write_module_variable_log_file(
     let mut content = String::new();
     let module_name = module_path
         .split('/')
-        .last()
+        .next_back()
         .unwrap_or("index")
         .replace(".deva", "");
 
@@ -24,7 +24,7 @@ pub fn write_module_variable_log_file(
         content.push_str(&format!("{:?} = {:?}\n", var_name, var_data));
     }
 
-    content.push_str("\n");
+    content.push('\n');
 
     debugger.write_log_file(&log_directory, "variables.log", &content);
 }
@@ -38,7 +38,7 @@ pub fn write_module_function_log_file(
     let mut content = String::new();
     let module_name = module_path
         .split('/')
-        .last()
+        .next_back()
         .unwrap_or("index")
         .replace(".deva", "");
 
@@ -49,7 +49,7 @@ pub fn write_module_function_log_file(
         content.push_str(&format!("{:?} = {:?}\n", func_name, func_data));
     }
 
-    content.push_str("\n");
+    content.push('\n');
 
     debugger.write_log_file(&log_directory, "functions.log", &content);
 }

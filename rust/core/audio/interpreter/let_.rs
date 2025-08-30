@@ -1,8 +1,8 @@
 use crate::core::{
     parser::statement::{Statement, StatementKind},
-    shared::value::Value,
     store::variable::VariableTable,
 };
+use devalang_types::Value;
 
 pub fn interprete_let_statement(
     stmt: &Statement,

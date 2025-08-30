@@ -3,10 +3,10 @@ use std::collections::HashMap;
 use crate::core::{
     audio::{engine::AudioEngine, loader::trigger::load_trigger},
     parser::statement::{Statement, StatementKind},
-    shared::{duration::Duration, value::Value},
     store::variable::VariableTable,
 };
-use crate::utils::logger::Logger;
+use devalang_types::{Duration, Value};
+use devalang_utils::logger::Logger;
 
 pub fn interprete_trigger_statement(
     stmt: &Statement,

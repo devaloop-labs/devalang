@@ -1,11 +1,11 @@
-pub mod driver;
-
 pub mod bank;
 pub mod build;
 pub mod check;
+pub mod discover;
 pub mod init;
 pub mod install;
 pub mod login;
+pub mod parser;
 pub mod play;
 pub mod telemetry;
 pub mod template;

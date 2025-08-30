@@ -1,10 +1,11 @@
+use devalang_types::Value;
+
 use crate::core::{
     lexer::token::TokenKind,
     parser::{
         driver::Parser,
         statement::{Statement, StatementKind},
     },
-    shared::value::Value,
     store::global::GlobalStore,
 };
 pub fn parse_at_token(parser: &mut Parser, _global_store: &mut GlobalStore) -> Statement {
@@ -25,10 +26,13 @@ pub fn parse_at_token(parser: &mut Parser, _global_store: &mut GlobalStore) -> S
 
             // Expect plugin author
             let Some(author_token) = parser.peek_clone() else {
-                return Statement::error(use_token, "Expected plugin author".to_string());
+                return crate::core::parser::statement::error_from_token(
+                    use_token,
+                    "Expected plugin author".to_string(),
+                );
             };
             if author_token.kind != TokenKind::Identifier {
-                return Statement::error(
+                return crate::core::parser::statement::error_from_token(
                     author_token,
                     "Expected identifier for plugin author".to_string(),
                 );
@@ -37,7 +41,7 @@ pub fn parse_at_token(parser: &mut Parser, _global_store: &mut GlobalStore) -> S
 
             // Expect '.'
             if !parser.match_token(TokenKind::Dot) {
-                return Statement::error(
+                return crate::core::parser::statement::error_from_token(
                     author_token,
                     "Expected '.' after plugin author".to_string(),
                 );
@@ -45,7 +49,10 @@ pub fn parse_at_token(parser: &mut Parser, _global_store: &mut GlobalStore) -> S
 
             // Expect plugin name
             let Some(plugin_token) = parser.peek_clone() else {
-                return Statement::error(author_token, "Expected plugin name".to_string());
+                return crate::core::parser::statement::error_from_token(
+                    author_token,
+                    "Expected plugin name".to_string(),
+                );
             };
 
             let name = match plugin_token.kind {
@@ -54,7 +61,7 @@ pub fn parse_at_token(parser: &mut Parser, _global_store: &mut GlobalStore) -> S
                     format!("{}.{}", author_token.lexeme, plugin_token.lexeme)
                 }
                 _ => {
-                    return Statement::error(
+                    return crate::core::parser::statement::error_from_token(
                         plugin_token,
                         "Expected identifier or number for plugin name".to_string(),
                     );
@@ -64,13 +71,13 @@ pub fn parse_at_token(parser: &mut Parser, _global_store: &mut GlobalStore) -> S
             // Optional alias
             let alias = if parser.match_token(TokenKind::As) {
                 let Some(alias_token) = parser.peek_clone() else {
-                    return Statement::error(
+                    return crate::core::parser::statement::error_from_token(
                         use_token,
                         "Expected identifier after 'as'".to_string(),
                     );
                 };
                 if alias_token.kind != TokenKind::Identifier {
-                    return Statement::error(
+                    return crate::core::parser::statement::error_from_token(
                         alias_token,
                         "Expected identifier after 'as'".to_string(),
                     );
@@ -97,7 +104,10 @@ pub fn parse_at_token(parser: &mut Parser, _global_store: &mut GlobalStore) -> S
             parser.advance(); // consume 'import'
 
             if !parser.match_token(TokenKind::LBrace) {
-                return Statement::error(token, "Expected '{{' after 'import'".to_string());
+                return crate::core::parser::statement::error_from_token(
+                    token,
+                    "Expected '{{' after 'import'".to_string(),
+                );
             }
 
             let mut names = Vec::new();
@@ -117,27 +127,42 @@ pub fn parse_at_token(parser: &mut Parser, _global_store: &mut GlobalStore) -> S
                     _ => {
                         let message =
                             format!("Unexpected token in import list: {:?}", token.kind.clone());
-                        return Statement::error(token.clone(), message);
+                        return crate::core::parser::statement::error_from_token(
+                            token.clone(),
+                            message,
+                        );
                     }
                 }
             }
 
             let Some(from_token) = parser.peek_clone() else {
-                return Statement::error(token, "Expected 'from' after import list".to_string());
+                return crate::core::parser::statement::error_from_token(
+                    token,
+                    "Expected 'from' after import list".to_string(),
+                );
             };
 
             if from_token.lexeme != "from" {
-                return Statement::error(token, "Expected keyword 'from'".to_string());
+                return crate::core::parser::statement::error_from_token(
+                    token,
+                    "Expected keyword 'from'".to_string(),
+                );
             }
 
             parser.advance(); // consume 'from'
 
             let Some(source_token) = parser.peek() else {
-                return Statement::error(token, "Expected string after 'from'".to_string());
+                return crate::core::parser::statement::error_from_token(
+                    token,
+                    "Expected string after 'from'".to_string(),
+                );
             };
 
             if source_token.kind != TokenKind::String {
-                return Statement::error(token, "Expected string after 'from'".to_string());
+                return crate::core::parser::statement::error_from_token(
+                    token,
+                    "Expected string after 'from'".to_string(),
+                );
             }
 
             let source = source_token.lexeme.clone();
@@ -168,7 +193,10 @@ pub fn parse_at_token(parser: &mut Parser, _global_store: &mut GlobalStore) -> S
                 } else if token.kind == TokenKind::RBrace {
                     break; // Stop at the closing brace
                 } else {
-                    return Statement::error(token, "Unexpected token in export list".to_string());
+                    return crate::core::parser::statement::error_from_token(
+                        token,
+                        "Unexpected token in export list".to_string(),
+                    );
                 }
             }
 
@@ -189,11 +217,17 @@ pub fn parse_at_token(parser: &mut Parser, _global_store: &mut GlobalStore) -> S
 
             // Example: @load "preset.mydeva"
             let Some(path_token) = parser.peek() else {
-                return Statement::error(token, "Expected string after 'load'".to_string());
+                return crate::core::parser::statement::error_from_token(
+                    token,
+                    "Expected string after 'load'".to_string(),
+                );
             };
 
             if path_token.kind != TokenKind::String {
-                return Statement::error(token, "Expected string after 'load'".to_string());
+                return crate::core::parser::statement::error_from_token(
+                    token,
+                    "Expected string after 'load'".to_string(),
+                );
             }
 
             let path = path_token.lexeme.clone();
@@ -201,21 +235,21 @@ pub fn parse_at_token(parser: &mut Parser, _global_store: &mut GlobalStore) -> S
             parser.advance(); // consume string
 
             if !parser.match_token(TokenKind::As) {
-                return Statement::error(
+                return crate::core::parser::statement::error_from_token(
                     token,
                     "Expected 'as' after path in load statement".to_string(),
                 );
             }
 
             let Some(alias_token) = parser.peek_clone() else {
-                return Statement::error(
+                return crate::core::parser::statement::error_from_token(
                     token,
                     "Expected identifier after 'as' in load statement".to_string(),
                 );
             };
 
             if alias_token.kind != TokenKind::Identifier {
-                return Statement::error(
+                return crate::core::parser::statement::error_from_token(
                     token,
                     "Expected identifier after 'as' in load statement".to_string(),
                 );
@@ -239,7 +273,7 @@ pub fn parse_at_token(parser: &mut Parser, _global_store: &mut GlobalStore) -> S
 
         _ => {
             let message = format!("Unknown keyword after '@' : {}", keyword);
-            Statement::error(token, message)
+            crate::core::parser::statement::error_from_token(token, message)
         }
     }
 }

@@ -2,7 +2,8 @@ use crate::core::audio::special::{
     find_and_eval_first_easing_call, find_and_eval_first_math_call, find_and_eval_first_mod_call,
     resolve_env_atom,
 };
-use crate::core::{shared::value::Value, store::variable::VariableTable};
+use crate::core::store::variable::VariableTable;
+use devalang_types::Value;
 
 pub fn evaluate_condition_string(expr: &str, vars: &VariableTable) -> bool {
     let tokens: Vec<&str> = expr.split_whitespace().collect();
@@ -15,7 +16,7 @@ pub fn evaluate_condition_string(expr: &str, vars: &VariableTable) -> bool {
     let right = tokens[2];
 
     let left_val = match vars.get(left) {
-        Some(Value::Number(n)) => *n,
+        Some(Value::Number(n)) => n,
         _ => {
             return false;
         }
@@ -24,12 +25,12 @@ pub fn evaluate_condition_string(expr: &str, vars: &VariableTable) -> bool {
     let right_val: f32 = right.parse().unwrap_or(0.0);
 
     match op {
-        ">" => left_val > right_val,
-        "<" => left_val < right_val,
-        ">=" => left_val >= right_val,
-        "<=" => left_val <= right_val,
-        "==" => (left_val - right_val).abs() < f32::EPSILON,
-        "!=" => (left_val - right_val).abs() > f32::EPSILON,
+        ">" => *left_val > right_val,
+        "<" => *left_val < right_val,
+        ">=" => *left_val >= right_val,
+        "<=" => *left_val <= right_val,
+        "==" => (*left_val - right_val).abs() < f32::EPSILON,
+        "!=" => (*left_val - right_val).abs() > f32::EPSILON,
         _ => false,
     }
 }
@@ -148,7 +149,9 @@ pub fn evaluate_numeric_expression(
                     }
                 }
                 (Some(_), None) => val,
-                _ => return None,
+                _ => {
+                    return None;
+                }
             });
         }
 
@@ -243,9 +246,9 @@ pub fn evaluate_string_expression(
         // Try variables first
         if let Some(val) = vars.get(&p) {
             match val {
-                crate::core::shared::value::Value::String(s) => out.push_str(s),
-                crate::core::shared::value::Value::Number(n) => out.push_str(&format!("{}", n)),
-                crate::core::shared::value::Value::Boolean(b) => out.push_str(&format!("{}", b)),
+                Value::String(s) => out.push_str(s),
+                Value::Number(n) => out.push_str(&format!("{}", n)),
+                Value::Boolean(b) => out.push_str(&format!("{}", b)),
                 other => out.push_str(&format!("{:?}", other)),
             }
             continue;

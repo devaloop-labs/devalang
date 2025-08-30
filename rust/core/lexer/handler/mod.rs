@@ -1,11 +1,10 @@
-pub mod driver;
-
 pub mod arrow;
 pub mod at;
 pub mod brace;
 pub mod colon;
 pub mod comment;
 pub mod dot;
+pub mod driver;
 pub mod identifier;
 pub mod indent;
 pub mod newline;

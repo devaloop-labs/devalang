@@ -1,11 +1,9 @@
-use crate::{
-    core::{
-        audio::{engine::AudioEngine, interpreter::driver::run_audio_program},
-        parser::statement::Statement,
-        store::global::GlobalStore,
-    },
-    utils::logger::{LogLevel, Logger},
+use crate::core::{
+    audio::{engine::AudioEngine, interpreter::driver::run_audio_program},
+    parser::statement::Statement,
+    store::global::GlobalStore,
 };
+use devalang_utils::logger::{LogLevel, Logger};
 use std::collections::HashMap;
 
 pub fn render_audio_with_modules(

@@ -25,12 +25,12 @@ fn parse_top_level_args(s: &str) -> Vec<&str> {
 
 fn eval_math_func(func: &str, args: &[f32], fallback_seed: f32) -> Option<f32> {
     match func {
-        "sin" => args.get(0).copied().map(f32::sin),
-        "cos" => args.get(0).copied().map(f32::cos),
+        "sin" => args.first().copied().map(f32::sin),
+        "cos" => args.first().copied().map(f32::cos),
         "random" => {
             // deterministic pseudo-random based on provided seed or a fallback session seed
-            let seed = args.get(0).copied().unwrap_or(fallback_seed);
-            let x = (seed * 12.9898).sin() * 43758.5453;
+            let seed = args.first().copied().unwrap_or(fallback_seed);
+            let x = (seed * 12.9898).sin() * 43_758.547;
             Some((x.fract() * 2.0 - 1.0).clamp(-1.0, 1.0))
         }
         "lerp" => {

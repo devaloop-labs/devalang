@@ -1,10 +1,11 @@
+use devalang_types::Value;
+
 use crate::core::{
     lexer::token::TokenKind,
     parser::{
         driver::Parser,
         statement::{Statement, StatementKind},
     },
-    shared::value::Value,
     store::global::GlobalStore,
 };
 
@@ -66,7 +67,10 @@ pub fn parse_bank_token(parser: &mut Parser, _global_store: &mut GlobalStore) ->
     };
 
     if matches!(bank_value, Value::Unknown | Value::Null) {
-        return Statement::error(bank_tok, "Expected a bank name".to_string());
+        return crate::core::parser::statement::error_from_token(
+            bank_tok,
+            "Expected a bank name".to_string(),
+        );
     }
 
     // Optional alias: as <identifier>
@@ -75,10 +79,16 @@ pub fn parse_bank_token(parser: &mut Parser, _global_store: &mut GlobalStore) ->
         // consume 'as'
         parser.advance();
         let Some(next) = parser.peek_clone() else {
-            return Statement::error(bank_tok, "Expected identifier after 'as'".to_string());
+            return crate::core::parser::statement::error_from_token(
+                bank_tok,
+                "Expected identifier after 'as'".to_string(),
+            );
         };
         if next.kind != TokenKind::Identifier {
-            return Statement::error(next, "Expected identifier after 'as'".to_string());
+            return crate::core::parser::statement::error_from_token(
+                next,
+                "Expected identifier after 'as'".to_string(),
+            );
         }
         parser.advance();
         alias = Some(next.lexeme.clone());

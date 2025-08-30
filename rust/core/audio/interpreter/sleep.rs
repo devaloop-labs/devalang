@@ -1,4 +1,5 @@
-use crate::core::{parser::statement::Statement, shared::value::Value};
+use crate::core::parser::statement::Statement;
+use devalang_types::Value;
 
 pub fn interprete_sleep_statement(
     stmt: &Statement,

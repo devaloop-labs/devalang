@@ -4,9 +4,9 @@ use crate::core::{
         driver::Parser,
         statement::{Statement, StatementKind},
     },
-    shared::value::Value,
     store::global::GlobalStore,
 };
+use devalang_types::Value;
 
 pub fn parse_tempo_token(parser: &mut Parser, _global_store: &mut GlobalStore) -> Statement {
     parser.advance(); // consume 'bpm'
@@ -17,8 +17,10 @@ pub fn parse_tempo_token(parser: &mut Parser, _global_store: &mut GlobalStore) -
 
     // Expect a number or identifier
     let Some(value_token) = parser.peek_clone() else {
-        return Statement::error(
-            tempo_token,
+        return Statement::error_with_pos(
+            tempo_token.indent,
+            tempo_token.line,
+            tempo_token.column,
             "Expected a number or identifier after 'bpm'".to_string(),
         );
     };
@@ -33,8 +35,10 @@ pub fn parse_tempo_token(parser: &mut Parser, _global_store: &mut GlobalStore) -
             Value::Identifier(value_token.lexeme.clone())
         }
         _ => {
-            return Statement::error(
-                value_token.clone(),
+            return Statement::error_with_pos(
+                value_token.indent,
+                value_token.line,
+                value_token.column,
                 format!(
                     "Expected a number or identifier after 'bpm', got {:?}",
                     value_token.kind

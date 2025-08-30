@@ -1,10 +1,11 @@
+use devalang_types::Value;
+
 use crate::core::{
     lexer::token::TokenKind,
     parser::{
         driver::Parser,
         statement::{Statement, StatementKind},
     },
-    shared::value::Value,
     store::global::GlobalStore,
 };
 
@@ -18,11 +19,16 @@ pub fn parse_function_token(parser: &mut Parser, global_store: &mut GlobalStore)
 
     let name_token = match parser.peek_clone() {
         Some(tok) => tok,
-        None => return Statement::error(fn_token, "Expected function name after 'fn'".to_string()),
+        None => {
+            return crate::core::parser::statement::error_from_token(
+                fn_token,
+                "Expected function name after 'fn'".to_string(),
+            );
+        }
     };
 
     if name_token.kind != TokenKind::Identifier {
-        return Statement::error(
+        return crate::core::parser::statement::error_from_token(
             name_token.clone(),
             "Expected function name to be an identifier".to_string(),
         );
@@ -35,7 +41,7 @@ pub fn parse_function_token(parser: &mut Parser, global_store: &mut GlobalStore)
 
     // Expect '('
     if parser.peek_kind() != Some(TokenKind::LParen) {
-        return Statement::error(
+        return crate::core::parser::statement::error_from_token(
             name_token.clone(),
             "Expected '(' after function name".to_string(),
         );
@@ -53,7 +59,7 @@ pub fn parse_function_token(parser: &mut Parser, global_store: &mut GlobalStore)
     if parser.peek_kind() == Some(TokenKind::RParen) {
         parser.advance(); // consume ')'
     } else {
-        return Statement::error(
+        return crate::core::parser::statement::error_from_token(
             name_token.clone(),
             "Expected ')' after parameters".to_string(),
         );
@@ -61,7 +67,10 @@ pub fn parse_function_token(parser: &mut Parser, global_store: &mut GlobalStore)
 
     // Expect colon
     if parser.peek_kind() != Some(TokenKind::Colon) {
-        return Statement::error(name_token.clone(), "Expected ':' after ')'".to_string());
+        return crate::core::parser::statement::error_from_token(
+            name_token.clone(),
+            "Expected ':' after ')'".to_string(),
+        );
     }
     parser.advance(); // consume ':'
 
@@ -73,7 +82,11 @@ pub fn parse_function_token(parser: &mut Parser, global_store: &mut GlobalStore)
         if tok.kind == TokenKind::Dedent && tok.indent <= base_indent {
             break;
         }
-        body_tokens.push(parser.advance().unwrap().clone());
+        if let Some(t) = parser.advance() {
+            body_tokens.push(t.clone());
+        } else {
+            break;
+        }
     }
 
     // Parse those tokens into block statements

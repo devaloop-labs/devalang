@@ -1,12 +1,10 @@
-use crate::{
-    core::{
-        parser::statement::{Statement, StatementKind},
-        preprocessor::{module::Module, resolver::driver::resolve_statement},
-        shared::value::Value,
-        store::global::GlobalStore,
-    },
-    utils::logger::{LogLevel, Logger},
+use crate::core::{
+    parser::statement::{Statement, StatementKind},
+    preprocessor::{module::Module, resolver::driver::resolve_statement},
+    store::global::GlobalStore,
 };
+use devalang_types::Value;
+use devalang_utils::logger::{LogLevel, Logger};
 
 pub fn resolve_synth(
     stmt: &Statement,

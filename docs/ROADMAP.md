@@ -22,10 +22,13 @@ Devalang is a work in progress. Here’s what we’re planning next:
 - ✅ **Sample loading**: Add `@load` assignment to load samples (.mp3, .wav) for use as values.
 - ✅ **WASM support**: Compile Devalang to WebAssembly for use in web applications and other environments.
 - ✅ **VSCode extension**: Create a VSCode extension for syntax highlighting and code completion.
-- ✅ **Addon generator**: Implement addon generation for creating reusable plugins, banks and presets.
 
-## Upcoming
+## In Progress
+
+- ⏳ **Addon generator**: Implement addon generation for creating reusable plugins, banks and presets.
+- ⏳ **Testing**: Expand test coverage for all features.
+
+## Planned
 
 - ⏳ **Smart modules**: Let Devalang detect and use groups, samples, and variables without needing to import them manually.
 - ⏳ **Other statements**: Implement `pattern`, and other control structures.
-- ⏳ **Testing**: Expand test coverage for all features.

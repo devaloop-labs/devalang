@@ -1,11 +1,17 @@
 use crate::core::audio::renderer::render_audio_with_modules;
 use crate::core::parser::statement::Statement;
 use crate::core::store::global::GlobalStore;
-use crate::utils::logger::Logger;
+use devalang_utils::logger::Logger;
 use std::io::Write;
 use std::{collections::HashMap, fs::create_dir_all};
 
 pub struct Builder {}
+
+impl Default for Builder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl Builder {
     pub fn new() -> Self {
@@ -46,7 +52,7 @@ impl Builder {
         let logger = Logger::new();
 
         let audio_engines =
-            render_audio_with_modules(modules.clone(), &normalized_output_dir, global_store);
+            render_audio_with_modules(modules.clone(), normalized_output_dir, global_store);
 
         create_dir_all(format!("{}/audio", normalized_output_dir))
             .expect("Failed to create audio directory");
@@ -54,7 +60,7 @@ impl Builder {
         for (module_name, mut audio_engine) in audio_engines {
             let formatted_module_name = module_name
                 .split('/')
-                .last()
+                .next_back()
                 .unwrap_or(&module_name)
                 .replace(".deva", "");
 

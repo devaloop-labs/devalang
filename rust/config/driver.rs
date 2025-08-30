@@ -1,60 +1,45 @@
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use devalang_types::{
+    PluginEntry as SharedPluginEntry, ProjectConfig as SharedProjectConfig,
+    ProjectConfigBankEntry as SharedProjectConfigBankEntry,
+    ProjectConfigDefaults as SharedProjectConfigDefaults,
+    ProjectConfigPluginEntry as SharedProjectConfigPluginEntry,
+};
+use devalang_utils::path as path_utils;
+use std::path::PathBuf;
 
-#[derive(Debug, Deserialize, Clone, Serialize)]
-pub struct ProjectConfig {
-    pub defaults: ProjectConfigDefaults,
-    pub banks: Option<Vec<ProjectConfigBankEntry>>,
-    pub plugins: Option<Vec<PluginEntry>>,
+pub type ProjectConfig = SharedProjectConfig;
+pub type ProjectConfigDefaults = SharedProjectConfigDefaults;
+pub type ProjectConfigBankEntry = SharedProjectConfigBankEntry;
+pub type ProjectConfigPluginEntry = SharedProjectConfigPluginEntry;
+pub type PluginEntry = SharedPluginEntry;
+
+pub trait ProjectConfigExt {
+    fn new_config() -> Self;
+    fn with_defaults(
+        entry: Option<String>,
+        output: Option<String>,
+        watch: Option<bool>,
+        repeat: Option<bool>,
+        debug: Option<bool>,
+        compress: Option<bool>,
+    ) -> Self;
+    fn get() -> Result<Self, String>
+    where
+        Self: Sized;
+    fn from_string(config_string: &str) -> Result<(Self, String), String>
+    where
+        Self: Sized;
+    fn write_config(&self, new_config: &Self) -> Result<(), String>
+    where
+        Self: Sized;
 }
 
-#[derive(Debug, Deserialize, Clone, Serialize)]
-pub struct ProjectConfigDefaults {
-    pub entry: Option<String>,
-    pub output: Option<String>,
-    pub watch: Option<bool>,
-    pub repeat: Option<bool>,
-    pub debug: Option<bool>,
-    pub compress: Option<bool>,
-}
-
-#[derive(Debug, Deserialize, Clone, Serialize)]
-pub struct ProjectConfigBankMetadata {
-    pub bank: HashMap<String, String>,
-    pub triggers: Option<Vec<HashMap<String, String>>>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-pub struct ProjectConfigBankEntry {
-    pub path: String,
-    pub version: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-pub struct PluginEntry {
-    pub path: String,
-    pub version: String,
-    pub author: String,
-    pub access: String,
-}
-
-impl ProjectConfig {
-    pub fn new() -> Self {
-        ProjectConfig {
-            defaults: ProjectConfigDefaults {
-                entry: None,
-                output: None,
-                watch: None,
-                repeat: None,
-                debug: None,
-                compress: None,
-            },
-            banks: Some(Vec::new()),
-            plugins: Some(Vec::new()),
-        }
+impl ProjectConfigExt for SharedProjectConfig {
+    fn new_config() -> Self {
+        SharedProjectConfig::default()
     }
 
-    pub fn with_defaults(
+    fn with_defaults(
         entry: Option<String>,
         output: Option<String>,
         watch: Option<bool>,
@@ -62,8 +47,8 @@ impl ProjectConfig {
         debug: Option<bool>,
         compress: Option<bool>,
     ) -> Self {
-        ProjectConfig {
-            defaults: ProjectConfigDefaults {
+        SharedProjectConfig {
+            defaults: SharedProjectConfigDefaults {
                 entry,
                 output,
                 watch,
@@ -76,42 +61,42 @@ impl ProjectConfig {
         }
     }
 
-    pub fn get() -> Result<ProjectConfig, String> {
-        let root = std::env::current_dir().unwrap();
-        let config_path = root.join(".devalang");
-
-        if config_path.try_exists().is_err() {
-            return Err(format!(
-                "Config file not found at path: {}",
-                config_path.display()
-            ));
-        }
+    fn get() -> Result<Self, String> {
+        let config_path = path_utils::get_devalang_config_path()?;
 
         let config_content = std::fs::read_to_string(&config_path)
             .map_err(|e| format!("Failed to read config file: {}", e))?;
 
-        let config: ProjectConfig = toml::from_str(&config_content)
+        let config: SharedProjectConfig = toml::from_str(&config_content)
             .map_err(|e| format!("Failed to parse config file: {}", e))?;
 
         Ok(config)
     }
 
-    pub fn from_string(config_string: &str) -> Result<(Self, String), String> {
-        let config: ProjectConfig = toml::from_str(config_string)
+    fn from_string(config_string: &str) -> Result<(Self, String), String> {
+        let config: SharedProjectConfig = toml::from_str(config_string)
             .map_err(|e| format!("Failed to parse config string: {}", e))?;
         let config_path = ".devalang".to_string();
 
         Ok((config, config_path))
     }
 
-    pub fn write(&self, new_config: &ProjectConfig) -> Result<(), String> {
-        let config_path = ".devalang";
+    fn write_config(&self, new_config: &Self) -> Result<(), String> {
+        let config_path: PathBuf = match path_utils::get_project_root() {
+            Ok(root) => root.join(path_utils::DEVALANG_CONFIG),
+            Err(_) => PathBuf::from(path_utils::DEVALANG_CONFIG),
+        };
 
         let content = toml::to_string(new_config)
             .map_err(|e| format!("Failed to serialize config: {}", e))?;
 
-        std::fs::write(config_path, content)
-            .map_err(|e| format!("Failed to write config to file '{}': {}", config_path, e))?;
+        std::fs::write(&config_path, content).map_err(|e| {
+            format!(
+                "Failed to write config to file '{}': {}",
+                config_path.display(),
+                e
+            )
+        })?;
 
         Ok(())
     }

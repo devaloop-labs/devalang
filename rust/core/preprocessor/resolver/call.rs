@@ -1,12 +1,10 @@
-use crate::{
-    core::{
-        parser::statement::{Statement, StatementKind},
-        preprocessor::module::Module,
-        shared::value::Value,
-        store::global::GlobalStore,
-    },
-    utils::logger::{LogLevel, Logger},
+use crate::core::{
+    parser::statement::{Statement, StatementKind},
+    preprocessor::module::Module,
+    store::global::GlobalStore,
 };
+use devalang_types::Value;
+use devalang_utils::logger::{LogLevel, Logger};
 
 pub fn resolve_call(
     stmt: &Statement,
@@ -44,23 +42,21 @@ pub fn resolve_call(
             }
 
             // Otherwise, check if it's a variable (e.g. group)
-            if let Some(variable) = global_store.variables.variables.get(&name) {
-                if let Value::Statement(stmt_box) = variable {
-                    if let StatementKind::Group = stmt_box.kind {
-                        if let Value::Map(map) = &stmt_box.value {
-                            if let Some(Value::Block(body)) = map.get("body") {
-                                let mut resolved_map = std::collections::HashMap::new();
-                                resolved_map
-                                    .insert("identifier".to_string(), Value::String(name.clone()));
-                                resolved_map.insert("args".to_string(), Value::Array(args.clone()));
-                                resolved_map.insert("body".to_string(), Value::Block(body.clone()));
+            if let Some(Value::Statement(stmt_box)) = global_store.variables.variables.get(&name) {
+                if let StatementKind::Group = stmt_box.kind {
+                    if let Value::Map(map) = &stmt_box.value {
+                        if let Some(Value::Block(body)) = map.get("body") {
+                            let mut resolved_map = std::collections::HashMap::new();
+                            resolved_map
+                                .insert("identifier".to_string(), Value::String(name.clone()));
+                            resolved_map.insert("args".to_string(), Value::Array(args.clone()));
+                            resolved_map.insert("body".to_string(), Value::Block(body.clone()));
 
-                                return Statement {
-                                    kind: StatementKind::Call { name, args },
-                                    value: Value::Map(resolved_map),
-                                    ..stmt.clone()
-                                };
-                            }
+                            return Statement {
+                                kind: StatementKind::Call { name, args },
+                                value: Value::Map(resolved_map),
+                                ..stmt.clone()
+                            };
                         }
                     }
                 }

@@ -1,10 +1,11 @@
+use devalang_types::{Duration, Value};
+
 use crate::core::{
     lexer::token::TokenKind,
     parser::{
         driver::Parser,
         statement::{Statement, StatementKind},
     },
-    shared::{duration::Duration, value::Value},
 };
 
 pub fn parse_dot_token(

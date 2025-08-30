@@ -1,6 +1,7 @@
+use devalang_types::Value;
+
 use crate::core::{
     parser::statement::{Statement, StatementKind},
-    shared::value::Value,
     store::variable::VariableTable,
 };
 

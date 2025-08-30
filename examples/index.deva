@@ -1,43 +1,60 @@
-# This file demonstrates general uses of Devalang.
+# This file demonstrates general use cases of Devalang.
 
-bpm 120
+# BPM definition
+bpm 125
 
-group main:
-	let lead = synth sine {
+# Bank picking (make sure you have installed it)
+bank devaloop.808 as my808Bank
+
+group myGroup:
+    # Rhythmic (each beat playing a kick)
+    on beat:
+        .my808Bank.kick 1/4
+
+    # Synth definition with ADSR
+    let myLead = synth sine {
         attack: 0,
         decay: 100,
         sustain: 100,
         release: 100
     }
 
-	# Global automation for this synth (applies to subsequent notes)
-	automate lead:
-		param volume {
-			0% = 0.0
-			100% = 1.0
-		}
-		param pan {
-			0% = -1.0
-			100% = 1.0
-		}
-		param pitch {
-			0% = -12.0
-			100% = 12.0
-		}
+    # Global automation
+    automate myLead:
+        param volume {
+            0% = 0.0
+            100% = 0.5
+        }
+        param pitch {
+            0% = -12.0
+            100% = 12.0
+        }
 
-	# Notes (per-note automation can override globals)
-	lead -> note(C4, {
-		duration: 400,
-		velocity: 0.8,
-		automate: {
-			pan: {
-				0%: -1.0
-				100%: 0.0
-			}
-		}
-	})
-	lead -> note(E4, { duration: 400 })
-	lead -> note(G4, { duration: 600, glide: true, target_freq: 659.25 })
-	lead -> note(B3, { duration: 400, slide: true, target_amp: 0.3 })
+    # Notes in a loop with condition
+    for i in [1, 2, 3]:
+        if i == 3:
+            myLead -> note(C5, { duration: 200 })
+            print "Playing note C5 for " + i
 
-call main
+    # Pause runtime for 500ms
+    sleep 500
+
+    # Note with automation
+    myLead -> note(C4, {
+        duration: 400,
+        velocity: 0.8,
+        automate: {
+            pan: {
+                0%: -1.0,
+                100%: 0.0
+            }
+        }
+    })
+
+    # Notes with params
+    myLead -> note(E4, { duration: 400 })
+    myLead -> note(G4, { duration: 600, glide: true, target_freq: 659.25 })
+    myLead -> note(B3, { duration: 400, slide: true, target_amp: 0.3 })
+
+# Calling the group to play it
+call myGroup

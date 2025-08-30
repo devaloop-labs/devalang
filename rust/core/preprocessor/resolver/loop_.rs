@@ -1,17 +1,15 @@
 use std::collections::HashMap;
 
-use crate::{
-    core::{
-        parser::statement::{Statement, StatementKind},
-        preprocessor::{
-            module::Module,
-            resolver::{driver::resolve_statement, value::resolve_value},
-        },
-        shared::value::Value,
-        store::global::GlobalStore,
+use crate::core::{
+    parser::statement::{Statement, StatementKind},
+    preprocessor::{
+        module::Module,
+        resolver::{driver::resolve_statement, value::resolve_value},
     },
-    utils::logger::Logger,
+    store::global::GlobalStore,
 };
+use devalang_types::Value;
+use devalang_utils::logger::Logger;
 
 pub fn resolve_loop(
     stmt: &Statement,

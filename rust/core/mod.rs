@@ -6,6 +6,5 @@ pub mod lexer;
 pub mod parser;
 pub mod plugin;
 pub mod preprocessor;
-pub mod shared;
 pub mod store;
 pub mod utils;

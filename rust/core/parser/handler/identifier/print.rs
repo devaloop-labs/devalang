@@ -6,6 +6,7 @@ use crate::core::{
     },
     store::global::GlobalStore,
 };
+use devalang_types::Value;
 
 pub fn parse_print_token(
     parser: &mut Parser,
@@ -19,17 +20,13 @@ pub fn parse_print_token(
     // Accept: print <identifier|string|number|expression>
     let value = if collected.len() == 1 {
         match collected[0].kind {
-            TokenKind::Identifier => {
-                crate::core::shared::value::Value::Identifier(collected[0].lexeme.clone())
-            }
-            TokenKind::String => {
-                crate::core::shared::value::Value::String(collected[0].lexeme.clone())
-            }
+            TokenKind::Identifier => Value::Identifier(collected[0].lexeme.clone()),
+            TokenKind::String => Value::String(collected[0].lexeme.clone()),
             TokenKind::Number => {
                 let n = collected[0].lexeme.parse::<f32>().unwrap_or(0.0);
-                crate::core::shared::value::Value::Number(n)
+                Value::Number(n)
             }
-            _ => crate::core::shared::value::Value::String(collected[0].lexeme.clone()),
+            _ => Value::String(collected[0].lexeme.clone()),
         }
     } else {
         // Join tokens with spaces to preserve readability for expressions/text
@@ -39,7 +36,7 @@ pub fn parse_print_token(
             .map(|t| t.lexeme.clone())
             .collect::<Vec<_>>()
             .join(" ");
-        crate::core::shared::value::Value::String(text.trim().to_string())
+        Value::String(text.trim().to_string())
     };
 
     Statement {

@@ -1,3 +1,5 @@
+use devalang_types::Value;
+
 use crate::core::store::variable::VariableTable;
 use std::sync::OnceLock;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -36,7 +38,7 @@ pub fn resolve_atom_or_var(atom: &str, vars: &VariableTable, bpm: f32, beat: f32
     if let Ok(n) = atom.parse::<f32>() {
         return Some(n);
     }
-    if let Some(crate::core::shared::value::Value::Number(n)) = vars.get(atom) {
+    if let Some(Value::Number(n)) = vars.get(atom) {
         return Some(*n);
     }
     None

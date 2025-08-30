@@ -1,20 +1,14 @@
-use std::collections::HashMap;
-
 use crate::core::{
     lexer::token::{Token, TokenKind},
     parser::{
         driver::Parser,
         statement::{Statement, StatementKind},
     },
-    shared::value::Value,
     store::global::GlobalStore,
 };
+use devalang_types::Value;
+use std::collections::HashMap;
 
-// Grammar:
-// automate <identifier>:
-//     param <name> { <percent>% = <number> ... }
-// Produces StatementKind::Automate with value map:
-// { target: Identifier, params: Map<paramName, Map<percent, Number>> }
 pub fn parse_automate_token(
     parser: &mut Parser,
     current_token: Token,
@@ -24,14 +18,14 @@ pub fn parse_automate_token(
 
     // Expect target identifier
     let Some(target_token) = parser.peek_clone() else {
-        return Statement::error(
+        return crate::core::parser::statement::error_from_token(
             current_token,
             "Expected target after 'automate'".to_string(),
         );
     };
 
     if target_token.kind != TokenKind::Identifier && target_token.kind != TokenKind::String {
-        return Statement::error(
+        return crate::core::parser::statement::error_from_token(
             target_token,
             "Expected valid target after 'automate'".to_string(),
         );
@@ -40,13 +34,13 @@ pub fn parse_automate_token(
 
     // Expect ':'
     let Some(colon_token) = parser.peek_clone() else {
-        return Statement::error(
+        return crate::core::parser::statement::error_from_token(
             target_token,
             "Expected ':' after automate target".to_string(),
         );
     };
     if colon_token.kind != TokenKind::Colon {
-        return Statement::error(
+        return crate::core::parser::statement::error_from_token(
             colon_token,
             "Expected ':' after automate target".to_string(),
         );
@@ -85,19 +79,22 @@ pub fn parse_automate_token(
                 local.advance(); // consume 'param'
                 // param name
                 let Some(name_tok) = local.peek_clone() else {
-                    return Statement::error(
+                    return crate::core::parser::statement::error_from_token(
                         tok,
                         "Expected parameter name after 'param'".to_string(),
                     );
                 };
                 if name_tok.kind != TokenKind::Identifier && name_tok.kind != TokenKind::String {
-                    return Statement::error(name_tok, "Expected valid parameter name".to_string());
+                    return crate::core::parser::statement::error_from_token(
+                        name_tok,
+                        "Expected valid parameter name".to_string(),
+                    );
                 }
                 local.advance(); // consume name
 
                 // Expect '{'
                 if !local.match_token(TokenKind::LBrace) {
-                    return Statement::error(
+                    return crate::core::parser::statement::error_from_token(
                         name_tok,
                         "Expected '{' to start parameter block".to_string(),
                     );
@@ -142,7 +139,7 @@ pub fn parse_automate_token(
                         break;
                     }
                     if !local.match_token(TokenKind::Equals) {
-                        return Statement::error(
+                        return crate::core::parser::statement::error_from_token(
                             percent_token,
                             "Expected '=' in param entry".to_string(),
                         );

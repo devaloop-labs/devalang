@@ -1,9 +1,9 @@
 use crate::core::{
     parser::statement::{Statement, StatementKind},
     preprocessor::{module::Module, resolver::driver::resolve_statement},
-    shared::value::Value,
     store::{function::FunctionDef, global::GlobalStore},
 };
+use devalang_types::Value;
 
 pub fn resolve_function(
     stmt: &Statement,
@@ -17,7 +17,7 @@ pub fn resolve_function(
         body,
     } = &stmt.kind
     {
-        let resolved_body = resolve_block_statements(body, &module, path, global_store);
+        let resolved_body = resolve_block_statements(body, module, path, global_store);
 
         global_store.functions.add_function(FunctionDef {
             name: name.clone(),
@@ -35,7 +35,7 @@ pub fn resolve_function(
             eprintln!("[resolve_statement] ❌ Module path not found: {path}");
         }
 
-        return Statement {
+        Statement {
             kind: StatementKind::Function {
                 name: name.clone(),
                 parameters: parameters.clone(),
@@ -43,15 +43,15 @@ pub fn resolve_function(
             },
             value: Value::Null,
             ..stmt.clone()
-        };
+        }
     } else {
-        return Statement {
+        Statement {
             kind: StatementKind::Error {
                 message: "Expected a function statement".to_string(),
             },
             value: Value::Null,
             ..stmt.clone()
-        };
+        }
     }
 }
 

@@ -7,6 +7,12 @@ use std::io::Write;
 
 pub struct Debugger {}
 
+impl Default for Debugger {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Debugger {
     pub fn new() -> Self {
         Debugger {}

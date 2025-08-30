@@ -1,21 +1,19 @@
-use crate::{
-    core::{
-        parser::statement::{Statement, StatementKind},
-        preprocessor::{
-            loader::ModuleLoader,
-            module::Module,
-            resolver::{
-                bank::resolve_bank, call::resolve_call, condition::resolve_condition,
-                function::resolve_function, group::resolve_group, let_::resolve_let,
-                loop_::resolve_loop, spawn::resolve_spawn, tempo::resolve_tempo,
-                trigger::resolve_trigger,
-            },
+use crate::core::{
+    parser::statement::{Statement, StatementKind},
+    preprocessor::{
+        loader::ModuleLoader,
+        module::Module,
+        resolver::{
+            bank::resolve_bank, call::resolve_call, condition::resolve_condition,
+            function::resolve_function, group::resolve_group, let_::resolve_let,
+            loop_::resolve_loop, spawn::resolve_spawn, tempo::resolve_tempo,
+            trigger::resolve_trigger,
         },
-        shared::value::Value,
-        store::global::GlobalStore,
     },
-    utils::logger::Logger,
+    store::global::GlobalStore,
 };
+use devalang_types::Value;
+use devalang_utils::logger::Logger;
 use std::collections::HashMap;
 
 pub fn resolve_all_modules(module_loader: &ModuleLoader, global_store: &mut GlobalStore) {
@@ -134,7 +132,7 @@ fn resolve_value(value: &Value, module: &Module, global_store: &mut GlobalStore)
 }
 
 fn find_export_value(name: &str, global_store: &GlobalStore) -> Option<Value> {
-    for (_path, module) in &global_store.modules {
+    for module in global_store.modules.values() {
         if let Some(val) = module.export_table.get_export(name) {
             return Some(val.clone());
         }

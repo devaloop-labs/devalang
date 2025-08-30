@@ -1,24 +1,25 @@
+#[cfg(feature = "cli")]
 use crate::core::preprocessor::resolver::driver::{
     resolve_all_modules, resolve_and_flatten_all_modules,
 };
+#[cfg(feature = "cli")]
 use crate::core::utils::path::resolve_relative_path;
-use crate::{
-    config::loader::load_config,
-    core::{
-        error::ErrorHandler,
-        lexer::{Lexer, token::Token},
-        parser::{
-            driver::Parser,
-            statement::{Statement, StatementKind},
-        },
-        plugin::loader::load_plugin,
-        preprocessor::{module::Module, processor::process_modules},
-        shared::{bank::BankFile, value::Value},
-        store::global::GlobalStore,
-        utils::path::normalize_path,
+#[cfg_attr(not(feature = "cli"), allow(unused_imports))]
+use crate::core::{
+    error::ErrorHandler,
+    lexer::{Lexer, token::Token},
+    parser::{
+        driver::Parser,
+        statement::{Statement, StatementKind},
     },
-    utils::logger::Logger,
+    plugin::loader::load_plugin,
+    preprocessor::{module::Module, processor::process_modules},
+    store::global::GlobalStore,
+    utils::path::normalize_path,
 };
+use devalang_types::{BankFile, Value};
+#[cfg(feature = "cli")]
+use devalang_utils::logger::{LogLevel, Logger};
 use std::{collections::HashMap, path::Path};
 
 pub struct ModuleLoader {
@@ -38,7 +39,7 @@ impl ModuleLoader {
         Self {
             entry: entry.to_string(),
             output: output.to_string(),
-            base_dir: base_dir,
+            base_dir,
         }
     }
 
@@ -50,9 +51,12 @@ impl ModuleLoader {
     ) -> Self {
         let normalized_entry_path = normalize_path(entry_path);
 
-        let mut module = Module::new(&entry_path);
+        let mut module = Module::new(entry_path);
         module.content = content.to_string();
 
+        // Insert a module stub containing the provided content into the
+        // global store. This is used by the WASM APIs and tests which
+        // operate on in-memory sources instead of files on disk.
         global_store.insert_module(normalized_entry_path.to_string(), module);
 
         Self {
@@ -145,6 +149,17 @@ impl ModuleLoader {
             return Err(format!("Failed to inject bank triggers: {}", e));
         }
 
+        // Insert the updated module into the global store before processing so
+        // process_modules can operate on it and populate variable_table, imports,
+        // and other derived structures.
+        global_store
+            .modules
+            .insert(self.entry.clone(), updated_module.clone());
+
+        // Process modules to populate module.variable_table, import/export tables,
+        // and other derived structures so runtime execution can resolve groups/synths.
+        process_modules(self, global_store);
+
         for (plugin_name, alias) in self.extract_plugin_uses(&updated_module.statements) {
             self.load_plugin_and_register(&mut updated_module, &plugin_name, &alias, global_store);
         }
@@ -153,10 +168,32 @@ impl ModuleLoader {
         let mut error_handler = ErrorHandler::new();
         error_handler.detect_from_statements(&mut parser, &updated_module.statements);
 
-        // Final step : insert the updated module back into the global store
-        global_store
-            .modules
-            .insert(self.entry.clone(), updated_module);
+        // Final step : also expose module-level variables and functions into the global store
+        // so runtime evaluation (render_audio) can find group/synth definitions.
+        // Use the module instance that was actually processed by `process_modules`
+        // (it lives in `global_store.modules`) because `updated_module` is a local
+        // clone and won't contain the mutations applied by `process_modules`.
+        if let Some(stored_module) = global_store.modules.get(&self.entry) {
+            global_store
+                .variables
+                .variables
+                .extend(stored_module.variable_table.variables.clone());
+            global_store
+                .functions
+                .functions
+                .extend(stored_module.function_table.functions.clone());
+        } else {
+            // Fallback to the local updated_module if for any reason the module
+            // wasn't inserted into the store (defensive programming).
+            global_store
+                .variables
+                .variables
+                .extend(updated_module.variable_table.variables.clone());
+            global_store
+                .functions
+                .functions
+                .extend(updated_module.function_table.functions.clone());
+        }
 
         Ok(())
     }
@@ -193,7 +230,14 @@ impl ModuleLoader {
         }
 
         let lexer = Lexer::new();
-        let tokens = lexer.lex_tokens(&path);
+        let tokens = match lexer.lex_tokens(&path) {
+            Ok(t) => t,
+            Err(e) => {
+                let logger = Logger::new();
+                logger.log_message(LogLevel::Error, &format!("Failed to lex '{}': {}", path, e));
+                return HashMap::new();
+            }
+        };
 
         let mut parser = Parser::new();
         parser.set_current_module(path.clone());
@@ -295,10 +339,17 @@ impl ModuleLoader {
         bank_name: &str,
         alias_override: Option<String>,
     ) -> Result<Module, String> {
-        let default_alias = bank_name.split('.').last().unwrap_or(bank_name).to_string();
+        let default_alias = bank_name
+            .split('.')
+            .next_back()
+            .unwrap_or(bank_name)
+            .to_string();
         let alias_ref = alias_override.as_deref().unwrap_or(&default_alias);
 
-        let bank_path = Path::new("./.deva/bank").join(bank_name);
+        let bank_path = match devalang_utils::path::get_deva_dir() {
+            Ok(dir) => dir.join("banks").join(bank_name),
+            Err(_) => Path::new("./.deva").join("banks").join(bank_name),
+        };
         let bank_toml_path = bank_path.join("bank.toml");
 
         if !bank_toml_path.exists() {
@@ -314,9 +365,18 @@ impl ModuleLoader {
         let mut bank_map = HashMap::new();
 
         for bank_trigger in parsed_bankfile.triggers.unwrap_or_default() {
-            let trigger_name = bank_trigger.name.clone().replace("./", "");
-            let bank_trigger_path = format!("devalang://bank/{}/{}", bank_name, trigger_name);
+            // Use the configured path from the bank file as the entity reference so
+            // that bank entries can point to files or nested paths. Clean common
+            // local prefixes like "./" to keep the URI tidy.
+            let entity_ref = bank_trigger
+                .path
+                .clone()
+                .replace("\\", "/")
+                .replace("./", "");
+            let bank_trigger_path = format!("devalang://bank/{}/{}", bank_name, entity_ref);
 
+            // Keep the trigger key as declared (bank_trigger.name) but expose its
+            // value as a devalang://bank URI pointing to the configured path.
             bank_map.insert(
                 bank_trigger.name.clone(),
                 Value::String(bank_trigger_path.clone()),
@@ -344,6 +404,7 @@ impl ModuleLoader {
         Ok(module.clone())
     }
 
+    #[cfg_attr(not(feature = "cli"), allow(dead_code))]
     fn extract_bank_decls(&self, statements: &[Statement]) -> Vec<(String, Option<String>)> {
         let mut banks = Vec::new();
 
@@ -371,7 +432,7 @@ impl ModuleLoader {
             if let StatementKind::Use { name, alias } = &stmt.kind {
                 let alias_name = alias
                     .clone()
-                    .unwrap_or_else(|| name.split('.').last().unwrap_or(name).to_string());
+                    .unwrap_or_else(|| name.split('.').next_back().unwrap_or(name).to_string());
                 plugins.push((name.clone(), alias_name));
             }
         }
@@ -415,16 +476,19 @@ impl ModuleLoader {
         let expected_uri = format!("devalang://plugin/{}.{}", author, name);
 
         // Detect local presence (preferred and legacy layouts)
-        let root = Path::new("./.deva");
-        let plugin_dir_preferred = root.join("plugin").join(format!("{}.{}", author, name));
+        let root = match devalang_utils::path::get_deva_dir() {
+            Ok(dir) => dir,
+            Err(_) => Path::new("./.deva").to_path_buf(),
+        };
+        let plugin_dir_preferred = root.join("plugins").join(format!("{}.{}", author, name));
         let toml_path_preferred = plugin_dir_preferred.join("plugin.toml");
-        let plugin_dir_fallback = root.join("plugin").join(author).join(name);
+        let plugin_dir_fallback = root.join("plugins").join(author).join(name);
         let toml_path_fallback = plugin_dir_fallback.join("plugin.toml");
         let exists_locally = toml_path_preferred.exists() || toml_path_fallback.exists();
 
         if exists_locally {
             // Load config and verify plugin is declared
-            let cfg_opt = load_config(None);
+            let cfg_opt = crate::config::ops::load_config(None);
             let mut declared = false;
             if let Some(cfg) = cfg_opt {
                 if let Some(list) = cfg.plugins {
@@ -457,6 +521,11 @@ impl ModuleLoader {
                 module
                     .variable_table
                     .set(alias.to_string(), Value::String(uri.clone()));
+                // Also expose alias at global level so runtime can resolve it
+                global_store
+                    .variables
+                    .set(alias.to_string(), Value::String(uri.clone()));
+
                 if let Some((plugin_info, _)) =
                     global_store.plugins.get(&format!("{}:{}", author, name))
                 {
@@ -504,7 +573,60 @@ impl ModuleLoader {
                                     Value::String(format!("{}.{}", alias, exp.name)),
                                 );
                             }
-                            _ => {}
+                            _ => {
+                                // Fallback: if default is present, map it to a Value dynamically
+                                if let Some(def) = &exp.default {
+                                    let val = match def {
+                                        toml::Value::String(s) => Value::String(s.clone()),
+                                        toml::Value::Integer(i) => Value::Number(*i as f32),
+                                        toml::Value::Float(f) => Value::Number(*f as f32),
+                                        toml::Value::Boolean(b) => Value::Boolean(*b),
+                                        toml::Value::Array(arr) => Value::Array(
+                                            arr.iter()
+                                                .map(|v| match v {
+                                                    toml::Value::String(s) => {
+                                                        Value::String(s.clone())
+                                                    }
+                                                    toml::Value::Integer(i) => {
+                                                        Value::Number(*i as f32)
+                                                    }
+                                                    toml::Value::Float(f) => {
+                                                        Value::Number(*f as f32)
+                                                    }
+                                                    toml::Value::Boolean(b) => Value::Boolean(*b),
+                                                    _ => Value::Null,
+                                                })
+                                                .collect(),
+                                        ),
+                                        toml::Value::Table(t) => {
+                                            let mut m = std::collections::HashMap::new();
+                                            for (k, v) in t.iter() {
+                                                let vv = match v {
+                                                    toml::Value::String(s) => {
+                                                        Value::String(s.clone())
+                                                    }
+                                                    toml::Value::Integer(i) => {
+                                                        Value::Number(*i as f32)
+                                                    }
+                                                    toml::Value::Float(f) => {
+                                                        Value::Number(*f as f32)
+                                                    }
+                                                    toml::Value::Boolean(b) => Value::Boolean(*b),
+                                                    _ => Value::Null,
+                                                };
+                                                m.insert(k.clone(), vv);
+                                            }
+                                            Value::Map(m)
+                                        }
+                                        _ => Value::Null,
+                                    };
+                                    if val != Value::Null {
+                                        module
+                                            .variable_table
+                                            .set(format!("{}.{}", alias, exp.name), val);
+                                    }
+                                }
+                            }
                         }
                     }
                 }

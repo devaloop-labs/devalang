@@ -1,19 +1,6 @@
-use serde::{Deserialize, Serialize};
+use devalang_types::{TelemetrySettings, UserSettings};
+use serde_json::Value as JsonValue;
 use std::io::Write;
-
-#[derive(Serialize, Deserialize, Default, Debug)]
-pub struct UserSettings {
-    pub session: String,
-    pub telemetry: TelemetrySettings,
-}
-
-#[derive(Serialize, Deserialize, Default, Debug)]
-pub struct TelemetrySettings {
-    pub uuid: String,
-    pub stats: bool,
-    pub level: String,
-    pub enabled: bool,
-}
 
 pub fn get_home_dir() -> Option<std::path::PathBuf> {
     dirs::home_dir()
@@ -32,9 +19,9 @@ pub fn get_default_user_config() -> UserSettings {
         session: "".into(),
         telemetry: TelemetrySettings {
             uuid: uuid::Uuid::new_v4().to_string(),
-            enabled: true,
+            enabled: false,
             level: "basic".into(),
-            stats: true,
+            stats: false,
         },
     }
 }
@@ -53,51 +40,62 @@ pub fn write_user_config_file() {
     if let Some(config_path) = get_devalang_homedir().join("config.json").into() {
         let settings = get_user_config().unwrap_or_else(get_default_user_config);
 
-        let mut file = std::fs::File::create(config_path).unwrap();
         let config_json = serde_json::to_string(&settings).unwrap();
 
-        file.write_all(config_json.as_bytes()).unwrap();
+        if let Err(e) = write_config_atomic(&config_path, &config_json) {
+            println!("Could not write config file: {}", e);
+        }
     } else {
         println!("Could not create config file");
     }
 }
 
-pub fn set_user_config_bool(key: &str, value: bool) {
+pub fn ensure_user_config_file_exists() {
+    if let Some(config_path) = get_devalang_homedir().join("config.json").into() {
+        if !config_path.exists() {
+            write_user_config_file();
+        }
+    }
+}
+
+pub fn set_user_config_value(key: &str, value: JsonValue) {
     let mut settings = get_user_config().unwrap_or_default();
 
-    match key {
-        "telemetry" => {
-            settings.telemetry.enabled = value;
+    match (key, &value) {
+        ("telemetry", JsonValue::Bool(b)) => {
+            settings.telemetry.enabled = *b;
         }
-        _ => {}
+        ("session", JsonValue::String(s)) => {
+            settings.session = s.clone();
+        }
+        _ => {
+            println!("Unsupported key or value type for '{}': {:?}", key, value);
+        }
     }
 
     if let Some(config_path) = get_devalang_homedir().join("config.json").into() {
         let config_json = serde_json::to_string(&settings).unwrap();
-        let mut file = std::fs::File::create(config_path).unwrap();
-
-        file.write_all(config_json.as_bytes()).unwrap();
+        if let Err(e) = write_config_atomic(&config_path, &config_json) {
+            println!("Could not write config file: {}", e);
+        }
     } else {
         println!("Could not create config file");
     }
 }
 
-pub fn set_user_config_string(key: &str, value: String) {
-    let mut settings = get_user_config().unwrap_or_default();
-
-    match key {
-        "session" => {
-            settings.session = value;
-        }
-        _ => {}
+pub fn write_config_atomic(
+    config_path: &std::path::PathBuf,
+    contents: &str,
+) -> std::io::Result<()> {
+    if let Some(parent) = config_path.parent() {
+        std::fs::create_dir_all(parent)?;
     }
 
-    if let Some(config_path) = get_devalang_homedir().join("config.json").into() {
-        let config_json = serde_json::to_string(&settings).unwrap();
-        let mut file = std::fs::File::create(config_path).unwrap();
+    let tmp_path = config_path.with_extension("json.tmp");
+    let mut tmp_file = std::fs::File::create(&tmp_path)?;
+    tmp_file.write_all(contents.as_bytes())?;
+    tmp_file.sync_all()?;
+    std::fs::rename(&tmp_path, config_path)?;
 
-        file.write_all(config_json.as_bytes()).unwrap();
-    } else {
-        println!("Could not create config file");
-    }
+    Ok(())
 }

@@ -1,12 +1,14 @@
 use std::collections::HashMap;
 
+use devalang_types::Value;
+
 use crate::core::{
     lexer::token::Token,
     parser::{
         driver::Parser,
+        handler::dot::parse_dot_token,
         statement::{Statement, StatementKind},
     },
-    shared::value::Value,
     store::global::GlobalStore,
 };
 
@@ -21,14 +23,81 @@ pub fn parse_synth_token(
         return Statement::unknown();
     };
 
-    // Expect an identifier (synth waveform)
-    let Some(identifier_token) = parser.peek_clone() else {
-        return Statement::error(synth_token, "Expected identifier after 'synth'".to_string());
+    // Expect a provider/waveform identifier (can be dotted: alias.synth)
+    // Also accept a dot-led entity by delegating to the dot parser (e.g. .module.export)
+    let synth_waveform = if let Some(first_token) = parser.peek_clone() {
+        use crate::core::lexer::token::TokenKind;
+
+        if first_token.kind == TokenKind::Dot {
+            // Parse dot-entity and extract its entity string
+            let dot_stmt = parse_dot_token(parser, _global_store);
+            // Extract entity if the parsed statement is a Trigger
+            match dot_stmt.kind {
+                StatementKind::Trigger { entity, .. } => entity,
+                _ => String::new(),
+            }
+        } else {
+            if first_token.kind != crate::core::lexer::token::TokenKind::Identifier
+                && first_token.kind != crate::core::lexer::token::TokenKind::Number
+                && first_token.kind != crate::core::lexer::token::TokenKind::Synth
+            {
+                return crate::core::parser::statement::error_from_token(
+                    first_token.clone(),
+                    "Expected identifier after 'synth'".to_string(),
+                );
+            }
+
+            // Collect dotted parts on the same line
+            let mut parts: Vec<String> = Vec::new();
+            let current_line = first_token.line;
+            loop {
+                let Some(tok) = parser.peek_clone() else {
+                    break;
+                };
+                if tok.line != current_line {
+                    break;
+                }
+                match tok.kind {
+                    crate::core::lexer::token::TokenKind::Identifier
+                    | crate::core::lexer::token::TokenKind::Number
+                    | crate::core::lexer::token::TokenKind::Synth => {
+                        parts.push(tok.lexeme.clone());
+                        parser.advance();
+                        // If next isn't a dot on same line, stop
+                        if let Some(next) = parser.peek_clone() {
+                            if !(next.line == current_line
+                                && next.kind == crate::core::lexer::token::TokenKind::Dot)
+                            {
+                                break;
+                            }
+                        } else {
+                            break;
+                        }
+                    }
+                    crate::core::lexer::token::TokenKind::Dot => {
+                        parser.advance();
+                    }
+                    _ => break,
+                }
+            }
+
+            parts.join(".")
+        }
+    } else {
+        return crate::core::parser::statement::error_from_token(
+            synth_token,
+            "Expected identifier after 'synth'".to_string(),
+        );
     };
 
-    let synth_waveform = identifier_token.lexeme.clone();
-
-    parser.advance(); // consume identifier
+    // Skip formatting before optional parameters map
+    while parser.check_token(crate::core::lexer::token::TokenKind::Newline)
+        || parser.check_token(crate::core::lexer::token::TokenKind::Indent)
+        || parser.check_token(crate::core::lexer::token::TokenKind::Dedent)
+        || parser.check_token(crate::core::lexer::token::TokenKind::Whitespace)
+    {
+        parser.advance();
+    }
 
     // Expect synth optional parameters map
     let parameters = if let Some(params) = parser.parse_map_value() {
@@ -36,7 +105,7 @@ pub fn parse_synth_token(
         if let Value::Map(map) = params {
             map
         } else {
-            return Statement::error(
+            return crate::core::parser::statement::error_from_token(
                 synth_token,
                 "Expected a map for synth parameters".to_string(),
             );
@@ -53,7 +122,8 @@ pub fn parse_synth_token(
             (
                 "value".to_string(),
                 Value::Map(HashMap::from([
-                    ("waveform".to_string(), Value::String(synth_waveform)),
+                    // Store waveform as identifier to allow resolution from variables/exports
+                    ("waveform".to_string(), Value::Identifier(synth_waveform)),
                     ("parameters".to_string(), Value::Map(parameters)),
                 ])),
             ),

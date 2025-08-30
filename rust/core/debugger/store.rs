@@ -15,7 +15,7 @@ pub fn write_variables_log_file(output_dir: &str, file_name: &str, variables: Va
         content.push_str(&format!("{:?} = {:?}\n", var_name, var_data));
     }
 
-    content.push_str("\n");
+    content.push('\n');
 
     debugger.write_log_file(&log_directory, file_name, &content);
 }
@@ -34,7 +34,7 @@ pub fn write_function_log_file(output_dir: &str, file_name: &str, functions: Fun
         ));
     }
 
-    content.push_str("\n");
+    content.push('\n');
 
     debugger.write_log_file(&log_directory, file_name, &content);
 }

@@ -20,7 +20,7 @@ pub fn write_lexer_log_file(
             content.push_str(&format!("{:?}\n", token));
         }
 
-        content.push_str("\n");
+        content.push('\n');
     }
 
     debugger.write_log_file(&log_directory, file_name, &content);

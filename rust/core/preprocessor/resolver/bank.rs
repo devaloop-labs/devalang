@@ -1,12 +1,10 @@
-use crate::{
-    core::{
-        parser::statement::{Statement, StatementKind},
-        preprocessor::module::Module,
-        shared::value::Value,
-        store::global::GlobalStore,
-    },
-    utils::logger::Logger,
+use crate::core::{
+    parser::statement::{Statement, StatementKind},
+    preprocessor::module::Module,
+    store::global::GlobalStore,
 };
+use devalang_types::Value;
+use devalang_utils::logger::Logger;
 
 pub fn resolve_bank(
     stmt: &Statement,

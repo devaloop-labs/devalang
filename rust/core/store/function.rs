@@ -13,6 +13,12 @@ pub struct FunctionTable {
     pub functions: HashMap<String, FunctionDef>,
 }
 
+impl Default for FunctionTable {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FunctionTable {
     pub fn new() -> Self {
         FunctionTable {

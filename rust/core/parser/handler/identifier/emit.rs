@@ -4,12 +4,10 @@ use crate::core::{
         driver::Parser,
         statement::{Statement, StatementKind},
     },
-    shared::value::Value,
     store::global::GlobalStore,
 };
+use devalang_types::Value;
 
-// Syntax:
-// emit <event> [<payload>]
 pub fn parse_emit_token(
     parser: &mut Parser,
     current: crate::core::lexer::token::Token,
@@ -18,10 +16,16 @@ pub fn parse_emit_token(
     parser.advance(); // consume 'emit'
 
     let Some(ev) = parser.peek_clone() else {
-        return Statement::error(current, "Expected event name after 'emit'".into());
+        return crate::core::parser::statement::error_from_token(
+            current,
+            "Expected event name after 'emit'".into(),
+        );
     };
     if ev.kind != TokenKind::Identifier {
-        return Statement::error(ev.clone(), "Expected identifier as event name".into());
+        return crate::core::parser::statement::error_from_token(
+            ev.clone(),
+            "Expected identifier as event name".into(),
+        );
     }
     let event_name = ev.lexeme.clone();
     parser.advance(); // consume event name

@@ -1,9 +1,10 @@
 use crate::core::{
     audio::engine::AudioEngine,
     parser::statement::{Statement, StatementKind},
-    shared::value::Value,
-    store::variable::VariableTable,
+    plugin::runner::WasmPluginRunner,
+    store::{global::GlobalStore, variable::VariableTable},
 };
+use devalang_types::Value;
 
 use std::collections::HashMap;
 
@@ -11,6 +12,7 @@ pub fn interprete_call_arrow_statement(
     stmt: &Statement,
     audio_engine: &mut AudioEngine,
     variable_table: &VariableTable,
+    global_store: &GlobalStore,
     base_bpm: f32,
     base_duration: f32,
     max_end_time: &mut f32,
@@ -53,11 +55,14 @@ pub fn interprete_call_arrow_statement(
             return (*max_end_time, cursor_copy);
         };
 
-        let Some(Value::String(waveform)) = value_map.get("waveform") else {
-            println!("❌ Missing or invalid 'waveform' in synth '{}'.", target);
-            return (*max_end_time, cursor_copy);
+        let waveform_str = match value_map.get("waveform") {
+            Some(Value::String(s)) => s.clone(),
+            Some(Value::Identifier(s)) => s.clone(),
+            _ => {
+                println!("? Missing or invalid 'waveform' in synth '{}'.", target);
+                return (*max_end_time, cursor_copy);
+            }
         };
-
         let Some(Value::Map(params)) = value_map.get("parameters") else {
             println!("❌ Missing or invalid 'parameters' in synth '{}'.", target);
             return (*max_end_time, cursor_copy);
@@ -73,7 +78,7 @@ pub fn interprete_call_arrow_statement(
                 .filter(|arg| !matches!(arg, Value::Unknown))
                 .collect();
 
-            let Some(Value::Identifier(note_name)) = filtered_args.get(0).map(|v| (*v).clone())
+            let Some(Value::Identifier(note_name)) = filtered_args.first().map(|v| (*v).clone())
             else {
                 println!(
                     "❌ Invalid or missing argument for 'note' method on '{}'.",
@@ -84,13 +89,10 @@ pub fn interprete_call_arrow_statement(
 
             let mut note_params = HashMap::new();
             if let Some(arg1) = filtered_args.get(1) {
-                match (*arg1).clone() {
-                    Value::Map(map) => {
-                        for (key, value) in map {
-                            note_params.insert(key, value);
-                        }
+                if let Value::Map(map) = (*arg1).clone() {
+                    for (key, value) in map {
+                        note_params.insert(key, value);
                     }
-                    _ => {}
                 }
             }
 
@@ -134,16 +136,89 @@ pub fn interprete_call_arrow_statement(
                 _ => None,
             };
 
-            audio_engine.insert_note(
-                waveform.clone(),
-                final_freq,
-                amp_note,
-                start_time * 1000.0,
-                duration_ms,
-                synth_params,
-                note_params,
-                automation,
-            );
+            // If waveform references a plugin alias (e.g., alias.synth), use the WASM plugin runner
+            if waveform_str.contains('.') && waveform_str.ends_with(".synth") {
+                let alias = waveform_str.split('.').next().unwrap_or("");
+                if let Some(Value::String(uri)) = variable_table.get(alias) {
+                    if let Some(id) = uri.strip_prefix("devalang://plugin/") {
+                        let mut parts = id.split('.');
+                        let author = parts.next().unwrap_or("");
+                        let name = parts.next().unwrap_or("");
+                        let key = format!("{}:{}", author, name);
+                        if let Some((_info, wasm_bytes)) = global_store.plugins.get(&key) {
+                            // Prepare buffer (stereo f32)
+                            let sample_rate = 44100.0_f32;
+                            let total_samples = ((duration_ms / 1000.0) * sample_rate) as usize;
+                            let channels = 2usize;
+                            let start_index = ((start_time * sample_rate) as usize) * channels;
+                            let required_len = start_index + total_samples * channels;
+                            if audio_engine.buffer.len() < required_len {
+                                audio_engine.buffer.resize(required_len, 0);
+                            }
+                            let mut fbuf = vec![0.0f32; total_samples * channels];
+                            let runner = WasmPluginRunner::new();
+                            let mut params_num: std::collections::HashMap<String, f32> =
+                                std::collections::HashMap::new();
+                            let mut params_str: std::collections::HashMap<String, String> =
+                                std::collections::HashMap::new();
+                            for (k, v) in synth_params.iter() {
+                                match v {
+                                    Value::Number(n) => {
+                                        params_num.insert(k.clone(), *n);
+                                    }
+                                    Value::String(s) => {
+                                        params_str.insert(k.clone(), s.clone());
+                                    }
+                                    Value::Identifier(s) => {
+                                        params_str.insert(k.clone(), s.clone());
+                                    }
+                                    _ => {}
+                                }
+                            }
+                            let _ = runner.render_note_with_params_in_place(
+                                wasm_bytes,
+                                &mut fbuf,
+                                None,
+                                final_freq,
+                                amp_note,
+                                duration_ms as i32,
+                                44100,
+                                2,
+                                &params_num,
+                                Some(&params_str),
+                            );
+                            for (i, sample) in
+                                fbuf.iter().enumerate().take(total_samples * channels)
+                            {
+                                let s = (sample.clamp(-1.0, 1.0) * (i16::MAX as f32)) as i16;
+                                let idx = start_index + i;
+                                audio_engine.buffer[idx] =
+                                    audio_engine.buffer[idx].saturating_add(s);
+                            }
+                        } else {
+                            println!(
+                                "? Plugin bytes not found for key '{}' (alias '{}').",
+                                key, alias
+                            );
+                        }
+                    } else {
+                        println!("? Invalid plugin URI in alias '{}': {}", alias, uri);
+                    }
+                } else {
+                    println!("? Plugin alias '{}' not found in variable table.", alias);
+                }
+            } else {
+                audio_engine.insert_note(
+                    waveform_str.clone(),
+                    final_freq,
+                    amp_note,
+                    start_time * 1000.0,
+                    duration_ms,
+                    synth_params,
+                    note_params,
+                    automation,
+                );
+            }
 
             *max_end_time = (*max_end_time).max(end_time);
 
@@ -181,7 +256,7 @@ fn extract_f32(map: &HashMap<String, Value>, key: &str, base_bpm: f32) -> Option
 }
 
 fn note_to_freq(note: &str) -> f32 {
-    let notes = vec![
+    let notes = [
         "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B",
     ];
 

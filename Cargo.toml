@@ -1,6 +1,6 @@
 [package]
 name = "devalang"
-version = "0.0.1-alpha.16-hotfix.3"
+version = "0.0.1-alpha.17"
 authors = ["Devaloop <contact@devaloop.com>"]
 description = "Write music like code. Devalang is a domain-specific language (DSL) for sound designers and music hackers. Compose, automate, and control sound — in plain text."
 license = "MIT"
@@ -30,6 +30,7 @@ default = ["cli"]
 cli = ["crossterm", "indicatif", "inquire", "zip", "reqwest", "flate2", "tokio"]
 
 [dependencies]
+devalang_types = { path = "rust/types" }
 clap = { version = "4.5", features = ["derive"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -47,6 +48,7 @@ crossterm =  { version = "0.27", optional = true }
 indicatif = { version = "0.17", optional = true }
 inquire = { version = "0.7.5", optional = true }
 js-sys = "0.3"
+getrandom = { version = "0.3", features = ["wasm_js"] }
 reqwest = { version = "0.12.22", optional = true, features = ["json"] }
 flate2 = { version = "1.0", optional = true }
 tokio = { version = "1", features = ["full"], optional = true }
@@ -57,4 +59,18 @@ tiny_http = "0.9.0"
 dirs = "5"
 urlencoding = "2.1"
 uuid = { version = "1.18.0", features = ["v4"] }
+console_error_panic_hook = "0.1.7"
+
+# For wasm32, enable wasm-friendly randomness backends and avoid
+# pulling in native-only CLI dependencies.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.3", features = ["wasm_js"] }
+uuid = { version = "1.18.0", features = ["v4", "js", "rng-getrandom"] }
+# Keep a lightweight linkage to the utils crate for wasm builds without
+# enabling native CLI features.
+devalang_utils = { path = "rust/utils", default-features = false }
+
+# devalang_utils with CLI and wasmtime are only needed for native targets.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+devalang_utils = { path = "rust/utils", features = ["cli"] }
 wasmtime = "19"
