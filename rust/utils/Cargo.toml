@@ -7,7 +7,7 @@ authors = ["Devaloop <contact@devaloop.com>"]
 edition = "2024"
 
 [dependencies]
-devalang_types = { path = "../types", version = "0.0.1" }
+devalang_types = { path = "../types", version = "0.0.2" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 include_dir = "0.7"
