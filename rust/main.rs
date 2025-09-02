@@ -4,6 +4,7 @@ pub mod cli;
 pub mod config;
 pub mod core;
 pub mod web;
+use devalang_utils::path::ensure_deva_dir;
 pub use devalang_utils as utils;
 
 use crate::cli::telemetry::send::send_telemetry_event;
@@ -50,7 +51,7 @@ async fn main() -> io::Result<()> {
     cmd = cmd.version(version_static).before_help(signature_static);
 
     let raw_args: Vec<String> = std::env::args().collect();
-    if raw_args.iter().any(|a| (a == "--version" || a == "-V")) {
+    if raw_args.iter().any(|a| a == "--version" || a == "-V") {
         println!("{}", signature_static);
         return Ok(());
     }
@@ -65,6 +66,8 @@ async fn main() -> io::Result<()> {
     let mut had_error: bool = false;
     let mut last_error_message: Option<String> = None;
     let mut exit_code: Option<i32> = None;
+
+    let _ = ensure_deva_dir();
 
     if check_is_first_usage() == true {
         write_user_config_file();

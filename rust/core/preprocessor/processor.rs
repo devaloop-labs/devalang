@@ -10,11 +10,14 @@ use devalang_types::Value;
 
 pub fn process_modules(_module_loader: &ModuleLoader, global_store: &mut GlobalStore) {
     for module in global_store.modules.values_mut() {
+        let logger = devalang_utils::logger::Logger::new();
+        use devalang_utils::logger::LogLevel;
+
         for stmt in &module.statements {
             match &stmt.kind {
                 StatementKind::Let { name } => {
                     if let Value::Null = stmt.value {
-                        eprintln!("❌ Variable '{}' is declared but not initialized.", name);
+                        logger.log_message(LogLevel::Error, &format!("Variable '{}' is declared but not initialized.", name));
 
                         module.variable_table.variables.insert(
                             name.clone(),
@@ -25,15 +28,12 @@ pub fn process_modules(_module_loader: &ModuleLoader, global_store: &mut GlobalS
                     }
 
                     if module.variable_table.get(name).is_some() {
-                        eprintln!("❌ Variable '{}' is already defined in this scope.", name);
+                        logger.log_message(LogLevel::Error, &format!("Variable '{}' is already defined in this scope.", name));
                         continue;
                     }
 
                     if let Some(module_variable) = module.variable_table.variables.get(name) {
-                        eprintln!(
-                            "❌ Variable '{}' is already defined globally with value: {:?}",
-                            name, module_variable
-                        );
+                        logger.log_message(LogLevel::Error, &format!("Variable '{}' is already defined globally with value: {:?}", name, module_variable));
                         continue;
                     }
 
@@ -87,7 +87,7 @@ pub fn process_modules(_module_loader: &ModuleLoader, global_store: &mut GlobalS
                                 .variable_table
                                 .set(name.to_string(), Value::Map(stored_map));
                         } else {
-                            eprintln!("❌ Invalid group definition: {:?}", stmt.value);
+                            logger.log_message(LogLevel::Error, &format!("Invalid group definition: {:?}", stmt.value));
                         }
                     }
                 }

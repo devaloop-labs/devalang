@@ -13,7 +13,8 @@ pub fn parse_dot_token(
     _global_store: &mut crate::core::store::global::GlobalStore,
 ) -> Statement {
     parser.advance(); // consume '.'
-
+    let logger = devalang_utils::logger::Logger::new();
+    use devalang_utils::logger::LogLevel;
     let Some(dot_token) = parser.previous_clone() else {
         return Statement::unknown();
     };
@@ -56,7 +57,7 @@ pub fn parse_dot_token(
     let entity = if !parts.is_empty() {
         parts.join(".") // only join within the same line
     } else {
-        eprintln!("⚠️ Empty entity after '.' at line {}", dot_token.line);
+        logger.log_message(LogLevel::Warning, &format!("Empty entity after '.' at line {}", dot_token.line));
         String::new()
     };
 

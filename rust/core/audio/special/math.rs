@@ -1,4 +1,5 @@
 use crate::core::store::variable::VariableTable;
+use devalang_utils::logger::{Logger, LogLevel};
 
 // Parse comma-separated arguments at top level (no nested parentheses split)
 fn parse_top_level_args(s: &str) -> Vec<&str> {
@@ -56,9 +57,21 @@ pub fn find_and_eval_first_math_call<EvalFn>(
 where
     EvalFn: Fn(&str, &VariableTable, f32, f32) -> Option<f32>,
 {
+    let logger = Logger::new();
+
     let start = s.find("$math.")?;
-    let open_rel = s[start..].find('(')?;
+    let open_rel = match s[start..].find('(') {
+        Some(i) => i,
+        None => {
+            logger.log_message(LogLevel::Error, &format!("Malformed $math call: missing '(' in '{}'", s));
+            return None;
+        }
+    };
     let open = start + open_rel;
+    if open <= start + 6 {
+        logger.log_message(LogLevel::Error, &format!("Malformed $math call: missing function name in '{}'", s));
+        return None;
+    }
     let func = &s[start + 6..open];
 
     // Find matching close parenthesis, handling nesting
@@ -77,7 +90,13 @@ where
             _ => {}
         }
     }
-    let close = close_abs?;
+    let close = match close_abs {
+        Some(c) => c,
+        None => {
+            logger.log_message(LogLevel::Error, &format!("Malformed $math call: missing closing ')' in '{}'", s));
+            return None;
+        }
+    };
 
     let inner = &s[open + 1..close];
     let raw_args = parse_top_level_args(inner);
@@ -86,6 +105,7 @@ where
         if let Some(v) = eval(a, vars, bpm, beat) {
             args.push(v);
         } else {
+            logger.log_message(LogLevel::Error, &format!("Failed to evaluate argument '{}' for $math.{}", a, func));
             return None;
         }
     }

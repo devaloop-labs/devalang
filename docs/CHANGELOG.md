@@ -4,7 +4,52 @@
 
 # Changelog
 
-## Version 0.0.1-alpha.17 (2025-08-31)
+## Version 0.0.1-alpha.18 (2025-09-02)
+
+### ✨ Language Features
+
+- New `pattern` statement to define rhythmic patterns with an optional target entity.
+  - Example: `pattern kickPattern with my808.kick = "x--- x--- x--- x---"`
+- Patterns can be invoked with `call` or `spawn` just like functions or groups.
+
+### 🧠 Core Engine
+
+- Pattern playback: schedules steps across one bar (4 beats), computing per-step duration and triggering the target on non-rest characters.
+- ADSR envelope: improved interpolation at segment boundaries to avoid clicks and handle 0/1-sample edge cases.
+- Sample engine: robust stereo-to-mono mixdown with RMS-preserving scaling; applies a tiny automatic fade (~1 ms) when samples start/end abruptly to reduce clicks.
+
+### 🧩 Parser & Lexer
+
+- Added `Pattern` token and parser handler; supports `pattern <name> [with <bank.trigger>] = "..."`.
+- Introduced a dedicated lexer driver (`rust/core/lexer/driver.rs`) to separate file resolution from tokenization.
+- Map/array parsing now logs structured errors via the shared logger instead of printing to stdout.
+
+### 🔁 Preprocessor & Resolution
+
+- Pattern resolver stores definitions in the variable table, enabling later `call`/`spawn` usage.
+- Variable lookup now walks parent scopes, fixing missed resolutions for outer-scope identifiers.
+
+### 🛠️ CLI & Telemetry
+
+- `build`: non-watch mode now executes and surfaces errors correctly.
+- `install`: requires authentication and reports API/JSON errors with clear messages.
+- Telemetry: generates a stable UUID when missing; consistently records CLI version, OS, and args.
+- Ensures the `.deva` directory exists at startup.
+
+### 📚 Examples
+
+- Added `examples/pattern.deva`; updated `examples/index.deva` to demonstrate `pattern` and `spawn`.
+
+### 📦 Packaging
+
+- Added crate metadata (description, license, authors) and pinned internal versions for `devalang_types` and `devalang_utils`.
+
+### 🐛 Fixes & Stability
+
+- Safer `$math` parsing with diagnostics for malformed calls and argument evaluation failures.
+- Minor parser fixes (loop body collection, clearer error messages) and logging cleanups across modules.
+
+## Version 0.0.1-alpha.17 (2025-08-30)
 
 ### ✨ Addons
 

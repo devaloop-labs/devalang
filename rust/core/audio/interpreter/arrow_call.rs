@@ -5,6 +5,7 @@ use crate::core::{
     store::{global::GlobalStore, variable::VariableTable},
 };
 use devalang_types::Value;
+use devalang_utils::logger::{Logger, LogLevel};
 
 use std::collections::HashMap;
 
@@ -28,30 +29,32 @@ pub fn interprete_call_arrow_statement(
     } = &stmt.kind
     {
         let Some(Value::Statement(synth_stmt)) = variable_table.get(target) else {
-            println!("❌ Synth '{}' not found in variable table", target);
+            let logger = Logger::new();
+            logger.log_message(LogLevel::Error, &format!("Synth '{}' not found in variable table", target));
             return (*max_end_time, cursor_copy);
         };
 
         let Value::Map(synth_map) = &synth_stmt.value else {
-            println!(
-                "❌ Invalid synth statement for '{}', expected a map.",
-                target
-            );
+            let logger = Logger::new();
+            logger.log_message(LogLevel::Error, &format!("Invalid synth statement for '{}', expected a map.", target));
             return (*max_end_time, cursor_copy);
         };
 
         let Some(Value::String(entity)) = synth_map.get("entity") else {
-            println!("❌ Missing 'entity' key in synth '{}'.", target);
+            let logger = Logger::new();
+            logger.log_message(LogLevel::Error, &format!("Missing 'entity' key in synth '{}'.", target));
             return (*max_end_time, cursor_copy);
         };
 
         if entity != "synth" {
-            println!("❌ '{}' is not a synth, entity is '{}'.", target, entity);
+            let logger = Logger::new();
+            logger.log_message(LogLevel::Error, &format!("'{}' is not a synth, entity is '{}'.", target, entity));
             return (*max_end_time, cursor_copy);
         }
 
         let Some(Value::Map(value_map)) = synth_map.get("value") else {
-            println!("❌ Missing 'value' map in synth '{}'.", target);
+            let logger = Logger::new();
+            logger.log_message(LogLevel::Error, &format!("Missing 'value' map in synth '{}'.", target));
             return (*max_end_time, cursor_copy);
         };
 
@@ -59,7 +62,8 @@ pub fn interprete_call_arrow_statement(
             Some(Value::String(s)) => s.clone(),
             Some(Value::Identifier(s)) => s.clone(),
             _ => {
-                println!("? Missing or invalid 'waveform' in synth '{}'.", target);
+                let logger = Logger::new();
+                logger.log_message(LogLevel::Error, &format!("Missing or invalid 'waveform' in synth '{}'.", target));
                 return (*max_end_time, cursor_copy);
             }
         };
@@ -196,16 +200,16 @@ pub fn interprete_call_arrow_statement(
                                     audio_engine.buffer[idx].saturating_add(s);
                             }
                         } else {
-                            println!(
-                                "? Plugin bytes not found for key '{}' (alias '{}').",
-                                key, alias
-                            );
+                            let logger = Logger::new();
+                            logger.log_message(LogLevel::Warning, &format!("Plugin bytes not found for key '{}' (alias '{}').", key, alias));
                         }
                     } else {
-                        println!("? Invalid plugin URI in alias '{}': {}", alias, uri);
+                        let logger = Logger::new();
+                        logger.log_message(LogLevel::Warning, &format!("Invalid plugin URI in alias '{}': {}", alias, uri));
                     }
                 } else {
-                    println!("? Plugin alias '{}' not found in variable table.", alias);
+                    let logger = Logger::new();
+                    logger.log_message(LogLevel::Warning, &format!("Plugin alias '{}' not found in variable table.", alias));
                 }
             } else {
                 audio_engine.insert_note(
@@ -230,7 +234,8 @@ pub fn interprete_call_arrow_statement(
 
             return (*max_end_time, end_time);
         } else {
-            println!("❌ Unknown method '{}' on synth '{}'.", method, target);
+            let logger = Logger::new();
+            logger.log_message(LogLevel::Error, &format!("Unknown method '{}' on synth '{}'.", method, target));
         }
     }
 

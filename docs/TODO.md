@@ -73,7 +73,7 @@ This is a list of tasks and features to be implemented in Devalang. Note that th
 
 ## Addon generator
 
-- [ ] Implement addon generator
+- [x] Implement addon generator
 - [ ] Create example addons
 
 ## Other TODOs

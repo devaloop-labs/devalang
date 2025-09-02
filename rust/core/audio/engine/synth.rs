@@ -51,6 +51,12 @@ impl AudioEngine {
     }
 
     pub fn merge_with(&mut self, other: AudioEngine) {
+        // If the other buffer is empty, simply return without warning (common for spawns that produced nothing)
+        if other.buffer.is_empty() {
+            return;
+        }
+
+        // If the other buffer is present but contains only zeros, warn and skip merge
         if other.buffer.iter().all(|&s| s == 0) {
             eprintln!("⚠️ Skipping merge: other buffer is silent");
             return;
@@ -225,10 +231,19 @@ impl AudioEngine {
             );
 
             // Fade in/out
-            if i < fade_len {
-                value *= (i as f32) / (fade_len as f32);
-            } else if i >= total_samples - fade_len {
-                value *= ((total_samples - i) as f32) / (fade_len as f32);
+            if fade_len > 0 && i < fade_len {
+                if fade_len == 1 {
+                    value *= 0.0;
+                } else {
+                    value *= (i as f32) / (fade_len as f32);
+                }
+            } else if fade_len > 0 && i >= total_samples.saturating_sub(fade_len) {
+                if fade_len == 1 {
+                    value *= 0.0;
+                } else {
+                    // ensure last sample becomes exactly zero to avoid clicks
+                    value *= ((total_samples - 1 - i) as f32) / ((fade_len - 1) as f32);
+                }
             }
 
             value *= envelope;

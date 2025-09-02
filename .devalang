@@ -4,3 +4,7 @@ output = "./output"
 watch = false
 debug = true
 compress = true
+
+[[banks]]
+path = "devalang://bank/devaloop.808"
+version = "0.0.1"

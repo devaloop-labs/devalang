@@ -2,6 +2,7 @@ use crate::config::settings::get_user_config;
 use devalang_types::{
     TelemetryErrorLevel as SharedTelemetryErrorLevel, TelemetryEvent as SharedTelemetryEvent,
 };
+use uuid::Uuid;
 
 pub type TelemetryEvent = SharedTelemetryEvent;
 pub type TelemetryErrorLevel = SharedTelemetryErrorLevel;
@@ -57,24 +58,23 @@ impl TelemetryEventCreator {
     }
 
     pub fn get_base_event(&self) -> TelemetryEvent {
-        let mut default_event = TelemetryEvent::default();
+        let uuid = match get_user_config() {
+            Some(cfg) if !cfg.telemetry.uuid.is_empty() => cfg.telemetry.uuid.clone(),
+            _ => Uuid::new_v4().to_string(),
+        };
 
-        if let Some(user_cfg) = get_user_config() {
-            default_event = TelemetryEvent {
-                uuid: user_cfg.telemetry.uuid.clone(),
-                cli_version: env!("CARGO_PKG_VERSION").to_string(),
-                os: std::env::consts::OS.to_string(),
-                command: std::env::args().collect::<Vec<_>>(),
-                project_info: None,
-                error_level: TelemetryErrorLevel::None,
-                error_message: None,
-                exit_code: None,
-                timestamp: chrono::Utc::now().to_string(),
-                duration: 0,
-                success: true,
-            };
+        TelemetryEvent {
+            uuid,
+            cli_version: env!("CARGO_PKG_VERSION").to_string(),
+            os: std::env::consts::OS.to_string(),
+            command: std::env::args().collect::<Vec<_>>(),
+            project_info: None,
+            error_level: TelemetryErrorLevel::None,
+            error_message: None,
+            exit_code: None,
+            timestamp: chrono::Utc::now().to_string(),
+            duration: 0,
+            success: true,
         }
-
-        default_event
     }
 }

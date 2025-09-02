@@ -1,8 +1,8 @@
-# TODO planned for future release
+# This file demonstrates the usage of patterns in Devaloop
 
-# bank devaloop.808 as 808
+bank devaloop.808 as my808
 
-# # Pattern literal without options
-# pattern kickPattern with 808.kick = "x--- x--- x--- x---"
+# Pattern literal without options
+pattern kickPattern with my808.kick = "x--- x--- x--- x---"
 
-# call kickPattern
+call kickPattern

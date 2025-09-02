@@ -153,8 +153,30 @@ impl super::synth::AudioEngine {
             }
         };
 
-        let max_mono_samples = (dur_sec * (SAMPLE_RATE as f32)) as usize;
-        let samples: Vec<i16> = decoder.convert_samples().take(max_mono_samples).collect();
+        // Read frames from decoder and convert to mono if needed.
+        let max_frames = (dur_sec * (SAMPLE_RATE as f32)) as usize;
+        let dec_channels = decoder.channels() as usize;
+        let max_raw_samples = max_frames.saturating_mul(dec_channels.max(1));
+        let raw_samples: Vec<i16> = decoder.convert_samples().take(max_raw_samples).collect();
+
+        // Convert interleaved channels to mono by averaging channels per frame.
+        // Apply a small RMS-preserving scale so mono level is similar to mixed stereo.
+        let actual_frames = if dec_channels > 0 { raw_samples.len() / dec_channels } else { 0 };
+        let mut samples: Vec<i16> = Vec::with_capacity(actual_frames);
+        let rms_scale = (dec_channels as f32).sqrt();
+        for frame in 0..actual_frames {
+            let mut sum: i32 = 0;
+            for ch in 0..dec_channels {
+                sum += raw_samples[frame * dec_channels + ch] as i32;
+            }
+            if dec_channels > 0 {
+                let avg = (sum / (dec_channels as i32)) as f32;
+                let scaled = (avg * rms_scale).clamp(i16::MIN as f32, i16::MAX as f32) as i16;
+                samples.push(scaled);
+            } else {
+                samples.push(0);
+            }
+        }
 
         if samples.is_empty() {
             eprintln!("❌ No samples read from {}", resolved_path);
@@ -228,6 +250,37 @@ impl super::synth::AudioEngine {
         let fade_in_samples = (fade_in * (SAMPLE_RATE as f32)) as usize;
         let fade_out_samples = (fade_out * (SAMPLE_RATE as f32)) as usize;
 
+        // If no fade specified, apply a tiny default fade (2 ms) when sample boundaries are non-zero
+    let default_boundary_fade_ms = 1.0_f32; // 1 ms
+        let default_fade_samples = (default_boundary_fade_ms * (SAMPLE_RATE as f32)) as usize;
+    let mut effective_fade_in = fade_in_samples;
+    let mut effective_fade_out = fade_out_samples;
+        if effective_fade_in == 0 {
+            if let Some(&first) = samples.first() {
+                if first.abs() > 64 { // increased threshold to detect only strong abrupt starts
+                    effective_fade_in = default_fade_samples.max(1);
+                }
+            }
+        }
+        if effective_fade_out == 0 {
+            if let Some(&last) = samples.last() {
+                if last.abs() > 64 { // increased threshold to detect only strong abrupt ends
+                    effective_fade_out = default_fade_samples.max(1);
+                }
+            }
+        }
+
+        // Ensure fades do not exceed half the sample length to avoid silencing short samples
+        if total_samples > 0 {
+            let cap = total_samples / 2;
+            if effective_fade_in > cap {
+                effective_fade_in = cap.max(1);
+            }
+            if effective_fade_out > cap {
+                effective_fade_out = cap.max(1);
+            }
+        }
+
         let delay_samples = if delay > 0.0 {
             (delay * (SAMPLE_RATE as f32)) as usize
         } else {
@@ -235,7 +288,7 @@ impl super::synth::AudioEngine {
         };
         let mut delay_buffer: Vec<f32> = vec![0.0; total_samples + delay_samples];
 
-        for i in 0..total_samples {
+    for i in 0..total_samples {
             let pitch_index = if pitch != 1.0 {
                 ((i as f32) / pitch) as usize
             } else {
@@ -250,11 +303,19 @@ impl super::synth::AudioEngine {
 
             adjusted *= gain;
 
-            if fade_in_samples > 0 && i < fade_in_samples {
-                adjusted *= (i as f32) / (fade_in_samples as f32);
+            if effective_fade_in > 0 && i < effective_fade_in {
+                if effective_fade_in == 1 {
+                    adjusted *= 0.0;
+                } else {
+                    adjusted *= (i as f32) / (effective_fade_in as f32);
+                }
             }
-            if fade_out_samples > 0 && i >= total_samples.saturating_sub(fade_out_samples) {
-                adjusted *= ((total_samples - i) as f32) / (fade_out_samples as f32);
+            if effective_fade_out > 0 && i >= total_samples.saturating_sub(effective_fade_out) {
+                if effective_fade_out == 1 {
+                    adjusted *= 0.0;
+                } else {
+                    adjusted *= ((total_samples - 1 - i) as f32) / ((effective_fade_out - 1) as f32);
+                }
             }
 
             if drive > 0.0 {

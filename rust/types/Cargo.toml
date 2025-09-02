@@ -1,6 +1,9 @@
 [package]
 name = "devalang_types"
 version = "0.0.1"
+description = "Types and traits for Devalang"
+license = "MIT"
+authors = ["Devaloop <contact@devaloop.com>"]
 edition = "2024"
 
 [dependencies]

@@ -9,6 +9,7 @@ use crate::core::{
             bank::parse_bank_token,
             condition::parse_condition_token,
             dot::parse_dot_token,
+            pattern::parse_pattern_token,
             identifier::{
                 emit::parse_emit_token, function::parse_function_token, on::parse_on_token,
                 parse_identifier_token,
@@ -156,6 +157,7 @@ impl Parser {
                 TokenKind::Dot => parse_dot_token(self, global_store),
                 TokenKind::Tempo => parse_tempo_token(self, global_store),
                 TokenKind::Bank => parse_bank_token(self, global_store),
+                TokenKind::Pattern => parse_pattern_token(self, global_store),
                 TokenKind::Loop => parse_loop_token(self, global_store),
                 TokenKind::If => parse_condition_token(self, global_store),
                 TokenKind::Function => parse_function_token(self, global_store),
@@ -202,6 +204,8 @@ impl Parser {
     }
 
     pub fn parse_map_value(&mut self) -> Option<Value> {
+    let logger = devalang_utils::logger::Logger::new();
+    use devalang_utils::logger::LogLevel;
         if !self.match_token(TokenKind::LBrace) {
             return None;
         }
@@ -244,7 +248,7 @@ impl Parser {
             }
 
             if !self.match_token(TokenKind::Colon) {
-                println!("Expected ':' after map key '{}'", key);
+                logger.log_message(LogLevel::Error, &format!("Expected ':' after map key '{}'", key));
                 break;
             }
 
@@ -278,14 +282,11 @@ impl Parser {
                                         number_str.push('.');
                                         number_str.push_str(&decimal_token.lexeme);
                                     } else {
-                                        println!(
-                                            "Expected number after dot, got {:?}",
-                                            decimal_token
-                                        );
+                                        logger.log_message(LogLevel::Error, &format!("Expected number after dot, got {:?}", decimal_token));
                                         return Some(Value::Null);
                                     }
                                 } else {
-                                    println!("Expected number after dot, but reached EOF");
+                                    logger.log_message(LogLevel::Error, "Expected number after dot, but reached EOF");
                                     return Some(Value::Null);
                                 }
                             }
@@ -325,7 +326,7 @@ impl Parser {
                         Value::Identifier(parts.join("."))
                     }
                     _ => {
-                        println!("Unexpected token in map value: {:?}", token);
+                        logger.log_message(LogLevel::Error, &format!("Unexpected token in map value: {:?}", token));
                         Value::Null
                     }
                 }
@@ -345,7 +346,7 @@ impl Parser {
         }
 
         if !self.match_token(TokenKind::RBrace) {
-            println!("Expected '}}' at end of map");
+            logger.log_message(LogLevel::Error, "Expected '}' at end of map");
         }
 
         Some(Value::Map(map))
@@ -353,6 +354,8 @@ impl Parser {
 
     // Parse an array value like [1, 2, 3] or ["a", b]
     pub fn parse_array_value(&mut self) -> Option<Value> {
+    let logger = devalang_utils::logger::Logger::new();
+    use devalang_utils::logger::LogLevel;
         if !self.match_token(TokenKind::LBracket) {
             return None;
         }
@@ -436,7 +439,7 @@ impl Parser {
         }
 
         if !self.match_token(TokenKind::RBracket) {
-            println!("Expected ']' at end of array");
+            logger.log_message(LogLevel::Error, "Expected ']' at end of array");
         }
 
         Some(Value::Array(arr))

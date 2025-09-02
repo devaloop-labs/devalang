@@ -5,7 +5,7 @@ use crate::core::{
         module::Module,
         resolver::{
             bank::resolve_bank, call::resolve_call, condition::resolve_condition,
-            function::resolve_function, group::resolve_group, let_::resolve_let,
+        function::resolve_function, group::resolve_group, pattern::resolve_pattern, let_::resolve_let,
             loop_::resolve_loop, spawn::resolve_spawn, tempo::resolve_tempo,
             trigger::resolve_trigger,
         },
@@ -14,6 +14,7 @@ use crate::core::{
 };
 use devalang_types::Value;
 use devalang_utils::logger::Logger;
+use devalang_utils::logger::LogLevel;
 use std::collections::HashMap;
 
 pub fn resolve_all_modules(module_loader: &ModuleLoader, global_store: &mut GlobalStore) {
@@ -66,7 +67,8 @@ pub fn resolve_statement(
             global_store,
         ),
         StatementKind::If => resolve_condition(stmt, module, path, global_store),
-        StatementKind::Group => resolve_group(stmt, module, path, global_store),
+                StatementKind::Group => resolve_group(stmt, module, path, global_store),
+                StatementKind::Pattern { .. } => resolve_pattern(stmt, module, path, global_store),
         StatementKind::Call { name, args } => {
             resolve_call(stmt, name.clone(), args.clone(), module, path, global_store)
         }
@@ -90,6 +92,7 @@ pub fn resolve_statement(
 }
 
 fn resolve_value(value: &Value, module: &Module, global_store: &mut GlobalStore) -> Value {
+    let logger = Logger::new();
     match value {
         Value::Identifier(name) => {
             if let Some(original_val) = module.variable_table.get(name) {
@@ -107,7 +110,7 @@ fn resolve_value(value: &Value, module: &Module, global_store: &mut GlobalStore)
         Value::String(s) => Value::String(s.clone()),
 
         Value::Beat(beat_str) => {
-            println!("[warn] '{:?}': unresolved beat '{}'", module.path, beat_str);
+            logger.log_message(LogLevel::Warning, &format!("[warn] '{:?}': unresolved beat '{}'", module.path, beat_str));
             Value::Beat(beat_str.clone())
         }
 
@@ -141,6 +144,7 @@ fn find_export_value(name: &str, global_store: &GlobalStore) -> Option<Value> {
 }
 
 pub fn resolve_imports(_module_loader: &ModuleLoader, global_store: &mut GlobalStore) {
+    let logger = Logger::new();
     for (module_path, module) in global_store.clone().modules.iter_mut() {
         for (name, source_path) in &module.import_table.imports {
             match source_path {
@@ -149,21 +153,14 @@ pub fn resolve_imports(_module_loader: &ModuleLoader, global_store: &mut GlobalS
                         if let Some(value) = source_module.export_table.get_export(name) {
                             module.variable_table.set(name.clone(), value.clone());
                         } else {
-                            println!(
-                                "[warn] '{module_path}': '{name}' not found in exports of '{source_path}'"
-                            );
+                            logger.log_message(LogLevel::Warning, &format!("[warn] '{module_path}': '{name}' not found in exports of '{source_path}'"));
                         }
                     } else {
-                        println!(
-                            "[warn] '{module_path}': cannot find source module '{source_path}'"
-                        );
+                        logger.log_message(LogLevel::Warning, &format!("[warn] '{module_path}': cannot find source module '{source_path}'"));
                     }
                 }
                 _ => {
-                    println!(
-                        "[warn] '{module_path}': expected string for import source, found {:?}",
-                        source_path
-                    );
+                    logger.log_message(LogLevel::Warning, &format!("[warn] '{module_path}': expected string for import source, found {:?}", source_path));
                 }
             }
         }
@@ -283,6 +280,11 @@ pub fn resolve_and_flatten_all_modules(
 
                 StatementKind::Group => {
                     let resolved_stmt = resolve_group(&stmt, &module, &path, global_store);
+                    resolved.push(resolved_stmt);
+                }
+
+                StatementKind::Pattern { .. } => {
+                    let resolved_stmt = resolve_pattern(&stmt, &module, &path, global_store);
                     resolved.push(resolved_stmt);
                 }
 

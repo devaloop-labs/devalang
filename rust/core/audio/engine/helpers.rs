@@ -105,17 +105,29 @@ pub fn adsr_envelope_value(
     release_samples: usize,
     sustain_level: f32,
 ) -> f32 {
-    if i < attack_samples {
-        (i as f32) / (attack_samples as f32)
-    } else if i < attack_samples + decay_samples {
-        1.0 - (1.0 - sustain_level) * (((i - attack_samples) as f32) / (decay_samples as f32))
-    } else if i < attack_samples + decay_samples + sustain_samples {
+    let attack_start = 0usize;
+    let decay_start = attack_samples;
+    let sustain_start = attack_samples + decay_samples;
+    let release_start = attack_samples + decay_samples + sustain_samples;
+
+    if i < attack_start + attack_samples && attack_samples > 0 {
+        let k = i - attack_start;
+        let denom = if attack_samples > 1 { (attack_samples - 1) as f32 } else { 1.0 };
+        (k as f32) / denom
+    } else if i < decay_start + decay_samples && decay_samples > 0 {
+        let k = i - decay_start;
+        let denom = if decay_samples > 1 { (decay_samples - 1) as f32 } else { 1.0 };
+        let ratio = (k as f32) / denom;
+        1.0 - (1.0 - sustain_level) * ratio
+    } else if i < sustain_start + sustain_samples {
         sustain_level
     } else if release_samples > 0 {
-        sustain_level
-            * (1.0
-                - ((i - attack_samples - decay_samples - sustain_samples) as f32)
-                    / (release_samples as f32))
+        // release: interpolate from sustain_level down to 0 inclusive
+        let k = i.saturating_sub(release_start);
+        let denom = if release_samples > 1 { (release_samples - 1) as f32 } else { 1.0 };
+        let ratio = (k as f32) / denom;
+        let val = sustain_level * (1.0 - ratio);
+        if val < 0.0 { 0.0 } else { val }
     } else {
         0.0
     }

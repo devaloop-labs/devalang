@@ -60,6 +60,34 @@ pub fn resolve_call(
                         }
                     }
                 }
+                // Pattern case
+                if let StatementKind::Pattern { .. } = stmt_box.kind {
+                    // pattern value may be a string or a map stored on the statement
+                    let mut resolved_map = std::collections::HashMap::new();
+                    resolved_map.insert("identifier".to_string(), Value::String(name.clone()));
+                    // pattern value
+                    match &stmt_box.value {
+                        Value::String(s) => {
+                            resolved_map.insert("pattern".to_string(), Value::String(s.clone()));
+                        }
+                        Value::Map(m) => {
+                            if let Some(val) = m.get("pattern") {
+                                resolved_map.insert("pattern".to_string(), val.clone());
+                            }
+                            if let Some(val) = m.get("target") {
+                                resolved_map.insert("target".to_string(), val.clone());
+                            }
+                        }
+                        _ => {}
+                    }
+                    resolved_map.insert("args".to_string(), Value::Array(args.clone()));
+
+                    return Statement {
+                        kind: StatementKind::Call { name, args },
+                        value: Value::Map(resolved_map),
+                        ..stmt.clone()
+                    };
+                }
             }
 
             // Otherwise, log an error

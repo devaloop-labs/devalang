@@ -15,22 +15,46 @@ pub fn evaluate_condition_string(expr: &str, vars: &VariableTable) -> bool {
     let op = tokens[1];
     let right = tokens[2];
 
-    let left_val = match vars.get(left) {
-        Some(Value::Number(n)) => n,
-        _ => {
-            return false;
+    // Resolve left and right to numeric values where possible. Accept numbers, variables or env atoms.
+    fn resolve_for_cond(s: &str, vars: &VariableTable) -> Option<f32> {
+        if let Ok(n) = s.parse::<f32>() {
+            return Some(n);
         }
+        if let Some(Value::Number(n)) = vars.get(s) {
+            return Some(*n);
+        }
+        if let Some(v) = resolve_env_atom(s, 120.0, 1.0) {
+            return Some(v);
+        }
+        None
+    }
+
+    let left_val = match resolve_for_cond(left, vars) {
+        Some(v) => v,
+        None => return false,
     };
 
-    let right_val: f32 = right.parse().unwrap_or(0.0);
+    let right_val = match resolve_for_cond(right, vars) {
+        Some(v) => v,
+        None => return false,
+    };
 
     match op {
-        ">" => *left_val > right_val,
-        "<" => *left_val < right_val,
-        ">=" => *left_val >= right_val,
-        "<=" => *left_val <= right_val,
-        "==" => (*left_val - right_val).abs() < f32::EPSILON,
-        "!=" => (*left_val - right_val).abs() > f32::EPSILON,
+        ">" => left_val > right_val,
+        "<" => left_val < right_val,
+        ">=" => left_val >= right_val,
+        "<=" => left_val <= right_val,
+        "==" => {
+            // relative epsilon for floating comparisons
+            let diff = (left_val - right_val).abs();
+            let largest = left_val.abs().max(right_val.abs()).max(1.0);
+            diff <= (f32::EPSILON * largest)
+        }
+        "!=" => {
+            let diff = (left_val - right_val).abs();
+            let largest = left_val.abs().max(right_val.abs()).max(1.0);
+            diff > (f32::EPSILON * largest)
+        }
         _ => false,
     }
 }
@@ -62,25 +86,39 @@ pub fn evaluate_numeric_expression(
     // Shunting-like, simplified: first evaluate any $math.func(...) calls anywhere in the expression,
     // then fold remaining parentheses and evaluate left-to-right.
     fn eval(expr: &str, vars: &VariableTable, bpm: f32, beat: f32) -> Option<f32> {
-        // 1) Replace $math.* calls progressively
+        // 1) Replace $math/$easing/$mod calls progressively with a max iteration guard
         let mut s = expr.to_string();
+        let mut iterations = 0u32;
+        const MAX_ITER: u32 = 64;
+
         // Evaluate modulators first (they may feed easing/math)
-        while let Some(next) =
-            find_and_eval_first_mod_call(&s, evaluate_numeric_expression, vars, bpm, beat)
-        {
-            s = next;
+        while iterations < MAX_ITER {
+            if let Some(next) = find_and_eval_first_mod_call(&s, evaluate_numeric_expression, vars, bpm, beat) {
+                s = next;
+                iterations += 1;
+                continue;
+            }
+            break;
         }
-        // Then easing functions
-        while let Some(next) =
-            find_and_eval_first_easing_call(&s, evaluate_numeric_expression, vars, bpm, beat)
-        {
-            s = next;
+
+        iterations = 0;
+        while iterations < MAX_ITER {
+            if let Some(next) = find_and_eval_first_easing_call(&s, evaluate_numeric_expression, vars, bpm, beat) {
+                s = next;
+                iterations += 1;
+                continue;
+            }
+            break;
         }
-        // Finally math transforms
-        while let Some(next) =
-            find_and_eval_first_math_call(&s, evaluate_numeric_expression, vars, bpm, beat)
-        {
-            s = next;
+
+        iterations = 0;
+        while iterations < MAX_ITER {
+            if let Some(next) = find_and_eval_first_math_call(&s, evaluate_numeric_expression, vars, bpm, beat) {
+                s = next;
+                iterations += 1;
+                continue;
+            }
+            break;
         }
 
         // 2) Evaluate remaining (pure) parentheses starting from innermost

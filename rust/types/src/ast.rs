@@ -87,6 +87,10 @@ pub enum StatementKind {
 
     // ───── Structure & Logic ─────
     Group,
+    Pattern {
+        name: String,
+        target: Option<String>,
+    },
 
     // ───── Module System ─────
     Include(String),

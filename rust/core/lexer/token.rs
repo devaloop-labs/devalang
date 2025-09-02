@@ -21,6 +21,7 @@ pub enum TokenKind {
     At,
     Tempo,
     Bank,
+    Pattern,
     Loop,
     Function,
     As,

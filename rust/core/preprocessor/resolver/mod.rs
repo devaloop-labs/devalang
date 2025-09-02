@@ -7,6 +7,7 @@ pub mod call;
 pub mod condition;
 pub mod function;
 pub mod group;
+pub mod pattern;
 pub mod let_;
 pub mod loop_;
 pub mod spawn;

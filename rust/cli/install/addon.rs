@@ -22,59 +22,105 @@ pub async fn install_addon(
 pub async fn ask_api_for_signed_url(addon_type: AddonType, slug: &str) -> Result<String, String> {
     let api_url = get_api_url();
 
-    let user_config = get_user_config();
-    if user_config.is_none() {
-        return Err("User is not logged in".into());
+    use devalang_utils::logger::Logger;
+    use devalang_utils::logger::LogLevel;
+
+    // Require an authenticated user for addon installation: token must be present and non-empty
+    let stored_token_opt = get_user_config()
+        .and_then(|cfg| {
+            let t = cfg.session.clone();
+            if t.trim().is_empty() {
+                None
+            } else {
+                Some(t)
+            }
+        });
+
+    if stored_token_opt.is_none() {
+        let logger = Logger::new();
+        let msg = "Authentication required — run `devalang login` to authenticate";
+        logger.log_message(LogLevel::Error, msg);
+        return Err("Authentication required: run 'devalang login' to authenticate".to_string());
     }
 
-    let stored_token = user_config.unwrap().session.clone();
-
-    let request_url = format!(
-        "{}/v1/assets/url?type={}&slug={}&token={}",
-        api_url,
-        match addon_type {
-            AddonType::Bank => "bank",
-            AddonType::Plugin => "plugin",
-            AddonType::Preset => "preset",
-            AddonType::Template => "template",
-        },
-        slug,
-        stored_token
-    );
+    let request_url = if let Some(token) = &stored_token_opt {
+        format!(
+            "{}/v1/assets/url?type={}&slug={}&token={}",
+            api_url,
+            match addon_type {
+                AddonType::Bank => "bank",
+                AddonType::Plugin => "plugin",
+                AddonType::Preset => "preset",
+                AddonType::Template => "template",
+            },
+            slug,
+            token
+        )
+    } else {
+        format!(
+            "{}/v1/assets/url?type={}&slug={}",
+            api_url,
+            match addon_type {
+                AddonType::Bank => "bank",
+                AddonType::Plugin => "plugin",
+                AddonType::Preset => "preset",
+                AddonType::Template => "template",
+            },
+            slug
+        )
+    };
 
     let mut headers = reqwest::header::HeaderMap::new();
-
-    headers.insert(
-        "Authorization",
-        format!("Bearer {}", stored_token).parse().unwrap(),
-    );
+    if let Some(token) = stored_token_opt {
+        headers.insert(
+            "Authorization",
+            format!("Bearer {}", token).parse().unwrap(),
+        );
+    }
 
     let client: reqwest::Client = reqwest::Client::builder()
         .default_headers(headers)
         .build()
         .map_err(|_| "Failed to build HTTP client".to_string())?;
 
-    let req = client
+    let resp = client
         .get(&request_url)
         .send()
         .await
-        .map_err(|_| "Failed to receive response".to_string())?;
+        .map_err(|e| format!("Failed to receive response: {}", e))?;
 
-    let response_body: serde_json::Value = req
-        .json()
+    let status = resp.status();
+    let body_text = resp
+        .text()
         .await
-        .map_err(|_| "Failed to read response body".to_string())?;
+        .map_err(|e| format!("Failed to read response body: {}", e))?;
 
-    let signed_url: String = serde_json::from_value(
-        response_body
-            .get("payload")
-            .cloned()
-            .unwrap_or_default()
-            .get("url")
-            .cloned()
-            .unwrap_or_default(),
-    )
-    .map_err(|_| "Failed to parse response body".to_string())?;
+    // Try to parse JSON; if parsing fails, return body for diagnostics
+    let json: serde_json::Value = match serde_json::from_str(&body_text) {
+        Ok(v) => v,
+        Err(_) => {
+            return Err(format!(
+                "Invalid JSON response (status {}): {}",
+                status, body_text
+            ));
+        }
+    };
 
-    Ok(signed_url)
+    // Extract payload.url safely
+    let signed_url_opt = json
+        .get("payload")
+        .and_then(|p| p.get("url"))
+        .and_then(|u| u.as_str())
+        .map(|s| s.to_string());
+
+    if let Some(signed_url) = signed_url_opt {
+        Ok(signed_url)
+    } else {
+        // Provide detailed diagnostics to help user understand why it's null
+        let err_msg = format!(
+            "API returned no URL (status {}): {}",
+            status, body_text
+        );
+        Err(err_msg)
+    }
 }

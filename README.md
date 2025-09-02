@@ -84,13 +84,16 @@ Create a new Devalang file `src/index.deva` in the project directory:
 # BPM definition
 bpm 125
 
-# Bank picking (make sure you installed it)
+# Bank picking (make sure you've installed it)
 bank devaloop.808 as my808Bank
+
+# Pattern literal without options
+pattern kickPattern with my808Bank.kick = "x--- x--- x--- x---"
 
 group myGroup:
     # Rhythmic (each beat playing a kick)
-    on beat:
-        .my808Bank.kick 1/4
+    # on beat:
+    #     .my808Bank.kick 1/4
 
     # Synth definition with ADSR
     let myLead = synth sine {
@@ -133,12 +136,12 @@ group myGroup:
     })
 
     # Notes with params
-    myLead -> note(E4, { duration: 400 })
     myLead -> note(G4, { duration: 600, glide: true, target_freq: 659.25 })
     myLead -> note(B3, { duration: 400, slide: true, target_amp: 0.3 })
 
-# Calling the group to play it
-call myGroup
+# Spawning the group & the pattern to play them in parallel
+spawn myGroup
+spawn kickPattern
 ```
 
 ### And the best part ? You can play it directly from the command line:
