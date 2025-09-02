@@ -22,19 +22,14 @@ pub async fn install_addon(
 pub async fn ask_api_for_signed_url(addon_type: AddonType, slug: &str) -> Result<String, String> {
     let api_url = get_api_url();
 
-    use devalang_utils::logger::Logger;
     use devalang_utils::logger::LogLevel;
+    use devalang_utils::logger::Logger;
 
     // Require an authenticated user for addon installation: token must be present and non-empty
-    let stored_token_opt = get_user_config()
-        .and_then(|cfg| {
-            let t = cfg.session.clone();
-            if t.trim().is_empty() {
-                None
-            } else {
-                Some(t)
-            }
-        });
+    let stored_token_opt = get_user_config().and_then(|cfg| {
+        let t = cfg.session.clone();
+        if t.trim().is_empty() { None } else { Some(t) }
+    });
 
     if stored_token_opt.is_none() {
         let logger = Logger::new();
@@ -117,10 +112,7 @@ pub async fn ask_api_for_signed_url(addon_type: AddonType, slug: &str) -> Result
         Ok(signed_url)
     } else {
         // Provide detailed diagnostics to help user understand why it's null
-        let err_msg = format!(
-            "API returned no URL (status {}): {}",
-            status, body_text
-        );
+        let err_msg = format!("API returned no URL (status {}): {}", status, body_text);
         Err(err_msg)
     }
 }

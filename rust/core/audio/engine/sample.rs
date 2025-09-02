@@ -161,7 +161,11 @@ impl super::synth::AudioEngine {
 
         // Convert interleaved channels to mono by averaging channels per frame.
         // Apply a small RMS-preserving scale so mono level is similar to mixed stereo.
-        let actual_frames = if dec_channels > 0 { raw_samples.len() / dec_channels } else { 0 };
+        let actual_frames = if dec_channels > 0 {
+            raw_samples.len() / dec_channels
+        } else {
+            0
+        };
         let mut samples: Vec<i16> = Vec::with_capacity(actual_frames);
         let rms_scale = (dec_channels as f32).sqrt();
         for frame in 0..actual_frames {
@@ -251,20 +255,22 @@ impl super::synth::AudioEngine {
         let fade_out_samples = (fade_out * (SAMPLE_RATE as f32)) as usize;
 
         // If no fade specified, apply a tiny default fade (2 ms) when sample boundaries are non-zero
-    let default_boundary_fade_ms = 1.0_f32; // 1 ms
+        let default_boundary_fade_ms = 1.0_f32; // 1 ms
         let default_fade_samples = (default_boundary_fade_ms * (SAMPLE_RATE as f32)) as usize;
-    let mut effective_fade_in = fade_in_samples;
-    let mut effective_fade_out = fade_out_samples;
+        let mut effective_fade_in = fade_in_samples;
+        let mut effective_fade_out = fade_out_samples;
         if effective_fade_in == 0 {
             if let Some(&first) = samples.first() {
-                if first.abs() > 64 { // increased threshold to detect only strong abrupt starts
+                if first.abs() > 64 {
+                    // increased threshold to detect only strong abrupt starts
                     effective_fade_in = default_fade_samples.max(1);
                 }
             }
         }
         if effective_fade_out == 0 {
             if let Some(&last) = samples.last() {
-                if last.abs() > 64 { // increased threshold to detect only strong abrupt ends
+                if last.abs() > 64 {
+                    // increased threshold to detect only strong abrupt ends
                     effective_fade_out = default_fade_samples.max(1);
                 }
             }
@@ -288,7 +294,7 @@ impl super::synth::AudioEngine {
         };
         let mut delay_buffer: Vec<f32> = vec![0.0; total_samples + delay_samples];
 
-    for i in 0..total_samples {
+        for i in 0..total_samples {
             let pitch_index = if pitch != 1.0 {
                 ((i as f32) / pitch) as usize
             } else {
@@ -314,7 +320,8 @@ impl super::synth::AudioEngine {
                 if effective_fade_out == 1 {
                     adjusted *= 0.0;
                 } else {
-                    adjusted *= ((total_samples - 1 - i) as f32) / ((effective_fade_out - 1) as f32);
+                    adjusted *=
+                        ((total_samples - 1 - i) as f32) / ((effective_fade_out - 1) as f32);
                 }
             }
 

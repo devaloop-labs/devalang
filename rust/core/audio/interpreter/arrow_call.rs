@@ -5,7 +5,7 @@ use crate::core::{
     store::{global::GlobalStore, variable::VariableTable},
 };
 use devalang_types::Value;
-use devalang_utils::logger::{Logger, LogLevel};
+use devalang_utils::logger::{LogLevel, Logger};
 
 use std::collections::HashMap;
 
@@ -30,31 +30,46 @@ pub fn interprete_call_arrow_statement(
     {
         let Some(Value::Statement(synth_stmt)) = variable_table.get(target) else {
             let logger = Logger::new();
-            logger.log_message(LogLevel::Error, &format!("Synth '{}' not found in variable table", target));
+            logger.log_message(
+                LogLevel::Error,
+                &format!("Synth '{}' not found in variable table", target),
+            );
             return (*max_end_time, cursor_copy);
         };
 
         let Value::Map(synth_map) = &synth_stmt.value else {
             let logger = Logger::new();
-            logger.log_message(LogLevel::Error, &format!("Invalid synth statement for '{}', expected a map.", target));
+            logger.log_message(
+                LogLevel::Error,
+                &format!("Invalid synth statement for '{}', expected a map.", target),
+            );
             return (*max_end_time, cursor_copy);
         };
 
         let Some(Value::String(entity)) = synth_map.get("entity") else {
             let logger = Logger::new();
-            logger.log_message(LogLevel::Error, &format!("Missing 'entity' key in synth '{}'.", target));
+            logger.log_message(
+                LogLevel::Error,
+                &format!("Missing 'entity' key in synth '{}'.", target),
+            );
             return (*max_end_time, cursor_copy);
         };
 
         if entity != "synth" {
             let logger = Logger::new();
-            logger.log_message(LogLevel::Error, &format!("'{}' is not a synth, entity is '{}'.", target, entity));
+            logger.log_message(
+                LogLevel::Error,
+                &format!("'{}' is not a synth, entity is '{}'.", target, entity),
+            );
             return (*max_end_time, cursor_copy);
         }
 
         let Some(Value::Map(value_map)) = synth_map.get("value") else {
             let logger = Logger::new();
-            logger.log_message(LogLevel::Error, &format!("Missing 'value' map in synth '{}'.", target));
+            logger.log_message(
+                LogLevel::Error,
+                &format!("Missing 'value' map in synth '{}'.", target),
+            );
             return (*max_end_time, cursor_copy);
         };
 
@@ -63,7 +78,10 @@ pub fn interprete_call_arrow_statement(
             Some(Value::Identifier(s)) => s.clone(),
             _ => {
                 let logger = Logger::new();
-                logger.log_message(LogLevel::Error, &format!("Missing or invalid 'waveform' in synth '{}'.", target));
+                logger.log_message(
+                    LogLevel::Error,
+                    &format!("Missing or invalid 'waveform' in synth '{}'.", target),
+                );
                 return (*max_end_time, cursor_copy);
             }
         };
@@ -201,15 +219,27 @@ pub fn interprete_call_arrow_statement(
                             }
                         } else {
                             let logger = Logger::new();
-                            logger.log_message(LogLevel::Warning, &format!("Plugin bytes not found for key '{}' (alias '{}').", key, alias));
+                            logger.log_message(
+                                LogLevel::Warning,
+                                &format!(
+                                    "Plugin bytes not found for key '{}' (alias '{}').",
+                                    key, alias
+                                ),
+                            );
                         }
                     } else {
                         let logger = Logger::new();
-                        logger.log_message(LogLevel::Warning, &format!("Invalid plugin URI in alias '{}': {}", alias, uri));
+                        logger.log_message(
+                            LogLevel::Warning,
+                            &format!("Invalid plugin URI in alias '{}': {}", alias, uri),
+                        );
                     }
                 } else {
                     let logger = Logger::new();
-                    logger.log_message(LogLevel::Warning, &format!("Plugin alias '{}' not found in variable table.", alias));
+                    logger.log_message(
+                        LogLevel::Warning,
+                        &format!("Plugin alias '{}' not found in variable table.", alias),
+                    );
                 }
             } else {
                 audio_engine.insert_note(
@@ -235,7 +265,10 @@ pub fn interprete_call_arrow_statement(
             return (*max_end_time, end_time);
         } else {
             let logger = Logger::new();
-            logger.log_message(LogLevel::Error, &format!("Unknown method '{}' on synth '{}'.", method, target));
+            logger.log_message(
+                LogLevel::Error,
+                &format!("Unknown method '{}' on synth '{}'.", method, target),
+            );
         }
     }
 

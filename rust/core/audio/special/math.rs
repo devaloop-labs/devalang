@@ -1,5 +1,5 @@
 use crate::core::store::variable::VariableTable;
-use devalang_utils::logger::{Logger, LogLevel};
+use devalang_utils::logger::{LogLevel, Logger};
 
 // Parse comma-separated arguments at top level (no nested parentheses split)
 fn parse_top_level_args(s: &str) -> Vec<&str> {
@@ -63,13 +63,19 @@ where
     let open_rel = match s[start..].find('(') {
         Some(i) => i,
         None => {
-            logger.log_message(LogLevel::Error, &format!("Malformed $math call: missing '(' in '{}'", s));
+            logger.log_message(
+                LogLevel::Error,
+                &format!("Malformed $math call: missing '(' in '{}'", s),
+            );
             return None;
         }
     };
     let open = start + open_rel;
     if open <= start + 6 {
-        logger.log_message(LogLevel::Error, &format!("Malformed $math call: missing function name in '{}'", s));
+        logger.log_message(
+            LogLevel::Error,
+            &format!("Malformed $math call: missing function name in '{}'", s),
+        );
         return None;
     }
     let func = &s[start + 6..open];
@@ -93,7 +99,10 @@ where
     let close = match close_abs {
         Some(c) => c,
         None => {
-            logger.log_message(LogLevel::Error, &format!("Malformed $math call: missing closing ')' in '{}'", s));
+            logger.log_message(
+                LogLevel::Error,
+                &format!("Malformed $math call: missing closing ')' in '{}'", s),
+            );
             return None;
         }
     };
@@ -105,7 +114,10 @@ where
         if let Some(v) = eval(a, vars, bpm, beat) {
             args.push(v);
         } else {
-            logger.log_message(LogLevel::Error, &format!("Failed to evaluate argument '{}' for $math.{}", a, func));
+            logger.log_message(
+                LogLevel::Error,
+                &format!("Failed to evaluate argument '{}' for $math.{}", a, func),
+            );
             return None;
         }
     }

@@ -4,8 +4,8 @@ pub mod cli;
 pub mod config;
 pub mod core;
 pub mod web;
-use devalang_utils::path::ensure_deva_dir;
 pub use devalang_utils as utils;
+use devalang_utils::path::ensure_deva_dir;
 
 use crate::cli::telemetry::send::send_telemetry_event;
 use crate::config::settings::ensure_user_config_file_exists;

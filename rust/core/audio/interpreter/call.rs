@@ -83,10 +83,15 @@ pub fn interprete_call_statement(
 
                 // Build a variable table snapshot for resolution like triggers do
                 // Preserve the full parent chain so lookups behave the same as runtime
-                fn clone_with_parents(orig: &crate::core::store::variable::VariableTable) -> crate::core::store::variable::VariableTable {
+                fn clone_with_parents(
+                    orig: &crate::core::store::variable::VariableTable,
+                ) -> crate::core::store::variable::VariableTable {
                     crate::core::store::variable::VariableTable {
                         variables: orig.variables.clone(),
-                        parent: orig.parent.as_ref().map(|p| Box::new(clone_with_parents(p))),
+                        parent: orig
+                            .parent
+                            .as_ref()
+                            .map(|p| Box::new(clone_with_parents(p))),
                     }
                 }
 
@@ -144,8 +149,13 @@ pub fn interprete_call_statement(
                     }
 
                     // Use loader to get sample path and sample length
-                    let (src, sample_length) =
-                        crate::core::audio::loader::trigger::load_trigger(&trigger_val, &Duration::Number(step_duration), &None, base_duration, final_variable_table.clone());
+                    let (src, sample_length) = crate::core::audio::loader::trigger::load_trigger(
+                        &trigger_val,
+                        &Duration::Number(step_duration),
+                        &None,
+                        base_duration,
+                        final_variable_table.clone(),
+                    );
 
                     let play_length = step_duration.min(sample_length);
 
@@ -162,7 +172,13 @@ pub fn interprete_call_statement(
                         _ => src.clone(),
                     };
 
-                    audio_engine.insert_sample(&trigger_src, event_time, play_length, None, &final_variable_table);
+                    audio_engine.insert_sample(
+                        &trigger_src,
+                        event_time,
+                        play_length,
+                        None,
+                        &final_variable_table,
+                    );
 
                     let end_time = event_time + play_length;
                     if end_time > updated_max {
@@ -255,10 +271,14 @@ fn find_pattern(
                                 _ => None,
                             }),
                         },
-                        value: Value::String(map.get("pattern").and_then(|v| match v {
-                            Value::String(s) => Some(s.clone()),
-                            _ => None,
-                        }).unwrap_or_default()),
+                        value: Value::String(
+                            map.get("pattern")
+                                .and_then(|v| match v {
+                                    Value::String(s) => Some(s.clone()),
+                                    _ => None,
+                                })
+                                .unwrap_or_default(),
+                        ),
                         indent: 0,
                         line: 0,
                         column: 0,

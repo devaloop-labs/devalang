@@ -57,7 +57,10 @@ pub fn parse_dot_token(
     let entity = if !parts.is_empty() {
         parts.join(".") // only join within the same line
     } else {
-        logger.log_message(LogLevel::Warning, &format!("Empty entity after '.' at line {}", dot_token.line));
+        logger.log_message(
+            LogLevel::Warning,
+            &format!("Empty entity after '.' at line {}", dot_token.line),
+        );
         String::new()
     };
 

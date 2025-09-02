@@ -92,12 +92,8 @@ pub fn handle_build_command(
         })
         .unwrap();
     } else {
-        let res = crate::cli::build::process::process_build(
-            entry_file,
-            fetched_output,
-            debug,
-            compress,
-        );
+        let res =
+            crate::cli::build::process::process_build(entry_file, fetched_output, debug, compress);
         if let Err(e) = res {
             return Err(e);
         }

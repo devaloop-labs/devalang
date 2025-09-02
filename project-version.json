@@ -1,6 +1,6 @@
 {
-  "version": "0.0.1-alpha.19",
-  "channel": "alpha",
+  "version": "0.0.1-beta.1",
+  "channel": "beta",
   "lastCommit": "888ed3a754f3bc95362eb9742c2ed8873b3cfd5f",
-  "build": 18
+  "build": 0
 }

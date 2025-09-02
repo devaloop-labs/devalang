@@ -1,6 +1,6 @@
 use crate::core::{
     parser::statement::{Statement, StatementKind},
-    preprocessor::{module::Module},
+    preprocessor::module::Module,
     store::global::GlobalStore,
 };
 use devalang_types::Value;
@@ -18,9 +18,14 @@ pub fn resolve_pattern(
     if let StatementKind::Pattern { name, target } = &stmt.kind {
         // Ensure name doesn't already exist
         if global_store.variables.variables.contains_key(name) {
-            logger.log_error_with_stacktrace(&format!("Pattern identifier '{}' already exists", name), path);
+            logger.log_error_with_stacktrace(
+                &format!("Pattern identifier '{}' already exists", name),
+                path,
+            );
             return Statement {
-                kind: StatementKind::Error { message: format!("Pattern '{}' already exists", name) },
+                kind: StatementKind::Error {
+                    message: format!("Pattern '{}' already exists", name),
+                },
                 ..stmt.clone()
             };
         }
@@ -55,7 +60,10 @@ pub fn resolve_pattern(
         return resolved_stmt;
     }
 
-    logger.log_message(LogLevel::Warning, "resolve_pattern called on non-pattern statement");
+    logger.log_message(
+        LogLevel::Warning,
+        "resolve_pattern called on non-pattern statement",
+    );
     stmt.clone()
 }
 

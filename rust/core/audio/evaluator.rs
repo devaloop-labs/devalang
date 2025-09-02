@@ -93,7 +93,9 @@ pub fn evaluate_numeric_expression(
 
         // Evaluate modulators first (they may feed easing/math)
         while iterations < MAX_ITER {
-            if let Some(next) = find_and_eval_first_mod_call(&s, evaluate_numeric_expression, vars, bpm, beat) {
+            if let Some(next) =
+                find_and_eval_first_mod_call(&s, evaluate_numeric_expression, vars, bpm, beat)
+            {
                 s = next;
                 iterations += 1;
                 continue;
@@ -103,7 +105,9 @@ pub fn evaluate_numeric_expression(
 
         iterations = 0;
         while iterations < MAX_ITER {
-            if let Some(next) = find_and_eval_first_easing_call(&s, evaluate_numeric_expression, vars, bpm, beat) {
+            if let Some(next) =
+                find_and_eval_first_easing_call(&s, evaluate_numeric_expression, vars, bpm, beat)
+            {
                 s = next;
                 iterations += 1;
                 continue;
@@ -113,7 +117,9 @@ pub fn evaluate_numeric_expression(
 
         iterations = 0;
         while iterations < MAX_ITER {
-            if let Some(next) = find_and_eval_first_math_call(&s, evaluate_numeric_expression, vars, bpm, beat) {
+            if let Some(next) =
+                find_and_eval_first_math_call(&s, evaluate_numeric_expression, vars, bpm, beat)
+            {
                 s = next;
                 iterations += 1;
                 continue;

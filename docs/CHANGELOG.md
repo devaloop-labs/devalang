@@ -4,6 +4,50 @@
 
 # Changelog
 
+## Version 0.0.1-beta.1 (2025-09-02)
+
+> First beta of Devalang 0.0.1. Focus on stability, language surface freeze, and developer experience. No breaking changes expected compared to alpha.18; experimental features are gated and may change.
+>
+> NOTE: this beta release does not include pre-built WASM/Node bindings in the npm package. If you need WASM bindings, build them locally in the `rust/devalang` directory with `wasm-pack build --target nodejs` and copy the generated `pkg` into `out-tsc/pkg/`, or wait for a future release that bundles the artifacts.
+
+### ✨ Language Features
+
+- Language surface freeze for beta: core syntax and semantics stabilized; future breaking changes will follow a deprecation policy.
+- `pattern` enhancements: improved scheduling accuracy and step handling; supports accents and swing via step markers; clearer error messages for malformed patterns.
+- Better diagnostics across the language: consistent error formatting with source spans and error codes.
+
+### 🧠 Core Engine
+
+- High-precision scheduler: tighter timing guarantees and improved alignment with BPM; more reliable loop execution and periodic handlers.
+- Audio quality: automatic micro-fades on start/end to reduce clicks; improved handling of tails and voice polyphony.
+- Sample engine: safer stereo/mono handling and level preservation; fewer edge-case distortions on rapid retriggers.
+
+### 🧩 Parser & Lexer
+
+- Span-rich errors across maps/arrays and complex expressions; clearer messages and recovery where possible.
+- Lexer driver matured to cleanly separate file resolution from tokenization; fewer panics and better diagnostics.
+
+### 🔁 Preprocessor & Resolution
+
+- Deterministic include/resolve order; variable lookup consistently walks parent scopes.
+- Pattern resolver integration hardened to ensure `call`/`spawn` of patterns behave like functions/groups.
+
+### 🛠️ CLI & Telemetry
+
+- `build`, `check`, `play`: consistent exit codes and non-watch behavior; clearer surfacing of errors.
+- `install`/`discover`: authentication flow improved; better JSON/API error reporting; integrity checks on downloaded artifacts.
+- Telemetry: stable anonymous machine UUID; records CLI version/OS/args with opt-out capability; ensures `.deva` directory exists.
+
+### 📦 Packaging (WASM/Node/Rust)
+
+- WASM/TypeScript distribution: safer postinstall with guarded downloads; robust `.d.ts` types and ESM/CJS compatibility.
+- Rust crates: metadata completed and internal versions pinned; native-only features kept optional to reduce footprint.
+
+### 🧪 Tests & CI
+
+- Added unit tests for parser, pattern scheduling, and selected core utilities; initial wasm smoke tests.
+- CI matrix across Linux/macOS/Windows and Node/Rust versions; release pipeline hardened.
+
 ## Version 0.0.1-alpha.18 (2025-09-02)
 
 ### ✨ Language Features

@@ -5,9 +5,23 @@ import fs from "fs";
 import path from "path";
 
 const projectVersionPath = path.join(__dirname, "../../project-version.json");
-
-const version = fs.readFileSync(projectVersionPath, "utf-8").trim();
-const versionString = JSON.parse(version).version;
+let versionString = "";
+try {
+  if (!fs.existsSync(projectVersionPath)) {
+    console.warn(`⚠️  project-version.json not found at ${projectVersionPath}. Skipping postinstall binary download.`);
+  } else {
+    const version = fs.readFileSync(projectVersionPath, "utf-8").trim();
+    try {
+      versionString = JSON.parse(version).version;
+    } catch (e: any) {
+      console.warn(`⚠️  Failed to parse project-version.json: ${e.message}. Skipping binary download.`);
+      versionString = "";
+    }
+  }
+} catch (e: any) {
+  console.warn(`⚠️  Could not read project-version.json: ${e.message}. Skipping binary download.`);
+  versionString = "";
+}
 
 const platform = process.platform;
 
@@ -25,45 +39,47 @@ switch (platform) {
     break;
 }
 
-if (binaryName !== "") {
+if (binaryName !== "" && versionString) {
   const destDir = join(__dirname, "..", "..", "out-tsc", "bin");
   const dest = join(destDir, binaryName);
-
   const url = `https://github.com/devaloop-labs/devalang/releases/download/v${versionString}/${binaryName}`;
 
   mkdirSync(destDir, { recursive: true });
 
   console.log(`⬇️  Downloading ${binaryName} from ${url}`);
 
-  https
-    .get(url, (res: any) => {
-      if (res.statusCode === 404) {
-        console.warn(
-          `⚠️  Asset not found (HTTP 404). Skipping binary download.`
-        );
-        res.resume();
-        return;
-      }
+  const req = https.get(url, (res: any) => {
+    if (res.statusCode === 404) {
+      console.warn(`⚠️  Asset not found (HTTP 404). Skipping binary download.`);
+      res.resume();
+      return;
+    }
 
-      if (res.statusCode !== 200) {
-        console.error(
-          `❌ Failed (HTTP ${res.statusCode}). Skipping binary download.`
-        );
-        res.resume();
-        return;
-      }
+    if (res.statusCode !== 200) {
+      console.warn(`⚠️  Failed (HTTP ${res.statusCode}). Skipping binary download.`);
+      res.resume();
+      return;
+    }
 
-      const file = createWriteStream(dest, { mode: 0o755 });
-      res.pipe(file);
-      file.on("finish", () => {
-        file.close();
-        console.log(`✅ Downloaded ${binaryName} to ${dest}`);
-      });
-    })
-    .on("error", (err) => {
-      // Network or other errors should not fail CI; log and continue
-      console.error(`❌ Error: ${err.message}. Skipping binary download.`);
+    const file = createWriteStream(dest, { mode: 0o755 });
+    res.pipe(file);
+    file.on("finish", () => {
+      file.close();
+      console.log(`✅ Downloaded ${binaryName} to ${dest}`);
     });
+  });
+
+  req.setTimeout(30000, () => {
+    console.warn(`⚠️  Download timed out after 30s. Skipping binary download for ${binaryName}.`);
+    try {
+      req.destroy();
+    } catch (e) {}
+  });
+
+  req.on("error", (err: any) => {
+    // Network or other errors should not fail CI; log and continue
+    console.warn(`⚠️  Error downloading binary: ${err.message}. Skipping binary download.`);
+  });
 } else {
-  console.error(`❌ Unsupported platform: ${platform}`);
+  console.warn(`⚠️  Unsupported platform: ${platform}. Skipping binary download.`);
 }

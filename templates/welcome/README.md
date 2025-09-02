@@ -6,7 +6,7 @@
 ![TypeScript](https://img.shields.io/badge/Built%20with-TypeScript-blue?logo=typescript)
 ![Node.js](https://img.shields.io/badge/Node.js-18%2B-brightgreen?logo=node.js)
 
-![Project Status](https://img.shields.io/badge/status-alpha-red)
+![Project Status](https://img.shields.io/badge/status-beta-blue)
 ![Version](https://img.shields.io/npm/v/@devaloop/devalang)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 
@@ -68,7 +68,7 @@ npm install -g @devaloop/devalang@latest
 cargo install devalang
 ```
 
-#### Initialize a new project (current directory)
+#### Initialize a new project
 
 ```bash
 devalang init --name my-project --template minimal
@@ -84,13 +84,16 @@ Create a new Devalang file `src/index.deva` in the project directory:
 # BPM definition
 bpm 125
 
-# Bank picking (make sure you installed it)
+# Bank picking (make sure you've installed it)
 bank devaloop.808 as my808Bank
+
+# Pattern literal without options
+pattern kickPattern with my808Bank.kick = "x--- x--- x--- x---"
 
 group myGroup:
     # Rhythmic (each beat playing a kick)
-    on beat:
-        .my808Bank.kick 1/4
+    # on beat:
+    #     .my808Bank.kick 1/4
 
     # Synth definition with ADSR
     let myLead = synth sine {
@@ -133,12 +136,12 @@ group myGroup:
     })
 
     # Notes with params
-    myLead -> note(E4, { duration: 400 })
     myLead -> note(G4, { duration: 600, glide: true, target_freq: 659.25 })
     myLead -> note(B3, { duration: 400, slide: true, target_amp: 0.3 })
 
-# Calling the group to play it
-call myGroup
+# Spawning the group & the pattern to play them in parallel
+spawn myGroup
+spawn kickPattern
 ```
 
 ### And the best part ? You can play it directly from the command line:
@@ -166,7 +169,6 @@ devalang play --repeat
 - 🎛️ Control audio parameters through readable syntax
 - 🧪 Build musical logic with variables and conditions
 - 🔄 Create complex patterns with ease
-- 🎚️ Automate everything
 
 ## 🚀 Features
 
@@ -197,12 +199,6 @@ devalang play --repeat
 - **Public TypeScript API**: Added a public TypeScript API for easier integration.
 - **Improved error messages**: Enhanced error messages for better debugging.
 - **Bug fixes**: Various bug fixes and stability improvements.
-
-## 🧪 Roadmap Highlights
-
-For more info, see [docs/ROADMAP.md](./docs/ROADMAP.md)
-
-- ⏳ Smart modules
 
 ## 🛡️ License
 

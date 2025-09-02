@@ -1,7 +1,13 @@
-/* tslint:disable */
-/* eslint-disable */
-export function register_playhead_callback(cb: Function): void;
-export function parse(entry_path: string, source: string): any;
-export function debug_render(user_code: string): any;
-export function render_audio(user_code: string): Float32Array;
-export function unregister_playhead_callback(): void;
+export declare function parse(...args: any[]): any;
+export declare function debug_render(...args: any[]): any;
+export declare function render_audio(...args: any[]): any;
+export declare function register_playhead_callback(cb?: any): any;
+export declare function unregister_playhead_callback(): any;
+declare const pkg: {
+    parse: typeof parse;
+    debug_render: typeof debug_render;
+    render_audio: typeof render_audio;
+    register_playhead_callback: typeof register_playhead_callback;
+    unregister_playhead_callback: typeof unregister_playhead_callback;
+};
+export default pkg;

@@ -5,16 +5,16 @@ use crate::core::{
         module::Module,
         resolver::{
             bank::resolve_bank, call::resolve_call, condition::resolve_condition,
-        function::resolve_function, group::resolve_group, pattern::resolve_pattern, let_::resolve_let,
-            loop_::resolve_loop, spawn::resolve_spawn, tempo::resolve_tempo,
-            trigger::resolve_trigger,
+            function::resolve_function, group::resolve_group, let_::resolve_let,
+            loop_::resolve_loop, pattern::resolve_pattern, spawn::resolve_spawn,
+            tempo::resolve_tempo, trigger::resolve_trigger,
         },
     },
     store::global::GlobalStore,
 };
 use devalang_types::Value;
-use devalang_utils::logger::Logger;
 use devalang_utils::logger::LogLevel;
+use devalang_utils::logger::Logger;
 use std::collections::HashMap;
 
 pub fn resolve_all_modules(module_loader: &ModuleLoader, global_store: &mut GlobalStore) {
@@ -67,8 +67,8 @@ pub fn resolve_statement(
             global_store,
         ),
         StatementKind::If => resolve_condition(stmt, module, path, global_store),
-                StatementKind::Group => resolve_group(stmt, module, path, global_store),
-                StatementKind::Pattern { .. } => resolve_pattern(stmt, module, path, global_store),
+        StatementKind::Group => resolve_group(stmt, module, path, global_store),
+        StatementKind::Pattern { .. } => resolve_pattern(stmt, module, path, global_store),
         StatementKind::Call { name, args } => {
             resolve_call(stmt, name.clone(), args.clone(), module, path, global_store)
         }
@@ -110,7 +110,10 @@ fn resolve_value(value: &Value, module: &Module, global_store: &mut GlobalStore)
         Value::String(s) => Value::String(s.clone()),
 
         Value::Beat(beat_str) => {
-            logger.log_message(LogLevel::Warning, &format!("[warn] '{:?}': unresolved beat '{}'", module.path, beat_str));
+            logger.log_message(
+                LogLevel::Warning,
+                &format!("[warn] '{:?}': unresolved beat '{}'", module.path, beat_str),
+            );
             Value::Beat(beat_str.clone())
         }
 
@@ -156,11 +159,22 @@ pub fn resolve_imports(_module_loader: &ModuleLoader, global_store: &mut GlobalS
                             logger.log_message(LogLevel::Warning, &format!("[warn] '{module_path}': '{name}' not found in exports of '{source_path}'"));
                         }
                     } else {
-                        logger.log_message(LogLevel::Warning, &format!("[warn] '{module_path}': cannot find source module '{source_path}'"));
+                        logger.log_message(
+                            LogLevel::Warning,
+                            &format!(
+                                "[warn] '{module_path}': cannot find source module '{source_path}'"
+                            ),
+                        );
                     }
                 }
                 _ => {
-                    logger.log_message(LogLevel::Warning, &format!("[warn] '{module_path}': expected string for import source, found {:?}", source_path));
+                    logger.log_message(
+                        LogLevel::Warning,
+                        &format!(
+                            "[warn] '{module_path}': expected string for import source, found {:?}",
+                            source_path
+                        ),
+                    );
                 }
             }
         }

@@ -172,8 +172,7 @@ pub fn parse_loop_token(parser: &mut Parser, global_store: &mut GlobalStore) -> 
         );
     }
 
-    let tokens =
-        parser.collect_until(|t| t.kind == TokenKind::Dedent || t.kind == TokenKind::EOF);
+    let tokens = parser.collect_until(|t| t.kind == TokenKind::Dedent || t.kind == TokenKind::EOF);
     let loop_body = parser.parse_block(tokens.clone(), global_store);
     if let Some(token) = parser.peek() {
         if token.kind == TokenKind::Dedent {

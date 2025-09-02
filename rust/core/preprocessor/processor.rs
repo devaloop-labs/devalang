@@ -17,7 +17,10 @@ pub fn process_modules(_module_loader: &ModuleLoader, global_store: &mut GlobalS
             match &stmt.kind {
                 StatementKind::Let { name } => {
                     if let Value::Null = stmt.value {
-                        logger.log_message(LogLevel::Error, &format!("Variable '{}' is declared but not initialized.", name));
+                        logger.log_message(
+                            LogLevel::Error,
+                            &format!("Variable '{}' is declared but not initialized.", name),
+                        );
 
                         module.variable_table.variables.insert(
                             name.clone(),
@@ -28,12 +31,21 @@ pub fn process_modules(_module_loader: &ModuleLoader, global_store: &mut GlobalS
                     }
 
                     if module.variable_table.get(name).is_some() {
-                        logger.log_message(LogLevel::Error, &format!("Variable '{}' is already defined in this scope.", name));
+                        logger.log_message(
+                            LogLevel::Error,
+                            &format!("Variable '{}' is already defined in this scope.", name),
+                        );
                         continue;
                     }
 
                     if let Some(module_variable) = module.variable_table.variables.get(name) {
-                        logger.log_message(LogLevel::Error, &format!("Variable '{}' is already defined globally with value: {:?}", name, module_variable));
+                        logger.log_message(
+                            LogLevel::Error,
+                            &format!(
+                                "Variable '{}' is already defined globally with value: {:?}",
+                                name, module_variable
+                            ),
+                        );
                         continue;
                     }
 
@@ -87,7 +99,10 @@ pub fn process_modules(_module_loader: &ModuleLoader, global_store: &mut GlobalS
                                 .variable_table
                                 .set(name.to_string(), Value::Map(stored_map));
                         } else {
-                            logger.log_message(LogLevel::Error, &format!("Invalid group definition: {:?}", stmt.value));
+                            logger.log_message(
+                                LogLevel::Error,
+                                &format!("Invalid group definition: {:?}", stmt.value),
+                            );
                         }
                     }
                 }

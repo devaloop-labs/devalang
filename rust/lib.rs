@@ -247,3 +247,62 @@ fn extract_loop_body_statements(value: &Value) -> Option<&[Statement]> {
 fn ast_to_string(statements: Vec<Statement>) -> String {
     serde_json::to_string_pretty(&statements).expect("Failed to serialize AST")
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use devalang_types::{Statement, StatementKind, Value};
+
+    #[test]
+    fn test_extract_loop_body_statements_none() {
+        let v = Value::Map(std::collections::HashMap::new());
+        assert!(extract_loop_body_statements(&v).is_none());
+    }
+
+    #[test]
+    fn test_extract_loop_body_statements_some() {
+        let stmt = Statement::unknown();
+        let mut map = std::collections::HashMap::new();
+        map.insert("body".to_string(), Value::Block(vec![stmt.clone(), stmt]));
+
+        let v = Value::Map(map);
+        let res = extract_loop_body_statements(&v);
+        assert!(res.is_some());
+        let slice = res.unwrap();
+        assert_eq!(slice.len(), 2);
+    }
+
+    #[test]
+    fn test_collect_errors_recursively_detection() {
+        let mut statements: Vec<Statement> = Vec::new();
+
+        // Unknown statement should be reported
+        let s1 = Statement::unknown_with_pos(0, 10, 2);
+        statements.push(s1.clone());
+
+        // Error statement
+        let s2 = Statement::error_with_pos(0, 20, 4, "boom".to_string());
+        statements.push(s2.clone());
+
+        // Loop with body containing unknown
+        let body_stmt = Statement::unknown_with_pos(1, 30, 5);
+        let mut loop_map = std::collections::HashMap::new();
+        loop_map.insert("body".to_string(), Value::Block(vec![body_stmt.clone()]));
+
+        let loop_stmt = Statement {
+            kind: StatementKind::Loop,
+            value: Value::Map(loop_map),
+            indent: 0,
+            line: 15,
+            column: 1,
+        };
+        statements.push(loop_stmt);
+
+        let errors = collect_errors_recursively(&statements);
+        // expect three errors: s1 unknown, s2 error, body unknown
+        assert_eq!(errors.len(), 3);
+        assert!(errors.iter().any(|e| e.line == 10));
+        assert!(errors.iter().any(|e| e.line == 20));
+        assert!(errors.iter().any(|e| e.line == 30));
+    }
+}

@@ -6,7 +6,7 @@
 ![TypeScript](https://img.shields.io/badge/Built%20with-TypeScript-blue?logo=typescript)
 ![Node.js](https://img.shields.io/badge/Node.js-18%2B-brightgreen?logo=node.js)
 
-![Project Status](https://img.shields.io/badge/status-alpha-red)
+![Project Status](https://img.shields.io/badge/status-beta-blue)
 ![Version](https://img.shields.io/npm/v/@devaloop/devalang)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 
@@ -199,12 +199,6 @@ devalang play --repeat
 - **Public TypeScript API**: Added a public TypeScript API for easier integration.
 - **Improved error messages**: Enhanced error messages for better debugging.
 - **Bug fixes**: Various bug fixes and stability improvements.
-
-## 🧪 Roadmap Highlights
-
-For more info, see [docs/ROADMAP.md](./docs/ROADMAP.md)
-
-- ⏳ Smart modules
 
 ## 🛡️ License
 
