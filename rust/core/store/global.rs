@@ -1,9 +1,5 @@
-use crate::core::{
-    parser::statement::Statement,
-    preprocessor::module::Module,
-    store::{function::FunctionTable, variable::VariableTable},
-};
-use devalang_types::PluginInfo;
+use crate::core::{parser::statement::Statement, preprocessor::module::Module};
+use devalang_types::{FunctionTable, VariableTable, plugin::PluginInfo};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]

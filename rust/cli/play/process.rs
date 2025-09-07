@@ -4,15 +4,15 @@ use crate::{
         builder::Builder,
         debugger::{
             lexer::write_lexer_log_file,
-            module::{write_module_function_log_file, write_module_variable_log_file},
+            logs::{write_module_function_log_file, write_module_variable_log_file},
             preprocessor::write_preprocessor_log_file,
             store::{write_function_log_file, write_variables_log_file},
         },
         preprocessor::loader::ModuleLoader,
         store::global::GlobalStore,
-        utils::path::normalize_path,
     },
 };
+use devalang_utils::path::normalize_path;
 use devalang_utils::{
     logger::{LogLevel, Logger},
     spinner::start_spinner,
@@ -22,13 +22,15 @@ pub fn process_play(
     _config: &Option<ProjectConfig>,
     entry_file: &str,
     output: &str,
+    audio_format: crate::cli::parser::AudioFormat,
+    sample_rate: u32,
     debug: bool,
 ) -> Result<
     (
         f32,
         Vec<crate::core::parser::statement::Statement>,
-        crate::core::store::variable::VariableTable,
-        crate::core::store::function::FunctionTable,
+        devalang_types::VariableTable,
+        devalang_types::FunctionTable,
         crate::core::store::global::GlobalStore,
     ),
     String,
@@ -127,7 +129,14 @@ pub fn process_play(
     // SECTION Building AST and Audio
     let builder = Builder::new();
     builder.build_ast(&modules_statements, output, false);
-    builder.build_audio(&modules_statements, output, &mut global_store);
+    let audio_format_str = format!("{:?}", audio_format);
+    builder.build_audio(
+        &modules_statements,
+        output,
+        &mut global_store,
+        Some(audio_format_str),
+        Some(sample_rate),
+    );
 
     // SECTION Logging
     let logger = Logger::new();

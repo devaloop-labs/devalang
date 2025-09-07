@@ -1,4 +1,4 @@
-use devalang_types::{PluginExport, PluginInfo as SharedPluginInfo};
+use devalang_types::{plugin::PluginExport, plugin::PluginInfo as SharedPluginInfo};
 use devalang_utils::path as path_utils;
 use serde::Deserialize;
 use toml::Value as TomlValue;

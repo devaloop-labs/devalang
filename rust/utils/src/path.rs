@@ -86,3 +86,44 @@ pub fn ensure_deva_dir() -> Result<PathBuf, String> {
     }
     Ok(deva)
 }
+
+/// Finds the entry file given a path, returning the normalized path if found.
+/// If the path is a directory, it looks for `index.deva` inside it.
+/// Returns None if no valid entry file is found.
+pub fn find_entry_file(entry: &str) -> Option<String> {
+    let path = Path::new(entry);
+
+    if path.is_file() {
+        return Some(normalize_path(entry));
+    }
+
+    if path.is_dir() {
+        let candidate = path.join("index.deva");
+        if candidate.exists() {
+            return Some(normalize_path(&candidate));
+        }
+    }
+
+    None
+}
+
+/// Normalizes a path to use forward slashes and removes redundant components.
+pub fn normalize_path<P: AsRef<Path>>(path: P) -> String {
+    let path_buf = PathBuf::from(path.as_ref());
+    path_buf
+        .components()
+        .collect::<PathBuf>()
+        .to_string_lossy()
+        .replace('\\', "/")
+}
+
+/// Resolves a relative import path against a base path, normalizing the result.
+pub fn resolve_relative_path(base: &str, import: &str) -> String {
+    let base_path = Path::new(base).parent().unwrap_or_else(|| Path::new(""));
+    let full_path = base_path.join(import);
+    full_path
+        .components()
+        .collect::<PathBuf>()
+        .to_string_lossy()
+        .replace("\\", "/")
+}

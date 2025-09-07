@@ -25,6 +25,14 @@ pub fn env_maps_from_automation(
     }
 }
 
+/// Convert an Option<HashMap<..>> into a HashMap (empty if None).
+pub fn env_map_to_hash(opt: &Option<HashMap<String, Value>>) -> HashMap<String, Value> {
+    match opt {
+        Some(m) => m.clone(),
+        None => HashMap::new(),
+    }
+}
+
 pub fn eval_env_map(
     env_opt: &Option<HashMap<String, Value>>,
     progress: f32,
@@ -152,7 +160,7 @@ pub fn pan_gains(pan_val: f32) -> (f32, f32) {
 }
 
 pub fn mix_stereo_samples_into_buffer(
-    engine: &mut super::synth::AudioEngine,
+    engine: &mut super::driver::AudioEngine,
     start_sample: usize,
     channels: usize,
     stereo_samples: &[i16],

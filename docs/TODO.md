@@ -41,9 +41,8 @@ This is a list of tasks and features to be implemented in Devalang. Note that th
 - [x] @import
 - [x] @export
 - [x] @load
-- [ ] @include
 - [x] function
-- [ ] pattern
+- [x] pattern
 - [x] group
 - [x] call
 - [x] spawn
@@ -58,8 +57,8 @@ This is a list of tasks and features to be implemented in Devalang. Note that th
 
 ## Triggers
 
-- [x] Built-in triggers
 - [x] Custom triggers
+- [x] Event triggers
 
 ## Banks
 
@@ -70,13 +69,3 @@ This is a list of tasks and features to be implemented in Devalang. Note that th
 
 - [x] Implement plugin system (e.g. install, remove, list)
 - [ ] Create example plugins
-
-## Addon generator
-
-- [x] Implement addon generator
-- [ ] Create example addons
-
-## Other TODOs
-
-- [ ] Comment all core components
-- [ ] Add unit tests for all core components

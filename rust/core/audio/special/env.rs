@@ -1,6 +1,6 @@
 use devalang_types::Value;
 
-use crate::core::store::variable::VariableTable;
+use devalang_types::VariableTable;
 use std::sync::OnceLock;
 use std::time::{SystemTime, UNIX_EPOCH};
 

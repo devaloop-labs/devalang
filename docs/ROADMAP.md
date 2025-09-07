@@ -9,6 +9,7 @@ Devalang is a work in progress. Here’s what we’re planning next:
 ## Completed
 
 - ✅ **Audio engine**: Integrate the audio engine for sound playback.
+- ✅ **MIDI export**: Implement MIDI export functionality to save compositions as MIDI files.
 - ✅ **Basic syntax**: Implement the core syntax for Devalang, including data types and basic statements.
 - ✅ **Watch mode**: Add a watch mode to automatically rebuild on file changes.
 - ✅ **Module system**: Add support for importing and exporting variables between files using `@import` and `@export`.
@@ -27,8 +28,11 @@ Devalang is a work in progress. Here’s what we’re planning next:
 
 - ⏳ **Addon generator**: Implement addon generation for creating reusable plugins, banks and presets.
 - ⏳ **Testing**: Expand test coverage for all features.
-- ⏳ **Other statements**: Implement `pattern`, and other control structures.
 
 ## Planned
 
+- ⏳ **MIDI mapping**: Implement MIDI mapping for external control.
+- ⏳ **GUI**: Develop a graphical user interface for easier interaction.
+- ⏳ **Mixing & Routing**: Implement mixing and routing capabilities for advanced audio control.
+- ⏳ **Effect chains**: Implement effect chains for applying multiple effects to a single note or group.
 - ⏳ **Smart modules**: Let Devalang detect and use groups, samples, and variables without needing to import them manually.

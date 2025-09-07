@@ -1,4 +1,5 @@
-use crate::core::{parser::statement::StatementKind, store::variable::VariableTable};
+use crate::core::parser::statement::StatementKind;
+use devalang_types::store::VariableTable;
 use devalang_types::{Duration, Value};
 
 pub fn load_trigger(

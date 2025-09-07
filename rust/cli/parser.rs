@@ -1,4 +1,17 @@
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
+
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Debug)]
+pub enum OutputFormat {
+    Wav,
+    Mid,
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Debug)]
+pub enum AudioFormat {
+    Wav16,
+    Wav24,
+    Wav32,
+}
 
 #[derive(Parser)]
 #[command(name = "devalang")]
@@ -124,6 +137,26 @@ pub enum Commands {
         ///
         output: Option<String>,
 
+        #[arg(long, value_enum, value_delimiter = ',', default_value = "wav,mid")]
+        /// Which output formats to generate. Comma-separated list is accepted.
+        ///
+        /// ### Default value
+        /// - `wav,mid`
+        ///
+        output_format: Vec<OutputFormat>,
+
+        #[arg(long, default_value = "wav16")]
+        /// Audio format to use for file outputs (affects WAV export).
+        ///
+        /// ### Default value
+        /// - `wav16`
+        ///
+        audio_format: AudioFormat,
+
+        #[arg(long, default_value_t = 44100u32)]
+        /// Sample rate to use for audio export and playback (e.g. 44100, 48000)
+        sample_rate: u32,
+
         #[arg(long, default_value_t = false)]
         /// Whether to watch for changes and rebuild.
         ///
@@ -212,6 +245,18 @@ pub enum Commands {
         #[arg(short, long)]
         /// The directory where the output files will be generated.
         output: Option<String>,
+
+        #[arg(long, default_value_t = 44100u32)]
+        /// Sample rate to use for playback (e.g. 44100, 48000)
+        sample_rate: u32,
+
+        #[arg(long, default_value = "wav16")]
+        /// Audio format to use for file outputs (affects WAV export).
+        ///
+        /// ### Default value
+        /// - `wav16`
+        ///
+        audio_format: AudioFormat,
 
         #[arg(long, default_value_t = false)]
         /// Whether to watch for changes and re-play.

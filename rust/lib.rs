@@ -5,10 +5,10 @@ use crate::core::{
     audio::{engine::AudioEngine, interpreter::driver::run_audio_program},
     parser::statement::{Statement, StatementKind},
     preprocessor::loader::ModuleLoader,
-    store::{function::FunctionTable, global::GlobalStore, variable::VariableTable},
-    utils::path::normalize_path,
+    store::global::GlobalStore,
 };
-use devalang_types::Value;
+use devalang_types::{FunctionTable, Value, VariableTable};
+use devalang_utils::path::normalize_path;
 use serde::{Deserialize, Serialize};
 use serde_wasm_bindgen::to_value;
 use wasm_bindgen::prelude::*;
@@ -168,6 +168,21 @@ pub fn register_playhead_callback(cb: &js_sys::Function) {
     #[cfg(target_arch = "wasm32")]
     {
         crate::core::audio::interpreter::driver::register_playhead_callback(cb.clone());
+    }
+}
+
+#[wasm_bindgen]
+#[allow(unused_variables)]
+pub fn collect_playhead_events() -> Result<JsValue, JsValue> {
+    #[cfg(target_arch = "wasm32")]
+    {
+        let events = crate::core::audio::interpreter::driver::collect_playhead_events();
+        to_value(&events).map_err(|e| JsValue::from_str(&format!("Error converting events: {}", e)))
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        // On non-wasm targets, return an empty array
+        to_value(&Vec::<String>::new()).map_err(|e| JsValue::from_str(&format!("Error: {}", e)))
     }
 }
 

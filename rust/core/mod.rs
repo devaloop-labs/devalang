@@ -7,4 +7,3 @@ pub mod parser;
 pub mod plugin;
 pub mod preprocessor;
 pub mod store;
-pub mod utils;

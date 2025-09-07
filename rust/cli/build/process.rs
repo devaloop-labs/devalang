@@ -2,14 +2,14 @@ use crate::core::{
     builder::Builder,
     debugger::{
         lexer::write_lexer_log_file,
-        module::{write_module_function_log_file, write_module_variable_log_file},
+        logs::{write_module_function_log_file, write_module_variable_log_file},
         preprocessor::write_preprocessor_log_file,
         store::{write_function_log_file, write_variables_log_file},
     },
     preprocessor::loader::ModuleLoader,
     store::global::GlobalStore,
-    utils::path::normalize_path,
 };
+use devalang_utils::path::normalize_path;
 use devalang_utils::{
     logger::{LogLevel, Logger},
     spinner::start_spinner,
@@ -24,6 +24,9 @@ pub struct BuildStatsInput {
 pub fn process_build(
     entry: String,
     output: String,
+    output_format: Vec<crate::cli::parser::OutputFormat>,
+    audio_format: crate::cli::parser::AudioFormat,
+    sample_rate: u32,
     debug: bool,
     compress: bool,
 ) -> Result<BuildStatsInput, String> {
@@ -94,11 +97,27 @@ pub fn process_build(
     // SECTION Building AST and Audio
     let builder = Builder::new();
     builder.build_ast(&modules_statements, &normalized_output_dir, compress);
-    builder.build_audio(
-        &modules_statements,
-        &normalized_output_dir,
-        &mut global_store,
-    );
+
+    // generate audio output if requested
+    if output_format.contains(&crate::cli::parser::OutputFormat::Wav) {
+        let audio_format_str = format!("{:?}", audio_format);
+        builder.build_audio(
+            &modules_statements,
+            &normalized_output_dir,
+            &mut global_store,
+            Some(audio_format_str),
+            Some(sample_rate),
+        );
+    }
+
+    // generate midi output if requested
+    if output_format.contains(&crate::cli::parser::OutputFormat::Mid) {
+        builder.build_midi(
+            &modules_statements,
+            &normalized_output_dir,
+            &mut global_store,
+        );
+    }
 
     // SECTION Logging
     let logger = Logger::new();

@@ -2,7 +2,9 @@ use crate::{
     cli::install::addon::ask_api_for_signed_url, config::ops::load_config,
     web::cdn::download_from_cdn,
 };
+use devalang_core::config::driver::ProjectConfigExt;
 use devalang_types::AddonType;
+use devalang_types::ProjectConfigBankEntry;
 use devalang_utils::{
     logger::{LogLevel, Logger},
     path as path_utils,
@@ -39,15 +41,32 @@ pub async fn install_bank(name: &str, target_dir: &Path) -> Result<(), String> {
 
     // Add the bank to the config
     let config_path = path_utils::get_devalang_config_path()?;
-    let _config = load_config(Some(&config_path))
+    let mut config = load_config(Some(&config_path))
         .ok_or_else(|| format!("Failed to load config from '{}'", config_path.display()))?;
 
-    let _dependency_path = &format!("devalang://bank/{}", name);
+    let dependency_path = format!("devalang://bank/{}", name);
 
     devalang_utils::file::extract_zip_safely(&archive_path, &extract_path)
         .map_err(|e| format!("Failed to extract: {}", e))?;
 
-    // TODO: Add the bank to the config
+    // Add the bank to the config if not already present
+    if config.banks.is_none() {
+        config.banks = Some(Vec::new());
+    }
+
+    if let Some(banks) = config.banks.as_mut() {
+        let exists = banks.iter().any(|b| b.path == dependency_path);
+        if !exists {
+            banks.push(ProjectConfigBankEntry {
+                path: dependency_path.clone(),
+                version: None,
+            });
+
+            if let Err(e) = config.write_config(&config) {
+                eprintln!("Warning: failed to write config: {}", e);
+            }
+        }
+    }
 
     Ok(())
 }

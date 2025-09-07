@@ -1,4 +1,4 @@
-use crate::core::store::variable::VariableTable;
+use devalang_types::VariableTable;
 use devalang_utils::logger::{LogLevel, Logger};
 
 // Parse comma-separated arguments at top level (no nested parentheses split)

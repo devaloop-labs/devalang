@@ -65,7 +65,7 @@ npm install -g @devaloop/devalang@latest
 #### With Rust
 
 ```bash
-cargo install devalang
+cargo install devalang --version <version>
 ```
 
 #### Initialize a new project
@@ -136,8 +136,8 @@ group myGroup:
     })
 
     # Notes with params
-    myLead -> note(G4, { duration: 600, glide: true, target_freq: 659.25 })
-    myLead -> note(B3, { duration: 400, slide: true, target_amp: 0.3 })
+    myLead -> note(G4, { duration: 600, glide: true })
+    myLead -> note(B3, { duration: 400, slide: true })
 
 # Spawning the group & the pattern to play them in parallel
 spawn myGroup
@@ -173,8 +173,7 @@ devalang play --repeat
 ## 🚀 Features
 
 - ⚡ **Fast Build & Hot Reload** — optimized build process for quicker iteration.
-- 🎵 **Audio Engine & Real-time runner** — low-latency playback, render-to-file, and a realtime runner used by `devalang play` for live feedback.
-- ▶️ **Live mode (watch + repeat)** — edit and hear changes instantly with `devalang play --repeat` and watch mode.
+- 🎵 **Audio Engine & Real-time runner** — low-latency playback, render-to-file, and a realtime runner used by `devalang play --repeat` for live feedback.
 - 🧩 **Language primitives** — synths, notes, ADSR, maps, arrays, loops, conditionals and functions for expressive musical logic.
 - 🎛️ **Per-note automation & modulators** — `automate` maps, `$mod.*`, `$easing.*` and `$math.*` helpers for envelopes and LFOs.
 - 🧩 **Module system & structured AST** — import/export variables, stable AST output for debugging and tooling.
@@ -193,11 +192,14 @@ devalang play --repeat
 
 ## 📰 What's new
 
+- **MIDI export**: Added the ability to export MIDI files from Devalang scripts.
+- **Synthesizer improvements**: Enhanced the built-in synthesizer with new types and modulation options.
 - **Devaforge**: Introduced a new system for creating and managing addons, including a CLI for addon generation.
 - **Documentation updates**: Improved documentation for clarity and completeness.
 - **Discovering addons**: Introduced a new command to detect addons.
 - **Public TypeScript API**: Added a public TypeScript API for easier integration.
 - **Improved error messages**: Enhanced error messages for better debugging.
+- **Major refactor**: Significant codebase refactor for improved maintainability and performance.
 - **Bug fixes**: Various bug fixes and stability improvements.
 
 ## 🛡️ License

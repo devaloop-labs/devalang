@@ -1,0 +1,9 @@
+let myLFOSynth = synth sine {
+    lfo: {
+        rate: 1/4,
+        depth: 0.5,
+        target: "cutoff"
+    }
+}
+
+myLFOSynth -> note(C4, { duration: 500 })

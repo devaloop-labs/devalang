@@ -51,7 +51,7 @@ async fn main() -> io::Result<()> {
     cmd = cmd.version(version_static).before_help(signature_static);
 
     let raw_args: Vec<String> = std::env::args().collect();
-    if raw_args.iter().any(|a| a == "--version" || a == "-V") {
+    if raw_args.iter().any(|a| (a == "--version" || a == "-V")) {
         println!("{}", signature_static);
         return Ok(());
     }
@@ -121,8 +121,21 @@ async fn main() -> io::Result<()> {
             watch,
             debug,
             compress,
+            output_format,
+            audio_format,
+            sample_rate,
         } => {
-            if let Err(err) = handle_build_command(config, entry, output, watch, debug, compress) {
+            if let Err(err) = handle_build_command(
+                config,
+                entry,
+                output,
+                output_format,
+                audio_format,
+                sample_rate,
+                watch,
+                debug,
+                compress,
+            ) {
                 let logger = devalang_utils::logger::Logger::new();
                 logger.log_message(
                     devalang_utils::logger::LogLevel::Error,
@@ -137,11 +150,22 @@ async fn main() -> io::Result<()> {
         Commands::Play {
             entry,
             output,
+            sample_rate,
             watch,
             repeat,
             debug,
+            audio_format,
         } => {
-            if let Err(err) = handle_play_command(config, entry, output, watch, repeat, debug) {
+            if let Err(err) = handle_play_command(
+                config,
+                entry,
+                output,
+                audio_format,
+                sample_rate,
+                watch,
+                repeat,
+                debug,
+            ) {
                 let logger = devalang_utils::logger::Logger::new();
                 logger.log_message(
                     devalang_utils::logger::LogLevel::Error,

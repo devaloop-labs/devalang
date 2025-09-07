@@ -12,7 +12,7 @@ pub mod synth;
 
 use crate::core::{
     parser::{
-        driver::Parser,
+        driver::parser::Parser,
         handler::identifier::{
             automate::parse_automate_token, call::parse_call_token, emit::parse_emit_token,
             group::parse_group_token, let_::parse_let_token, on::parse_on_token,

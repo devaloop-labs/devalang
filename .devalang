@@ -4,7 +4,6 @@ output = "./output"
 watch = false
 debug = true
 compress = true
-
-[[banks]]
-path = "devalang://bank/devaloop.808"
-version = "0.0.1"
+audio_format = "wav16"
+sample_rate = 44100
+output_format = ["wav", "mid"]

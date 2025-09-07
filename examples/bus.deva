@@ -1,0 +1,10 @@
+# NOTE Planned for future release
+
+# let sidechainBus = bus {
+#     fx: [
+#         { type: "compressor", threshold: -20, ratio: 8, attack: 5, release: 100,
+#           sidechain: myKick }
+#     ]
+# }
+# route myLead -> sidechainBus -> masterBus
+# route myKick -> myBass -> masterBus

@@ -1,7 +1,7 @@
 use crate::core::{
     lexer::token::TokenKind,
     parser::{
-        driver::Parser,
+        driver::parser::Parser,
         statement::{Statement, StatementKind},
     },
     store::global::GlobalStore,

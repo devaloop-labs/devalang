@@ -3,7 +3,7 @@ use devalang_types::Value;
 use crate::core::{
     lexer::token::{Token, TokenKind},
     parser::{
-        driver::Parser,
+        driver::parser::Parser,
         statement::{Statement, StatementKind},
     },
     store::global::GlobalStore,

@@ -5,7 +5,7 @@ use devalang_types::Value;
 use crate::core::{
     lexer::token::Token,
     parser::{
-        driver::Parser,
+        driver::parser::Parser,
         handler::dot::parse_dot_token,
         statement::{Statement, StatementKind},
     },

@@ -4,6 +4,48 @@
 
 # Changelog
 
+## Version 0.0.1-beta.2 (2025-09-07)
+
+### 🛠️ MIDI & format
+
+- Added support for `mid` export in `build` command.
+  - Example: `devalang build --output-format mid,wav`
+- Added support for `wav16` and `wav32` audio formats in `play` command.
+  - Example: `devalang play --audio-format <wav16 | wav32>`
+- Added support for `sample_rate` parameter in `play` and `build` commands.
+  - Example: `devalang play --sample-rate <44100 | 48000 | 96000>`
+  - Example: `devalang build --sample-rate <44100 | 48000 | 96000>`
+
+### ✨ Language Features
+
+- `synth` enhancements:
+  - Types:
+    - Added `pad` type for lush, evolving sounds.
+    - Added `pluck` type for sharp, percussive tones.
+    - Added `arp` type for arpeggiated sequences.
+    - Added `sub` type for deep bass sounds.
+  - LFOs:
+    - Added `lfo` parameter to `synth` for low-frequency oscillation modulation.
+    - LFO supports `rate`, `depth`, and `target` parameters.
+  - Filters:
+      - Added `filters` parameter to `synth` for applying filters.
+- `arrow_call` enhancements:
+  - Added support for `chord` method to play multiple notes simultaneously.
+
+### 🧠 Architecture & Refactor
+
+- Modularized some core components to improve maintainability and readability.
+
+### 📚 Examples
+
+- Added `examples/filter.deva` to showcase filter usage in synths.
+- Added `examples/lfo.deva` to illustrate LFO modulation in synths.
+- Added `examples/synth_types.deva` to demonstrate various synth types.
+
+### 📦 WASM
+
+- Added `collect_playhead_events` function to the WASM module to collect playhead events during audio rendering.
+
 ## Version 0.0.1-beta.1 (2025-09-02)
 
 > First beta of Devalang 0.0.1. Focus on stability, language surface freeze, and developer experience. No breaking changes expected compared to alpha.18; experimental features are gated and may change.

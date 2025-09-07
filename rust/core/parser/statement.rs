@@ -1,5 +1,4 @@
 use crate::core::lexer::token::Token;
-
 pub use devalang_types::{Duration, Statement, StatementKind, Value};
 
 pub fn unknown_from_token(token: &Token) -> Statement {

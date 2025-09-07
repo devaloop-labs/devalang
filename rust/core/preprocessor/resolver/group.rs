@@ -14,26 +14,16 @@ pub fn resolve_group(
 ) -> Statement {
     let logger = Logger::new();
 
-    let Value::Map(group_map) = &stmt.value else {
-        return type_error(
-            &logger,
-            module,
-            stmt,
-            "Expected a map in group statement".to_string(),
-        );
+    // Extract identifier from several allowed shapes (map.identifier, bare string, number -> to_string)
+    let identifier = match extract_group_identifier(stmt, &logger, module) {
+        Ok(id) => id,
+        Err(err_stmt) => return err_stmt,
     };
 
-    // Check for the presence of the identifier field
-    let identifier = match group_map.get("identifier") {
-        Some(Value::String(id)) => id.clone(),
-        _ => {
-            return type_error(
-                &logger,
-                module,
-                stmt,
-                "Group statement must have an 'identifier' field".to_string(),
-            );
-        }
+    // group_map: if the value is a map we clone it, otherwise create an empty map to hold body
+    let group_map = match &stmt.value {
+        Value::Map(m) => m.clone(),
+        _ => std::collections::HashMap::new(),
     };
 
     // Ensure the identifier does not already exist
@@ -90,5 +80,43 @@ fn type_error(logger: &Logger, module: &Module, stmt: &Statement, message: Strin
         kind: StatementKind::Error { message },
         value: Value::Null,
         ..stmt.clone()
+    }
+}
+
+// Helper to extract a group identifier from multiple Value forms
+fn extract_group_identifier(
+    stmt: &Statement,
+    logger: &Logger,
+    module: &Module,
+) -> Result<String, Statement> {
+    match &stmt.value {
+        Value::Map(map) => match map.get("identifier") {
+            Some(Value::String(s)) => Ok(s.clone()),
+            Some(Value::Identifier(s)) => Ok(s.clone()),
+            Some(Value::Number(n)) => Ok(n.to_string()),
+            Some(other) => Err(type_error(
+                logger,
+                module,
+                stmt,
+                format!("Unsupported type for 'identifier': {:?}", other),
+            )),
+            None => Err(type_error(
+                logger,
+                module,
+                stmt,
+                "Group statement must have an 'identifier' field".to_string(),
+            )),
+        },
+        Value::String(s) => Ok(s.clone()),
+        Value::Identifier(s) => Ok(s.clone()),
+        other => Err(type_error(
+            logger,
+            module,
+            stmt,
+            format!(
+                "Expected a map or string for group statement, found {:?}",
+                other
+            ),
+        )),
     }
 }

@@ -4,6 +4,7 @@ exports.parse = parse;
 exports.debug_render = debug_render;
 exports.render_audio = render_audio;
 exports.register_playhead_callback = register_playhead_callback;
+exports.collect_playhead_events = collect_playhead_events;
 exports.unregister_playhead_callback = unregister_playhead_callback;
 /**
  * Shim TypeScript source that re-exports the runtime wasm-pack package when
@@ -41,10 +42,24 @@ function register_playhead_callback(cb) {
         return runtimePkg.register_playhead_callback(cb);
     return;
 }
+function collect_playhead_events() {
+    if (runtimePkg && typeof runtimePkg.collect_playhead_events === "function") {
+        return runtimePkg.collect_playhead_events();
+    }
+    return [];
+}
 function unregister_playhead_callback() {
-    if (runtimePkg && typeof runtimePkg.unregister_playhead_callback === "function")
+    if (runtimePkg &&
+        typeof runtimePkg.unregister_playhead_callback === "function")
         return runtimePkg.unregister_playhead_callback();
     return;
 }
-const pkg = { parse, debug_render, render_audio, register_playhead_callback, unregister_playhead_callback };
+const pkg = {
+    parse,
+    debug_render,
+    render_audio,
+    register_playhead_callback,
+    collect_playhead_events,
+    unregister_playhead_callback,
+};
 exports.default = pkg;

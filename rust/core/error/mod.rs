@@ -1,5 +1,5 @@
 use crate::core::parser::{
-    driver::Parser,
+    driver::parser::Parser,
     statement::{Statement, StatementKind},
 };
 use devalang_types::Value;

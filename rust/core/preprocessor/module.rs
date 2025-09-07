@@ -1,10 +1,5 @@
-use crate::core::{
-    lexer::token::Token,
-    parser::statement::Statement,
-    store::{
-        export::ExportTable, function::FunctionTable, import::ImportTable, variable::VariableTable,
-    },
-};
+use crate::core::{lexer::token::Token, parser::statement::Statement};
+use devalang_types::{ExportTable, FunctionTable, ImportTable, VariableTable};
 
 #[derive(Debug, Clone)]
 pub struct Module {

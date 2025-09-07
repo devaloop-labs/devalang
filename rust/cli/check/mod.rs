@@ -3,15 +3,15 @@ use crate::{
     core::{
         debugger::{
             lexer::write_lexer_log_file,
-            module::{write_module_function_log_file, write_module_variable_log_file},
+            logs::{write_module_function_log_file, write_module_variable_log_file},
             preprocessor::write_preprocessor_log_file,
             store::{write_function_log_file, write_variables_log_file},
         },
         preprocessor::loader::ModuleLoader,
         store::global::GlobalStore,
-        utils::path::{find_entry_file, normalize_path},
     },
 };
+use devalang_utils::path::{find_entry_file, normalize_path};
 
 use devalang_utils::{
     logger::{LogLevel, Logger},

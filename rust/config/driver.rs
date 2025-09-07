@@ -22,6 +22,9 @@ pub trait ProjectConfigExt {
         repeat: Option<bool>,
         debug: Option<bool>,
         compress: Option<bool>,
+        sample_rate: Option<u32>,
+        audio_format: Option<String>,
+        output_format: Option<Vec<String>>,
     ) -> Self;
     fn get() -> Result<Self, String>
     where
@@ -46,6 +49,9 @@ impl ProjectConfigExt for SharedProjectConfig {
         repeat: Option<bool>,
         debug: Option<bool>,
         compress: Option<bool>,
+        sample_rate: Option<u32>,
+        audio_format: Option<String>,
+        output_format: Option<Vec<String>>,
     ) -> Self {
         SharedProjectConfig {
             defaults: SharedProjectConfigDefaults {
@@ -55,6 +61,9 @@ impl ProjectConfigExt for SharedProjectConfig {
                 repeat,
                 debug,
                 compress,
+                sample_rate,
+                audio_format,
+                output_format,
             },
             banks: Some(Vec::new()),
             plugins: Some(Vec::new()),

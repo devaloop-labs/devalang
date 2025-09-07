@@ -1,5 +1,6 @@
 use crate::config::driver::ProjectConfig;
 use devalang_utils::logger::{LogLevel, Logger};
+use devalang_utils::path::{find_entry_file, normalize_path};
 use std::{sync::mpsc::channel, thread};
 
 pub use crate::cli::play::io::wav_duration_seconds;
@@ -17,11 +18,33 @@ pub fn handle_play_command(
     config: Option<ProjectConfig>,
     entry: Option<String>,
     output: Option<String>,
+    audio_format: crate::cli::parser::AudioFormat,
+    sample_rate: u32,
     watch: bool,
     repeat: bool,
     debug: bool,
 ) -> Result<(), String> {
     let logger = Logger::new();
+
+    // Determine final audio_format and sample_rate, preferring CLI values but falling back to config defaults
+    let mut final_audio_format = audio_format;
+    let mut final_sample_rate = sample_rate;
+    if let Some(cfg) = config.as_ref() {
+        if let Some(af) = cfg.defaults.audio_format.as_ref() {
+            let af_low = af.to_lowercase();
+            final_audio_format = match af_low.as_str() {
+                "wav24" => crate::cli::parser::AudioFormat::Wav24,
+                "wav32" => crate::cli::parser::AudioFormat::Wav32,
+                _ => crate::cli::parser::AudioFormat::Wav16,
+            };
+        }
+        if let Some(sr) = cfg.defaults.sample_rate {
+            // Only override if CLI provided a 0 or unrealistic value (we assume CLI provides a valid value)
+            if final_sample_rate == 0 {
+                final_sample_rate = sr;
+            }
+        }
+    }
 
     let entry_path = entry
         .or_else(|| config.as_ref().and_then(|c| c.defaults.entry.clone()))
@@ -45,7 +68,7 @@ pub fn handle_play_command(
         return Err("missing entry or output".to_string());
     }
 
-    let entry_file = match crate::core::utils::path::find_entry_file(&entry_path) {
+    let entry_file = match find_entry_file(&entry_path) {
         Some(p) => p,
         None => {
             logger.log_message(LogLevel::Error, "index.deva not found");
@@ -53,10 +76,7 @@ pub fn handle_play_command(
         }
     };
 
-    let audio_file = format!(
-        "{}/audio/index.wav",
-        crate::core::utils::path::normalize_path(&output_path)
-    );
+    let audio_file = format!("{}/audio/index.wav", normalize_path(&output_path));
     let mut audio_player = AudioPlayer::new();
 
     if watch && fetched_repeat {
@@ -79,8 +99,14 @@ pub fn handle_play_command(
         });
 
         // Main thread: build + play in a loop
-        let (bpm, entry_stmts, variables, functions, global_store) =
-            process_play(&config, &entry_file, &output_path, debug)?;
+        let (bpm, entry_stmts, variables, functions, global_store) = process_play(
+            &config,
+            &entry_file,
+            &output_path,
+            final_audio_format,
+            final_sample_rate,
+            debug,
+        )?;
         audio_player.play_file_once(&audio_file);
         // Estimate duration: base on statement count plus extra for loop iterations (1 beat per iter)
         let loop_iters: usize = entry_stmts
@@ -130,14 +156,20 @@ pub fn handle_play_command(
             // Stop previous real-time runner before restarting playback
             stop_realtime_runner(&mut rt_runner);
 
-            let (bpm, entry_stmts, variables, functions, global_store) =
-                match process_play(&config, &entry_file, &output_path, debug) {
-                    Ok(v) => v,
-                    Err(e) => {
-                        logger.log_message(LogLevel::Error, &format!("Rebuild failed: {}", e));
-                        continue;
-                    }
-                };
+            let (bpm, entry_stmts, variables, functions, global_store) = match process_play(
+                &config,
+                &entry_file,
+                &output_path,
+                final_audio_format,
+                final_sample_rate,
+                debug,
+            ) {
+                Ok(v) => v,
+                Err(e) => {
+                    logger.log_message(LogLevel::Error, &format!("Rebuild failed: {}", e));
+                    continue;
+                }
+            };
 
             logger.log_message(LogLevel::Info, "🎵 Playback started (once mode)...");
 
@@ -180,8 +212,14 @@ pub fn handle_play_command(
         }
     } else if fetched_repeat {
         // Initial build to start from a clean slate
-        let (bpm, entry_stmts, variables, functions, global_store) =
-            process_play(&config, &entry_file, &output_path, debug)?;
+        let (bpm, entry_stmts, variables, functions, global_store) = process_play(
+            &config,
+            &entry_file,
+            &output_path,
+            final_audio_format,
+            final_sample_rate,
+            debug,
+        )?;
 
         logger.log_message(LogLevel::Info, "🎵 Playback started (repeat mode)...");
 
@@ -241,7 +279,14 @@ pub fn handle_play_command(
 
                 // Rebuild in a separate thread
                 std::thread::spawn(move || {
-                    if let Err(e) = process_play(&config_clone, &entry_file, &output_path, debug) {
+                    if let Err(e) = process_play(
+                        &config_clone,
+                        &entry_file,
+                        &output_path,
+                        final_audio_format,
+                        final_sample_rate,
+                        debug,
+                    ) {
                         eprintln!("Rebuild failed in background: {}", e);
                     }
                 });
@@ -294,8 +339,14 @@ pub fn handle_play_command(
         }
     } else {
         // Single execution
-        let (bpm, entry_stmts, variables, functions, global_store) =
-            process_play(&config, &entry_file, &output_path, debug)?;
+        let (bpm, entry_stmts, variables, functions, global_store) = process_play(
+            &config,
+            &entry_file,
+            &output_path,
+            final_audio_format,
+            final_sample_rate,
+            debug,
+        )?;
 
         logger.log_message(LogLevel::Info, "🎵 Playback started (once mode)...");
 

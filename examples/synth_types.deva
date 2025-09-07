@@ -1,0 +1,17 @@
+let myPad = synth sine {
+    type: "pad"
+}
+
+let myPluck = synth sine {
+    type: "pluck"
+}
+
+let myArp = synth sine {
+    type: "arp",
+    rate: 16,
+    step: 2
+}
+
+let mySub = synth sine {
+    type: "sub",
+}

@@ -42,6 +42,16 @@ pub struct ProjectConfigDefaults {
     pub repeat: Option<bool>,
     pub debug: Option<bool>,
     pub compress: Option<bool>,
+    pub sample_rate: Option<u32>,
+    /// Preferred audio format for exports (e.g. "wav16", "wav24", "wav32").
+    /// Stored as a string to avoid cross-crate enum coupling.
+    #[serde(default)]
+    pub audio_format: Option<String>,
+
+    /// Preferred output formats (e.g. ["wav", "mid"]).
+    /// Stored as a list of strings for flexibility and backwards compatibility.
+    #[serde(default)]
+    pub output_format: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]

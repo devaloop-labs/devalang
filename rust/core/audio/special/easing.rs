@@ -1,4 +1,4 @@
-use crate::core::store::variable::VariableTable;
+use devalang_types::VariableTable;
 
 // Basic easing functions operating on t in [0,1]
 fn easing_value(func: &str, t: f32) -> Option<f32> {

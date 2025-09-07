@@ -11,4 +11,14 @@ group myLead:
     mySynth -> note(D4, { duration: 400 })
     mySynth -> note(B3, { duration: 600 })
 
-@export { myLead }
+group myChords:
+    let chordSynth = synth square
+    
+    chordSynth -> chord(Cmaj, { duration: 1600 })
+    chordSynth -> chord(Fmaj, { duration: 1600 })
+    chordSynth -> chord(Gmaj, { duration: 1600 })
+    chordSynth -> chord(Am, { duration: 1600 })
+
+# Play both groups together
+spawn myLead
+spawn myChords

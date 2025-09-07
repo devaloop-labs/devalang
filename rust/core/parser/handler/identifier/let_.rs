@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::core::{
     lexer::token::{Token, TokenKind},
     parser::{
-        driver::Parser,
+        driver::parser::Parser,
         handler::{dot::parse_dot_token, identifier::synth::parse_synth_token},
         statement::{Statement, StatementKind},
     },

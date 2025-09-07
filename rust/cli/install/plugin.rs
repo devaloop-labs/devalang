@@ -2,6 +2,8 @@ use crate::{
     config::ops::load_config,
     web::cdn::{download_from_cdn, get_cdn_url},
 };
+use devalang_core::config::driver::ProjectConfigExt;
+use devalang_types::ProjectConfigPluginEntry;
 use devalang_utils::path as path_utils;
 use std::{fs, path::Path};
 
@@ -47,15 +49,32 @@ pub async fn install_plugin(name: &str, target_dir: &Path) -> Result<(), String>
         ));
     }
 
-    let _config = load_config(Some(&config_path))
+    let mut config = load_config(Some(&config_path))
         .ok_or_else(|| format!("Failed to load config from '{}'", config_path.display()))?;
 
-    let _dependency_path = &format!("devalang://plugin/{}", name);
+    let dependency_path = format!("devalang://plugin/{}", name);
 
     devalang_utils::file::extract_zip_safely(&archive_path, &extract_path)
         .map_err(|e| format!("Failed to extract: {}", e))?;
 
-    // TODO: Add the plugin to the config
+    // Add the plugin to the config if not already present
+    if config.plugins.is_none() {
+        config.plugins = Some(Vec::new());
+    }
+
+    if let Some(plugins) = config.plugins.as_mut() {
+        let exists = plugins.iter().any(|p| p.path == dependency_path);
+        if !exists {
+            plugins.push(ProjectConfigPluginEntry {
+                path: dependency_path.clone(),
+                version: None,
+            });
+
+            if let Err(e) = config.write_config(&config) {
+                eprintln!("Warning: failed to write config: {}", e);
+            }
+        }
+    }
 
     Ok(())
 }

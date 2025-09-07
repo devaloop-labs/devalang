@@ -1,6 +1,6 @@
 [package]
 name = "devalang"
-version = "0.0.1-beta.1"
+version = "0.0.1-beta.2"
 authors = ["Devaloop <contact@devaloop.com>"]
 description = "Write music like code. Devalang is a domain-specific language (DSL) for sound designers and music hackers. Compose, automate, and control sound — in plain text."
 license = "MIT"
@@ -59,6 +59,7 @@ dirs = "5"
 urlencoding = "2.1"
 uuid = { version = "1.18.0", features = ["v4"] }
 console_error_panic_hook = "0.1.7"
+midly = "0.5.3"
 
 [dev-dependencies]
 assert_cmd = "2"

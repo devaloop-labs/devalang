@@ -1,0 +1,11 @@
+let myFilteredSynth = synth sine {
+    filters: [
+        { type: "lowpass", cutoff: 800.0, resonance: 1.0 },
+        { type: "bandpass", cutoff: 400.0, resonance: 1.0 },
+        { type: "highpass", cutoff: 200.0, resonance: 1.0 }
+    ],
+}
+
+myFilteredSynth -> note(C4, { duration: 500 })
+myFilteredSynth -> note(E4, { duration: 500 })
+myFilteredSynth -> note(G4, { duration: 500 })

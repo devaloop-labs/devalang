@@ -1,4 +1,4 @@
-use crate::core::store::variable::VariableTable;
+use devalang_types::VariableTable;
 
 fn lfo_sine(rate_per_beat: f32, beat: f32) -> f32 {
     // Output in [-1,1]

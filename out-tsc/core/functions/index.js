@@ -4,6 +4,7 @@ exports.parse = parse;
 exports.debug_render = debug_render;
 exports.render_audio = render_audio;
 exports.register_playhead_callback = register_playhead_callback;
+exports.collect_playhead_events = collect_playhead_events;
 exports.unregister_playhead_callback = unregister_playhead_callback;
 let wasmPkg = undefined;
 try {
@@ -63,6 +64,16 @@ function register_playhead_callback(cb) {
     }
     // no-op fallback
     return;
+}
+/**
+ * Collects playhead events that have been recorded during playback.
+ * @returns Array of playhead events { time, line, column }.
+ */
+function collect_playhead_events() {
+    if (wasmPkg && typeof wasmPkg.collect_playhead_events === "function") {
+        return wasmPkg.collect_playhead_events();
+    }
+    return [];
 }
 /**
  * Unregisters the JS callback for playhead events.

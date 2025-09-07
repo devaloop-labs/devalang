@@ -12,8 +12,8 @@ pub struct RtRunner {
 pub struct RtContext {
     pub bpm: f32,
     pub entry_stmts: Vec<crate::core::parser::statement::Statement>,
-    pub variables: crate::core::store::variable::VariableTable,
-    pub functions: crate::core::store::function::FunctionTable,
+    pub variables: devalang_types::store::VariableTable,
+    pub functions: devalang_types::store::FunctionTable,
     pub global_store: crate::core::store::global::GlobalStore,
 }
 

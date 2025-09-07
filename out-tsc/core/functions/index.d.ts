@@ -31,6 +31,11 @@ export declare function register_playhead_callback(cb: (ev: {
     column: number;
 }) => void): any;
 /**
+ * Collects playhead events that have been recorded during playback.
+ * @returns Array of playhead events { time, line, column }.
+ */
+export declare function collect_playhead_events(): any;
+/**
  * Unregisters the JS callback for playhead events.
  * @returns void
  */

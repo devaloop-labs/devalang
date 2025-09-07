@@ -1,7 +1,7 @@
 use crate::core::{
     lexer::token::TokenKind,
     parser::{
-        driver::Parser,
+        driver::parser::Parser,
         statement::{Statement, StatementKind},
     },
     store::global::GlobalStore,
@@ -66,10 +66,15 @@ fn parse_map_literal(parser: &mut Parser) -> Value {
                             if let Some(TokenKind::Slash) = parser.peek_kind() {
                                 parser.advance(); // '/'
                                 if let Some(den) = parser.peek_clone() {
-                                    if den.kind == TokenKind::Number {
+                                    if den.kind == TokenKind::Number
+                                        || den.kind == TokenKind::Identifier
+                                    {
                                         parser.advance();
                                         let beat = format!("{}/{}", value_token.lexeme, den.lexeme);
-                                        map.insert(key, Value::Beat(beat));
+                                        map.insert(
+                                            key,
+                                            Value::Duration(devalang_types::Duration::Beat(beat)),
+                                        );
                                         continue;
                                     }
                                 }
@@ -219,7 +224,26 @@ pub fn parse_arrow_call(parser: &mut Parser, _global_store: &mut GlobalStore) ->
         let value = match token.kind {
             TokenKind::Identifier => Value::Identifier(token.lexeme.clone()),
             TokenKind::String => Value::String(token.lexeme.clone()),
-            TokenKind::Number => Value::Number(token.lexeme.parse::<f32>().unwrap_or(0.0)),
+            TokenKind::Number => {
+                // support fraction literal as bare arg: 1/4
+                // note: token has already been advanced earlier in the loop
+                if let Some(TokenKind::Slash) = parser.peek_kind() {
+                    parser.advance(); // consume '/'
+                    if let Some(den) = parser.peek_clone() {
+                        if den.kind == TokenKind::Number || den.kind == TokenKind::Identifier {
+                            parser.advance();
+                            let beat = format!("{}/{}", token.lexeme, den.lexeme);
+                            Value::Duration(devalang_types::Duration::Beat(beat))
+                        } else {
+                            Value::Number(token.lexeme.parse::<f32>().unwrap_or(0.0))
+                        }
+                    } else {
+                        Value::Number(token.lexeme.parse::<f32>().unwrap_or(0.0))
+                    }
+                } else {
+                    Value::Number(token.lexeme.parse::<f32>().unwrap_or(0.0))
+                }
+            }
             TokenKind::LBrace => {
                 // Handle map literal (supports nested maps)
 

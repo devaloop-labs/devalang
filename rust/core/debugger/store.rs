@@ -1,7 +1,5 @@
-use crate::core::{
-    debugger::Debugger,
-    store::{function::FunctionTable, variable::VariableTable},
-};
+use crate::core::debugger::Debugger;
+use devalang_types::{FunctionTable, VariableTable};
 use std::fs::create_dir_all;
 
 pub fn write_variables_log_file(output_dir: &str, file_name: &str, variables: VariableTable) {

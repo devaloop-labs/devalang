@@ -72,6 +72,17 @@ export function register_playhead_callback(cb: (ev: { time: number; line: number
 }
 
 /**
+ * Collects playhead events that have been recorded during playback.
+ * @returns Array of playhead events { time, line, column }.
+ */
+export function collect_playhead_events() {
+  if (wasmPkg && typeof wasmPkg.collect_playhead_events === "function") {
+    return wasmPkg.collect_playhead_events();
+  }
+  return [];
+}
+
+/**
  * Unregisters the JS callback for playhead events.
  * @returns void
  */

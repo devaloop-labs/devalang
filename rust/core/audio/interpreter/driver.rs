@@ -5,21 +5,31 @@ use rayon::prelude::*;
 use crate::core::{
     audio::{
         engine::AudioEngine,
-        interpreter::{
-            arrow_call::interprete_call_arrow_statement, call::interprete_call_statement,
-            function::interprete_function_statement, let_::interprete_let_statement,
-            load::interprete_load_statement, loop_::interprete_loop_statement,
-            sleep::interprete_sleep_statement, spawn::interprete_spawn_statement,
-            tempo::interprete_tempo_statement, trigger::interprete_trigger_statement,
+        interpreter::statements::{
+            arrow_call::interprete::interprete_arrow_call_statement,
+            call::interprete_call_statement, function::interprete_function_statement,
+            let_::interprete_let_statement, load::interprete_load_statement,
+            loop_::interprete_loop_statement, sleep::interprete_sleep_statement,
+            spawn::interprete_spawn_statement, tempo::interprete_tempo_statement,
+            trigger::interprete_trigger_statement,
         },
     },
     parser::statement::{Statement, StatementKind},
-    store::{function::FunctionTable, global::GlobalStore, variable::VariableTable},
+    store::global::GlobalStore,
 };
+use devalang_types::{FunctionTable, VariableTable};
 
 // WASM playhead callback support (only compiled for wasm32 target)
 #[cfg(target_arch = "wasm32")]
 use serde::Serialize;
+
+#[cfg(target_arch = "wasm32")]
+#[derive(Serialize, Clone)]
+pub struct PlayheadEvent {
+    time: f32,
+    line: usize,
+    column: usize,
+}
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::JsValue;
@@ -30,28 +40,33 @@ use std::cell::RefCell;
 #[cfg(target_arch = "wasm32")]
 thread_local! {
     static PLAYHEAD_CB: RefCell<Option<js_sys::Function>> = RefCell::new(None);
+    static PLAYHEAD_EVENTS: RefCell<Vec<PlayheadEvent>> = RefCell::new(Vec::new());
 }
 
 #[cfg(target_arch = "wasm32")]
 pub fn register_playhead_callback(cb: js_sys::Function) {
-    PLAYHEAD_CB.with(|c| *c.borrow_mut() = Some(cb));
+    PLAYHEAD_CB.with(|c| {
+        *c.borrow_mut() = Some(cb);
+    });
 }
 
 #[cfg(target_arch = "wasm32")]
 pub fn unregister_playhead_callback() {
-    PLAYHEAD_CB.with(|c| *c.borrow_mut() = None);
+    PLAYHEAD_CB.with(|c| {
+        *c.borrow_mut() = None;
+    });
+}
+
+#[cfg(target_arch = "wasm32")]
+pub fn collect_playhead_events() -> Vec<PlayheadEvent> {
+    PLAYHEAD_EVENTS.with(|c| c.borrow().clone())
 }
 
 #[cfg(target_arch = "wasm32")]
 fn emit_playhead(time: f32, line: usize, column: usize) {
-    #[derive(Serialize)]
-    struct PlayheadEvent {
-        time: f32,
-        line: usize,
-        column: usize,
-    }
-
     let ev = PlayheadEvent { time, line, column };
+    PLAYHEAD_EVENTS.with(|c| c.borrow_mut().push(ev.clone()));
+
     if let Ok(v) = serde_wasm_bindgen::to_value(&ev) {
         PLAYHEAD_CB.with(|c| {
             if let Some(f) = c.borrow().as_ref() {
@@ -70,6 +85,13 @@ pub fn run_audio_program(
     _module_functions: FunctionTable,
     global_store: &mut GlobalStore,
 ) -> (f32, f32) {
+    // Clear any previously collected playhead events for wasm target so each
+    // run starts with an empty events buffer.
+    #[cfg(target_arch = "wasm32")]
+    {
+        PLAYHEAD_EVENTS.with(|c| c.borrow_mut().clear());
+    }
+
     let base_bpm = 120.0;
     let base_duration = 60.0 / base_bpm;
 
@@ -232,7 +254,7 @@ pub fn execute_audio_block(
                 max_end_time = new_max;
             }
             StatementKind::ArrowCall { .. } => {
-                let (new_max, new_cursor) = interprete_call_arrow_statement(
+                let (new_max, new_cursor) = interprete_arrow_call_statement(
                     stmt,
                     audio_engine,
                     &variable_table,
@@ -250,11 +272,12 @@ pub fn execute_audio_block(
                 }
             }
             StatementKind::Automate { .. } => {
-                if let Some(new_table) =
-                    crate::core::audio::interpreter::automate::interprete_automate_statement(
-                        stmt,
-                        &mut variable_table,
-                    )
+                if
+                    let Some(new_table) =
+                        crate::core::audio::interpreter::statements::automate::interprete_automate_statement(
+                            stmt,
+                            &mut variable_table
+                        )
                 {
                     variable_table = new_table;
                 }
@@ -338,9 +361,18 @@ pub fn execute_audio_block(
         }
 
         // Emit playhead event for UI bindings when building real-time playback
+        // Only emit for statements that are "playable" (i.e., schedule audio)
         #[cfg(target_arch = "wasm32")]
         {
-            emit_playhead(cursor_time, stmt.line, stmt.column);
+            if matches!(
+                stmt.kind,
+                StatementKind::Trigger { .. }
+                    | StatementKind::Call { .. }
+                    | StatementKind::Spawn { .. }
+                    | StatementKind::Loop
+            ) {
+                emit_playhead(cursor_time, stmt.line, stmt.column);
+            }
         }
     }
 

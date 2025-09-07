@@ -1,5 +1,6 @@
 use crate::cli::install::bank::install_bank;
 use crate::config::ops::load_config;
+use devalang_core::config::driver::ProjectConfigExt;
 use devalang_types::{BankFile, BankInfo};
 use devalang_utils::path as path_utils;
 use std::fs;
@@ -173,7 +174,25 @@ async fn update_bank(bank_name: &str, _latest_version: &str) -> Result<(), Strin
     let _config = load_config(Some(&config_path))
         .ok_or_else(|| format!("Failed to load config from '{}'", config_path.display()))?;
 
-    // TODO Update the bank version in the config
+    // Update the bank version in the config
+    if let Some(mut config) = crate::config::ops::load_config(Some(&config_path)) {
+        if let Some(banks) = config.banks.as_mut() {
+            for bank in banks.iter_mut() {
+                if bank
+                    .path
+                    .strip_prefix("devalang://bank/")
+                    .unwrap_or(&bank.path)
+                    == bank_name
+                {
+                    bank.version = Some(_latest_version.to_string());
+                }
+            }
+
+            if let Err(e) = config.write_config(&config) {
+                eprintln!("Warning: failed to write updated config: {}", e);
+            }
+        }
+    }
 
     Ok(())
 }
@@ -195,7 +214,19 @@ pub async fn handle_remove_bank_command(name: String) -> Result<(), String> {
     let _config = load_config(Some(&config_path))
         .ok_or_else(|| format!("Failed to load config from '{}'", config_path.display()))?;
 
-    // TODO Remove the bank from the config
+    // Remove the bank from the config
+    if let Some(mut config) = crate::config::ops::load_config(Some(&config_path)) {
+        if let Some(banks) = config.banks.as_mut() {
+            banks.retain(|b| {
+                let name_in_path = b.path.strip_prefix("devalang://bank/").unwrap_or(&b.path);
+                name_in_path != name
+            });
+
+            if let Err(e) = config.write_config(&config) {
+                eprintln!("Warning: failed to write updated config: {}", e);
+            }
+        }
+    }
 
     println!("✅ Bank '{}' removed successfully", name);
 

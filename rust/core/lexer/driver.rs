@@ -1,7 +1,5 @@
-use crate::core::{
-    lexer::{handler::driver::handle_content_lexing, token::Token},
-    utils::path::normalize_path,
-};
+use crate::core::lexer::{handler::driver::handle_content_lexing, token::Token};
+use devalang_utils::path::normalize_path;
 use std::fs;
 use std::path::Path;
 

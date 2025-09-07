@@ -1,9 +1,9 @@
 use crate::core::{
     parser::statement::{Statement, StatementKind},
     preprocessor::{module::Module, resolver::driver::resolve_statement},
-    store::{function::FunctionDef, global::GlobalStore},
+    store::global::GlobalStore,
 };
-use devalang_types::Value;
+use devalang_types::{FunctionDef, Value};
 
 pub fn resolve_function(
     stmt: &Statement,

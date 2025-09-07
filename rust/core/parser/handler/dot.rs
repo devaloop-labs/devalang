@@ -3,7 +3,7 @@ use devalang_types::{Duration, Value};
 use crate::core::{
     lexer::token::TokenKind,
     parser::{
-        driver::Parser,
+        driver::parser::Parser,
         statement::{Statement, StatementKind},
     },
 };

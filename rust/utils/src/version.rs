@@ -1,8 +1,8 @@
-use crate::{path::get_package_root, signature::get_signature};
+use crate::{ path::get_package_root, signature::get_signature };
 
 pub fn get_version() -> String {
     if let Some(root) = get_package_root() {
-        let project_version_json = root.join("project-version.json");
+        let project_version_json = root.join("package.json");
         if let Ok(version) = std::fs::read_to_string(project_version_json) {
             if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&version) {
                 if let Some(version_val) = parsed.get("version") {

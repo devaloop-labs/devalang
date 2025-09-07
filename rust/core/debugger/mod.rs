@@ -1,5 +1,5 @@
 pub mod lexer;
-pub mod module;
+pub mod logs;
 pub mod preprocessor;
 pub mod store;
 
