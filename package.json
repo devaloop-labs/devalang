@@ -28,7 +28,7 @@
     "test:ts": "mocha -r ts-node/register tests/typescript/**/*.spec.ts --exit",
     "test": "npm run test:ts",
     "postinstall": "node out-tsc/scripts/postinstall.js",
-    "prepublish": "npm run types:all && npm run scripts:copy-version"
+    "beforepublish": "npm run types:all && npm run scripts:copy-version"
   },
   "homepage": "https://devalang.com",
   "keywords": [
