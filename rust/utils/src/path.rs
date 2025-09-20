@@ -43,8 +43,37 @@ pub fn find_project_root() -> Option<PathBuf> {
 
 /// Finds the package root using the `CARGO_MANIFEST_DIR` env var set by Cargo.
 pub fn get_package_root() -> Option<PathBuf> {
-    let cargo_dir = env::var("CARGO_MANIFEST_DIR").ok()?;
-    Some(PathBuf::from(cargo_dir))
+    // Prefer Cargo-provided manifest dir when available (build-time / cargo run)
+    if let Ok(cargo_dir) = env::var("CARGO_MANIFEST_DIR") {
+        let p = PathBuf::from(cargo_dir);
+        if p.exists() {
+            return Some(p);
+        }
+    }
+
+    // At runtime (packaged binary) try to infer the package root from the
+    // binary location: walk upward from the running executable and look for
+    // common markers (package.json, project-version.json, Cargo.toml).
+    if let Ok(exe_path) = env::current_exe() {
+        if let Some(mut dir) = exe_path.parent().map(|p| p.to_path_buf()) {
+            loop {
+                if dir.join("package.json").exists()
+                    || dir.join("project-version.json").exists()
+                    || dir.join("Cargo.toml").exists()
+                {
+                    return Some(dir);
+                }
+
+                if let Some(parent) = dir.parent() {
+                    dir = parent.to_path_buf();
+                } else {
+                    break;
+                }
+            }
+        }
+    }
+
+    None
 }
 
 /// Gets the project root or returns a descriptive error if not found.

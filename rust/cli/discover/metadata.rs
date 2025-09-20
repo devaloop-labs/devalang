@@ -27,8 +27,8 @@ pub fn parse_metadata_file(addon_type: &str, metadata_content: &str) -> Option<A
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .to_string();
-    let author = table
-        .get("author")
+    let publisher = table
+        .get("publisher")
         .and_then(|v| v.as_str())
         .unwrap_or("unknown")
         .to_string();
@@ -40,7 +40,7 @@ pub fn parse_metadata_file(addon_type: &str, metadata_content: &str) -> Option<A
 
     Some(AddonMetadata {
         name,
-        author,
+        publisher,
         version,
         description,
         access,

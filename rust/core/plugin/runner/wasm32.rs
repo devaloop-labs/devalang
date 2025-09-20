@@ -37,6 +37,7 @@ impl WasmPluginRunner {
         _channels: i32,
         _params_num: &HashMap<String, f32>,
         _params_str: Option<&HashMap<String, String>>,
+        _exported_names: Option<&[String]>,
     ) -> Result<(), String> {
         Err("Wasm plugin rendering is not available in wasm builds".to_string())
     }

@@ -52,6 +52,12 @@ pub fn parse_pattern_token(parser: &mut Parser, _global_store: &mut GlobalStore)
         }
     }
 
+    // optional inline options map like { swing: 0.08 }
+    let mut options: Option<Value> = None;
+    if parser.check_token(TokenKind::LBrace) {
+        options = parser.parse_map_value();
+    }
+
     // optional '=' and pattern string
     let mut value: Value = Value::Null;
     if parser.peek_is("=") {
@@ -59,9 +65,26 @@ pub fn parse_pattern_token(parser: &mut Parser, _global_store: &mut GlobalStore)
         if let Some(tok3) = parser.peek_clone() {
             if tok3.kind == TokenKind::String {
                 parser.advance();
-                value = Value::String(tok3.lexeme.clone());
+                let pat_str = Value::String(tok3.lexeme.clone());
+                if let Some(opts) = options {
+                    // merge options map with pattern key
+                    if let Value::Map(mut m) = opts {
+                        m.insert("pattern".to_string(), pat_str);
+                        value = Value::Map(m);
+                    } else {
+                        // unexpected, wrap into a map
+                        let mut m = std::collections::HashMap::new();
+                        m.insert("pattern".to_string(), pat_str);
+                        value = Value::Map(m);
+                    }
+                } else {
+                    value = Value::String(tok3.lexeme.clone());
+                }
             }
         }
+    } else if let Some(opts) = options {
+        // only options were provided, store them as the value
+        value = opts;
     }
 
     Statement {

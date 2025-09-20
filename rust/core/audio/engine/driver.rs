@@ -35,6 +35,8 @@ pub struct AudioEngine {
     pub buffer: Vec<i16>,
     /// Collected MIDI note events for export (non-audio representation).
     pub midi_events: Vec<MidiNoteEvent>,
+    /// Map target synth -> last inserted note sample ranges (start_sample, total_samples)
+    pub last_notes: std::collections::HashMap<String, Vec<(usize, usize)>>,
     /// Logical module name used for error traces/diagnostics.
     pub module_name: String,
     /// Simple diagnostic counter for inserted notes.
@@ -55,6 +57,7 @@ impl AudioEngine {
             note_count: 0,
             sample_rate: SAMPLE_RATE,
             channels: CHANNELS,
+            last_notes: std::collections::HashMap::new(),
         }
     }
 
@@ -134,6 +137,7 @@ impl AudioEngine {
 
     pub fn insert_note(
         &mut self,
+        owner: Option<String>,
         waveform: String,
         freq: f32,
         amp: f32,
@@ -142,10 +146,11 @@ impl AudioEngine {
         synth_params: HashMap<String, Value>,
         note_params: HashMap<String, Value>,
         automation: Option<HashMap<String, Value>>,
-    ) {
+    ) -> Vec<(usize, usize)> {
         // Delegated implementation lives in notes.rs
         crate::core::audio::engine::notes::insert_note_impl(
             self,
+            owner,
             waveform,
             freq,
             amp,
@@ -154,7 +159,19 @@ impl AudioEngine {
             synth_params,
             note_params,
             automation,
-        );
+        )
+    }
+
+    pub fn record_last_note_range(
+        &mut self,
+        owner: &str,
+        start_sample: usize,
+        total_samples: usize,
+    ) {
+        self.last_notes
+            .entry(owner.to_string())
+            .or_default()
+            .push((start_sample, total_samples));
     }
 
     // helper extraction functions left in this struct for now

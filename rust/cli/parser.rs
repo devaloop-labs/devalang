@@ -35,18 +35,6 @@ pub enum TelemetryCommand {
 }
 
 #[derive(Subcommand)]
-pub enum InstallCommand {
-    /// Installs a template.
-    Template { name: String },
-    /// Installs a bank.
-    Bank { name: String },
-    /// Installs a plugin.
-    Plugin { name: String },
-    /// Installs a preset.
-    Preset { name: String },
-}
-
-#[derive(Subcommand)]
 pub enum TemplateCommand {
     /// Lists all available templates for Devalang projects.
     List,
@@ -55,17 +43,22 @@ pub enum TemplateCommand {
 }
 
 #[derive(Subcommand)]
-pub enum BankCommand {
-    /// Lists installed banks.
-    List,
-    /// Lists all available banks.
-    Available,
-    /// Displays information about a specific bank.
-    Info { name: String },
-    /// Removes a bank.
+pub enum AddonCommand {
+    /// Installs an addon.
+    Install {
+        name: String,
+        #[arg(long, default_value_t = false)]
+        no_clear_tmp: bool,
+    },
+
+    /// Updates an addon.
+    Update { name: String },
+
+    /// Lists installed addons.
+    List {},
+
+    /// Removes an addon.
     Remove { name: String },
-    /// Updates a specific or all banks.
-    Update { name: Option<String> },
 }
 
 #[derive(Subcommand)]
@@ -172,7 +165,6 @@ pub enum Commands {
         /// - `false`
         ///
         debug: bool,
-
         #[arg(short, long, default_value_t = false)]
         /// Whether to compress the output files.
         ///
@@ -283,47 +275,24 @@ pub enum Commands {
         debug: bool,
     },
 
-    /// Update the Devalang CLI to the latest version.
-    ///
-    /// ### Arguments
-    /// - `only` - Selects what to update (separated by commas). Defaults to updating all components.
-    ///
-    Update {
-        // #[arg(long, default_value_t = false)]
-        /// Whether to allow updates when the working directory is dirty.
-        // allow_dirty: bool,
-
-        #[arg(long, default_value = "")]
-        /// Selects what to update (separated by commas).
-        only: Option<String>,
-    },
-
-    /// Install templates, banks, or plugins.
-    ///
-    /// ### Subcommands
-    /// - `template` - Installs a template.
-    /// - `bank` - Installs a bank.
-    /// - `plugin` - Installs a plugin.
-    /// - `preset` - Installs a preset.
-    ///
-    Install {
-        #[command(subcommand)]
-        command: InstallCommand,
-    },
-
     /// Discover available local addons for Devalang.
     ///
-    Discover {},
+    Discover {
+        #[arg(long, default_value_t = false)]
+        /// Do not clear the temporary extraction folder after installation.
+        no_clear_tmp: bool,
+    },
 
-    /// Manage banks for Devalang projects.
+    /// Manage addons for Devalang projects.
     ///
     /// ### Subcommands
-    /// - `list` - Lists all available banks.
-    /// - `info <name>` - Displays information about a specific bank.
+    /// - `install <publisher>.<name>` - Installs a new addon.
+    /// - `list` - Lists installed addons.
+    /// - `remove <publisher>.<name>` - Removes an existing addon.
     ///
-    Bank {
+    Addon {
         #[command(subcommand)]
-        command: BankCommand,
+        command: AddonCommand,
     },
 
     /// Telemetry settings for Devalang.
@@ -337,21 +306,13 @@ pub enum Commands {
         command: TelemetryCommand,
     },
 
-    /// Generate addon scaffolding for Devalang.
-    ///
-    /// ### Subcommands
-    /// - `bank` - Generates a bank scaffold.
-    /// - `plugin` - Generates a plugin scaffold.
-    /// - `preset` - Generates a preset scaffold.
-    ///
-    // Scaffold {
-    //     #[command(subcommand)]
-    //     command: ScaffoldCommand,
-    // },
-
     /// Log in to your Devaloop account.
     ///
     Login {},
+
+    /// Display information about the current Devalang user.
+    ///
+    Me {},
 
     /// Log out of your Devaloop account.
     ///

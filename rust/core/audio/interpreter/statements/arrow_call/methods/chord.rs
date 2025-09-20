@@ -181,16 +181,30 @@ pub fn interprete_chord_method(
             }
         }
 
-        audio_engine.insert_note(
+        let ranges = audio_engine.insert_note(
+            Some(target.to_string()),
             waveform_str.to_string(),
             note_freq,
             note_amp,
             note_start_ms,
             duration_ms,
             synth_params.clone(),
-            note_params_clone,
+            note_params_clone.clone(),
             automation.clone(),
         );
+
+        // Apply simple per-note effects if provided under note_params_clone.effects (map)
+        if let Some(Value::Map(eff_map)) = note_params_clone.get("effects") {
+            for (_start, _len) in ranges.iter() {
+                crate::core::audio::interpreter::statements::arrow_call::methods::effects::apply_effect_chain(
+                    "echo",
+                    &vec![Value::Map(eff_map.clone())],
+                    target,
+                    audio_engine,
+                    variable_table,
+                );
+            }
+        }
 
         let note_end = (note_start_ms / 1000.0) + (duration_ms / 1000.0);
         *max_end_time = (*max_end_time).max(note_end);

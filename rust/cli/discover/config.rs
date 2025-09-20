@@ -9,8 +9,8 @@ pub async fn add_addons_to_config(addons: Vec<AddonWithMetadata>) -> Result<(), 
 
     for addon in addons {
         let addon_path_as_devalang_protocol = format!(
-            "devalang://{}/{}.{}",
-            addon.addon_type, addon.metadata.author, addon.metadata.name
+            "devalang://{}/{}/{}",
+            addon.addon_type, addon.metadata.publisher, addon.metadata.name
         );
 
         match addon.addon_type.as_str() {
@@ -31,7 +31,6 @@ pub async fn add_addons_to_config(addons: Vec<AddonWithMetadata>) -> Result<(), 
 
                 banks.push(ProjectConfigBankEntry {
                     path: addon_path_as_devalang_protocol,
-                    version: Some(addon.metadata.version.clone()),
                 });
             }
 
@@ -52,7 +51,6 @@ pub async fn add_addons_to_config(addons: Vec<AddonWithMetadata>) -> Result<(), 
 
                 plugins.push(ProjectConfigPluginEntry {
                     path: addon_path_as_devalang_protocol,
-                    version: Some(addon.metadata.version.clone()),
                 });
             }
 

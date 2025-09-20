@@ -1,26 +1,12 @@
-use crate::{
-    cli::install::{bank::install_bank, plugin::install_plugin},
-    config::settings::get_user_config,
-    web::api::get_api_url,
-};
+use crate::{config::settings::get_user_config, web::forge::get_forge_api_url};
 use devalang_types::AddonType;
-use std::path::Path;
 
-pub async fn install_addon(
+pub async fn ask_api_for_signed_url(
     addon_type: AddonType,
-    name: &str,
-    target_dir: &Path,
-) -> Result<(), String> {
-    match addon_type {
-        AddonType::Bank => install_bank(name, target_dir).await,
-        AddonType::Plugin => install_plugin(name, target_dir).await,
-        AddonType::Preset => Err("Preset installation not implemented".into()),
-        AddonType::Template => Err("Template installation not implemented".into()),
-    }
-}
-
-pub async fn ask_api_for_signed_url(addon_type: AddonType, slug: &str) -> Result<String, String> {
-    let api_url = get_api_url();
+    publisher: String,
+    slug: &str,
+) -> Result<String, String> {
+    let forge_api_url = get_forge_api_url();
 
     use devalang_utils::logger::LogLevel;
     use devalang_utils::logger::Logger;
@@ -38,31 +24,36 @@ pub async fn ask_api_for_signed_url(addon_type: AddonType, slug: &str) -> Result
         return Err("Authentication required: run 'devalang login' to authenticate".to_string());
     }
 
+    // Build request URL. If publisher is empty, omit the publisher param so the API
+    // can resolve publisher by addon name itself (server-side lookup).
+    let kind = match addon_type {
+        AddonType::Bank => "bank",
+        AddonType::Plugin => "plugin",
+        AddonType::Preset => "preset",
+        AddonType::Template => "template",
+    };
+
     let request_url = if let Some(token) = &stored_token_opt {
-        format!(
-            "{}/v1/assets/url?type={}&slug={}&token={}",
-            api_url,
-            match addon_type {
-                AddonType::Bank => "bank",
-                AddonType::Plugin => "plugin",
-                AddonType::Preset => "preset",
-                AddonType::Template => "template",
-            },
-            slug,
-            token
-        )
+        if publisher.trim().is_empty() {
+            format!(
+                "{}/v1/addon/url?type={}&slug={}&token={}",
+                forge_api_url, kind, slug, token
+            )
+        } else {
+            format!(
+                "{}/v1/addon/url?type={}&publisher={}&slug={}&token={}",
+                forge_api_url, kind, publisher, slug, token
+            )
+        }
     } else {
-        format!(
-            "{}/v1/assets/url?type={}&slug={}",
-            api_url,
-            match addon_type {
-                AddonType::Bank => "bank",
-                AddonType::Plugin => "plugin",
-                AddonType::Preset => "preset",
-                AddonType::Template => "template",
-            },
-            slug
-        )
+        if publisher.trim().is_empty() {
+            format!("{}/v1/addon/url?type={}&slug={}", forge_api_url, kind, slug)
+        } else {
+            format!(
+                "{}/v1/addon/url?type={}&publisher={}&slug={}",
+                forge_api_url, kind, publisher, slug
+            )
+        }
     };
 
     let mut headers = reqwest::header::HeaderMap::new();

@@ -13,7 +13,7 @@ pub fn render_notes_into_buffer(
     _note_params: HashMap<String, Value>,
     _automation: Option<HashMap<String, Value>>,
     setup: NoteSetup,
-) {
+) -> Vec<(usize, usize)> {
     use crate::core::audio::engine::helpers;
 
     let sample_rate = setup.sample_rate;
@@ -82,4 +82,7 @@ pub fn render_notes_into_buffer(
 
     engine.note_count = engine.note_count.saturating_add(1);
     helpers::mix_stereo_samples_into_buffer(engine, start_sample, channels, &stereo_samples);
+
+    // Return the inserted sample range for this note (start_sample, total_samples)
+    vec![(start_sample, stereo_samples.len())]
 }

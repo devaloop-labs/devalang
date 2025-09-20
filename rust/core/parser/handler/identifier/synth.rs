@@ -23,8 +23,9 @@ pub fn parse_synth_token(
         return Statement::unknown();
     };
 
-    // Expect a provider/waveform identifier (can be dotted: alias.synth)
+    // Expect a provider or waveform identifier (can be dotted: alias.synth)
     // Also accept a dot-led entity by delegating to the dot parser (e.g. .module.export)
+    // Support optional explicit waveform after a dotted provider: `synth alias.synth saw {}`
     let synth_waveform = if let Some(first_token) = parser.peek_clone() {
         use crate::core::lexer::token::TokenKind;
 
@@ -81,7 +82,42 @@ pub fn parse_synth_token(
                 }
             }
 
-            parts.join(".")
+            // The joined parts form either:
+            // - a simple waveform name (e.g. "sine")
+            // - a provider entity (e.g. "author.synth")
+            let first = parts.join(".");
+
+            // If this looks like a dotted provider, try to consume an optional explicit
+            // waveform identifier on the same line (e.g. `synth author.synth saw`). If none
+            // is provided, fall back to the original behaviour (use the joined string as
+            // the waveform identifier) to remain backward-compatible.
+            if first.contains('.') {
+                // peek next token on same line
+                if let Some(next_tok) = parser.peek_clone() {
+                    if next_tok.line == current_line
+                        && matches!(
+                            next_tok.kind,
+                            crate::core::lexer::token::TokenKind::Identifier
+                                | crate::core::lexer::token::TokenKind::Number
+                                | crate::core::lexer::token::TokenKind::Synth
+                        )
+                    {
+                        // consume waveform token
+                        let waveform = next_tok.lexeme.clone();
+                        parser.advance();
+                        // store as "provider.waveform" style? keep only waveform for compatibility
+                        waveform
+                    } else {
+                        // no explicit waveform -> use the provider string (old behaviour)
+                        first
+                    }
+                } else {
+                    first
+                }
+            } else {
+                // simple waveform name
+                first
+            }
         }
     } else {
         return crate::core::parser::statement::error_from_token(

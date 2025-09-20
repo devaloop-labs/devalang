@@ -23,16 +23,16 @@ Devalang is a work in progress. Here’s what we’re planning next:
 - ✅ **Sample loading**: Add `@load` assignment to load samples (.mp3, .wav) for use as values.
 - ✅ **WASM support**: Compile Devalang to WebAssembly for use in web applications and other environments.
 - ✅ **VSCode extension**: Create a VSCode extension for syntax highlighting and code completion.
+- ✅ **Addon generator**: Implement addon generation for creating reusable plugins, banks and presets.
+- ✅ **Effect chains**: Implement effect chains for applying multiple effects to a single note or group.
 
 ## In Progress
 
-- ⏳ **Addon generator**: Implement addon generation for creating reusable plugins, banks and presets.
 - ⏳ **Testing**: Expand test coverage for all features.
+- ⏳ **Mixing & Routing**: Implement mixing and routing capabilities for advanced audio control.
 
 ## Planned
 
 - ⏳ **MIDI mapping**: Implement MIDI mapping for external control.
 - ⏳ **GUI**: Develop a graphical user interface for easier interaction.
-- ⏳ **Mixing & Routing**: Implement mixing and routing capabilities for advanced audio control.
-- ⏳ **Effect chains**: Implement effect chains for applying multiple effects to a single note or group.
 - ⏳ **Smart modules**: Let Devalang detect and use groups, samples, and variables without needing to import them manually.

@@ -1,0 +1,19 @@
+let myChord = synth sine
+
+myChord -> note(C4)
+        -> arp({ pattern: "up", rate: 1/8 }) 
+        -> slide({ duration: 2000 }) 
+        -> echo({ delay: 250, feedback: 0.5 }) 
+        -> reverb({ room_size: 0.8 })
+
+myChord -> note(E4)
+        -> arp({ pattern: "up", rate: 1/8 }) 
+        -> slide({ duration: 2000 }) 
+        -> echo({ delay: 250, feedback: 0.5 }) 
+        -> reverb({ room_size: 0.8 })
+
+myChord -> note(G4)
+        -> arp({ pattern: "up", rate: 1/8 })
+        -> slide({ duration: 2000 })
+        -> echo({ delay: 250, feedback: 0.5 })
+        -> reverb({ room_size: 0.8 })

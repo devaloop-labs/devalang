@@ -1,8 +1,9 @@
 {
   "name": "@devaloop/devalang",
   "private": false,
-  "version": "0.0.1-beta.2",
+  "version": "0.0.1-beta.3",
   "description": "Write music like code. Devalang is a domain-specific language (DSL) for sound designers and music hackers. Compose, automate, and control sound — in plain text.",
+  "longDescription": "Devalang is a compact, performant DSL and toolchain for composing, automating and rendering sound. It provides a CLI, WASM bindings, a TypeScript API, and plugins for editors. Ideal for live-coding, sample-based production, algorithmic composition, and fast prototyping.",
   "main": "out-tsc/index.js",
   "bin": {
     "devalang": "./out-tsc/bin/index.js"
@@ -18,6 +19,7 @@
     "rust:prepack": "cargo build --release",
     "scripts:postbuild": "tsc && node out-tsc/scripts/postbuild.js",
     "scripts:version:bump": "tsc && node out-tsc/scripts/version/index.js",
+    "scripts:copy-version": "tsc && node out-tsc/scripts/version/copy-to-binary.js --out-dir ./out-tsc/bin",
     "scripts:build": "tsc",
     "types:build": "tsc --emitDeclarationOnly",
     "types:wasm": "tsc && node out-tsc/scripts/copy-wasm-dts.js",
@@ -25,25 +27,36 @@
     "test:rust": "cargo test",
     "test:ts": "mocha -r ts-node/register tests/typescript/**/*.spec.ts --exit",
     "test": "npm run test:ts",
-    "postinstall": "node out-tsc/scripts/postinstall.js"
+    "postinstall": "node out-tsc/scripts/postinstall.js",
+    "prepublish": "npm run types:all && npm run scripts:copy-version"
   },
   "homepage": "https://devalang.com",
   "keywords": [
     "devalang",
     "music",
     "sound",
-    "domain-specific language",
     "dsl",
-    "programming language",
-    "sound design",
-    "music hacking",
+    "domain-specific-language",
     "audio",
+    "music-programming",
     "synthesis",
-    "scripting",
-    "sound synthesis",
-    "music programming"
+    "midi",
+    "wasm",
+    "vscode",
+    "live-coding",
+    "sound-design",
+    "samples",
+    "cli"
   ],
-  "author": "Devaloop",
+  "author": {
+    "name": "Devaloop",
+    "email": "contact@devaloop.com",
+    "url": "https://devaloop.com"
+  },
+  "bugs": {
+    "url": "https://github.com/devaloop-labs/devalang/issues",
+    "email": "contact@devaloop.com"
+  },
   "license": "MIT",
   "repository": {
     "type": "git",

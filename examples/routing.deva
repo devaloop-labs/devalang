@@ -1,0 +1,23 @@
+# NOTE Future version of Deva may include built-in routing capabilities.
+
+# @load "./samples/kick-808.wav" as kickCustom
+
+# group myLead:
+#     let mySynth = synth sine
+    
+#     mySynth -> note(C4, { duration: 400 })
+
+# group myKick:
+#     .kickCustom 1/4
+    
+# routing:
+#     node $master
+#     node myLead
+#     node myKick
+#     node hallReverb = effect reverb { decay: 3.0, mix: 0.5 }
+
+#     connect myLead -> hallReverb -> $master
+    
+#     connect myLead -> $master with { delay: { time: 300, feedback: 0.3 } }
+    
+#     connect myKick -> myLead with { sidechain: 0.6 }

@@ -180,6 +180,22 @@ pub fn parse_arrow_call(parser: &mut Parser, _global_store: &mut GlobalStore) ->
     parser.advance(); // ->
     parser.advance(); // method
 
+    let args = parse_arrow_args(parser);
+    Statement {
+        kind: StatementKind::ArrowCall {
+            target: target_token.lexeme.clone(),
+            method: method_token.lexeme.clone(),
+            args,
+        },
+        value: Value::Null,
+        indent: target_token.indent,
+        line: target_token.line,
+        column: target_token.column,
+    }
+}
+
+// Parse args after the method token. Reused by continuation parser.
+fn parse_arrow_args(parser: &mut Parser) -> Vec<Value> {
     let mut args = Vec::new();
     let mut paren_depth = 0;
     let mut map_depth = 0;
@@ -225,8 +241,6 @@ pub fn parse_arrow_call(parser: &mut Parser, _global_store: &mut GlobalStore) ->
             TokenKind::Identifier => Value::Identifier(token.lexeme.clone()),
             TokenKind::String => Value::String(token.lexeme.clone()),
             TokenKind::Number => {
-                // support fraction literal as bare arg: 1/4
-                // note: token has already been advanced earlier in the loop
                 if let Some(TokenKind::Slash) = parser.peek_kind() {
                     parser.advance(); // consume '/'
                     if let Some(den) = parser.peek_clone() {
@@ -244,34 +258,71 @@ pub fn parse_arrow_call(parser: &mut Parser, _global_store: &mut GlobalStore) ->
                     Value::Number(token.lexeme.parse::<f32>().unwrap_or(0.0))
                 }
             }
-            TokenKind::LBrace => {
-                // Handle map literal (supports nested maps)
-
-                // We consumed the matching '}', so outer map_depth should be decremented
-                // if the caller tracks it.
-                parse_map_literal(parser)
-            }
+            TokenKind::LBrace => parse_map_literal(parser),
             _ => Value::Unknown,
         };
 
         args.push(value);
 
-        // Stop if we reach the end of the statement
         if paren_depth == 0 && (token.kind == TokenKind::RParen || token.kind == TokenKind::RBrace)
         {
             break;
         }
     }
 
+    args
+}
+
+// Parse an arrow continuation that begins with an Arrow token. If prev_target is Some,
+// use it as the call target; otherwise produce an Unknown statement.
+pub fn parse_arrow_continuation(
+    parser: &mut Parser,
+    _global_store: &mut GlobalStore,
+    prev_target: Option<String>,
+) -> Statement {
+    // We expect current token to be Arrow
+    let arrow_tok = parser.peek_clone();
+    if arrow_tok.is_none() {
+        return Statement::unknown();
+    }
+
+    // If there is no previous target, consume arrow and return unknown
+    let Some(target) = prev_target else {
+        parser.advance(); // consume Arrow
+        return Statement::unknown();
+    };
+
+    // consume '->'
+    parser.advance();
+
+    // next token should be method identifier
+    let Some(method_token) = parser.peek_nth(0).cloned() else {
+        return Statement::unknown();
+    };
+
+    if method_token.kind != TokenKind::Identifier {
+        parser.advance();
+        return Statement::unknown_with_pos(
+            method_token.indent,
+            method_token.line,
+            method_token.column,
+        );
+    }
+
+    // consume method
+    parser.advance();
+
+    let args = parse_arrow_args(parser);
+
     Statement {
         kind: StatementKind::ArrowCall {
-            target: target_token.lexeme.clone(),
+            target,
             method: method_token.lexeme.clone(),
             args,
         },
         value: Value::Null,
-        indent: target_token.indent,
-        line: target_token.line,
-        column: target_token.column,
+        indent: method_token.indent,
+        line: method_token.line,
+        column: method_token.column,
     }
 }

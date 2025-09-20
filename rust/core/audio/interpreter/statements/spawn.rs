@@ -71,7 +71,22 @@ pub fn interprete_spawn_statement(
 
         // Pattern case: allow spawning a pattern similar to call
         if let Some(pattern_stmt) = find_pattern(name, variable_table, global_store) {
-            if let Value::String(pat) = &pattern_stmt.value {
+            // Support Value::String(pattern) or Value::Map({ pattern: "..", swing: .., humanize: .. })
+            let mut pat_opt: Option<String> = None;
+            let mut opts_map: Option<std::collections::HashMap<String, Value>> = None;
+
+            match &pattern_stmt.value {
+                Value::String(s) => pat_opt = Some(s.clone()),
+                Value::Map(m) => {
+                    if let Some(Value::String(s)) = m.get("pattern") {
+                        pat_opt = Some(s.clone());
+                    }
+                    opts_map = Some(m.clone());
+                }
+                _ => {}
+            }
+
+            if let Some(pat) = pat_opt {
                 let mut target_entity = name.clone();
                 if let StatementKind::Pattern { name: _n, target } = &pattern_stmt.kind {
                     if let Some(t) = target {
@@ -97,6 +112,18 @@ pub fn interprete_spawn_statement(
                 let total_bar = 4.0 * base_duration;
                 let step_duration = total_bar / step_count;
 
+                // extract optional swing/humanize from pattern_stmt.value
+                let mut swing: f32 = 0.0;
+                let mut humanize: f32 = 0.0;
+                if let Value::Map(m) = &pattern_stmt.value {
+                    if let Some(Value::Number(s)) = m.get("swing") {
+                        swing = *s;
+                    }
+                    if let Some(Value::Number(h)) = m.get("humanize") {
+                        humanize = *h;
+                    }
+                }
+
                 let mut updated_max = max_end_time;
 
                 for (i, ch) in pattern_str.chars().enumerate() {
@@ -104,7 +131,29 @@ pub fn interprete_spawn_statement(
                         continue;
                     }
 
-                    let event_time = cursor_time + (i as f32) * step_duration;
+                    // Apply swing: shift every other step by +/- swing*step_duration
+                    let mut event_time = cursor_time + (i as f32) * step_duration;
+                    if swing.abs() > 0.0001 {
+                        // swing applies to off-beats: shift odd steps forward, even steps back
+                        if i % 2 == 1 {
+                            event_time += swing * step_duration;
+                        } else {
+                            event_time -= swing * step_duration;
+                        }
+                    }
+
+                    // Apply humanize: small random jitter in [-humanize*step_duration/2, +...]
+                    if humanize.abs() > 0.0001 {
+                        let jitter_range = humanize * step_duration;
+                        // lightweight RNG using a simple hash to avoid adding rand dependency
+                        let seed = (audio_engine.module_name.len() + i) as u64
+                            + (event_time.to_bits() as u64);
+                        let mut x = seed.wrapping_mul(0x9E3779B97F4A7C15).rotate_left(13);
+                        x ^= x >> 7;
+                        let r = (x as i64 % 1000) as f32 / 1000.0; // [0,1)
+                        let jitter = (r * 2.0 - 1.0) * jitter_range / 2.0;
+                        event_time += jitter;
+                    }
 
                     let mut trigger_val = Value::String(target_entity.clone());
                     if let Some(val) = variable_table.variables.get(&target_entity) {

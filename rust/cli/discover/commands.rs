@@ -1,57 +1,69 @@
 use crate::cli::discover::config::add_addons_to_config;
 use crate::cli::discover::install::install_selected_addons;
 use devalang_types::DiscoveredAddon;
+use devalang_utils::spinner::start_spinner;
 use devalang_utils::{
     logger::{LogLevel, Logger},
     path as path_utils,
-    spinner::start_spinner,
 };
 
-pub async fn handle_discover_command() -> Result<(), String> {
+pub async fn handle_discover_command(no_clear_tmp: bool) -> Result<(), String> {
     let deva_dir = path_utils::ensure_deva_dir()?;
 
-    // Search for addons (banks, plugins, presets, templates) in the .deva directory
-    let valid_addons_extensions = ["devabank", "devaplugin", "devapreset", "devatemplate"];
+    // Search for compiled addon archives in the .deva directory
+    // New norm: archives are packaged as `.tar.gz`. We recursively find all
+    // files ending with `.tar.gz` and propose them for installation. The
+    // install flow will inspect the extracted content to determine the exact
+    // addon type (bank/plugin/preset/template) when possible.
 
     let mut addons_found = Vec::new();
 
-    // Recursively walk the .deva directory and collect addon files matching
-    // the known addon extensions. This allows discovery in nested folders.
-    fn walk_dir_collect(base: &std::path::Path, exts: &[&str], out: &mut Vec<DiscoveredAddon>) {
+    fn walk_dir_collect_tar_gz(base: &std::path::Path, out: &mut Vec<DiscoveredAddon>) {
         if let Ok(entries) = std::fs::read_dir(base) {
             for entry in entries.filter_map(|e| e.ok()) {
                 let p = entry.path();
                 if p.is_dir() {
-                    walk_dir_collect(&p, exts, out);
+                    walk_dir_collect_tar_gz(&p, out);
                 } else if p.is_file() {
-                    if let Some(ext) = p.extension().and_then(|s| s.to_str()) {
-                        if exts.contains(&ext) {
-                            let name = p
-                                .file_stem()
-                                .map(|s| s.to_string_lossy().to_string())
-                                .unwrap_or_default();
-                            let addon_type = match ext {
-                                "devabank" => "bank",
-                                "devaplugin" => "plugin",
-                                "devapreset" => "preset",
-                                "devatemplate" => "template",
-                                _ => "unknown",
-                            };
+                    let name = p.file_name().and_then(|s| s.to_str()).unwrap_or("");
+                    if name.ends_with(".tar.gz") || name.ends_with(".tgz") {
+                        // derive a friendly name (strip extensions)
+                        let stem = if name.ends_with(".tar.gz") {
+                            name.trim_end_matches(".tar.gz").to_string()
+                        } else {
+                            name.trim_end_matches(".tgz").to_string()
+                        };
 
-                            out.push(DiscoveredAddon {
-                                path: p.clone(),
-                                name,
-                                extension: ext.to_string(),
-                                addon_type: addon_type.to_string(),
-                            });
-                        }
+                        let publisher = p
+                            .parent()
+                            .and_then(|parent| parent.file_name())
+                            .and_then(|s| s.to_str())
+                            .unwrap_or("unknown")
+                            .to_string();
+
+                        out.push(DiscoveredAddon {
+                            name: stem,
+                            path: p.clone(),
+                            publisher: publisher.clone(),
+                            extension: "tar.gz".to_string(),
+                            addon_type: "unknown".to_string(),
+                        });
                     }
                 }
             }
         }
     }
 
-    walk_dir_collect(&deva_dir, &valid_addons_extensions, &mut addons_found);
+    walk_dir_collect_tar_gz(&deva_dir, &mut addons_found);
+
+    // Pre-classify discovered archives by inspecting their contents for metadata
+    for addon in addons_found.iter_mut() {
+        if let Ok(t) = devalang_utils::file::detect_addon_type_in_archive(&addon.path) {
+            if t != "unknown" {
+                addon.addon_type = t;
+            }
+        }
+    }
 
     let logger = Logger::new();
 
@@ -79,6 +91,10 @@ pub async fn handle_discover_command() -> Result<(), String> {
         .cloned()
         .collect::<Vec<_>>();
 
+    // Combine discovered known-type addons. If nothing was classified (all
+    // entries have `addon_type == "unknown"`), fall back to the raw
+    // `addons_found` so users can still install archives discovered in
+    // `.deva`.
     let mut all_addons = Vec::with_capacity(
         banks_found.len() + plugins_found.len() + presets_found.len() + templates_found.len(),
     );
@@ -86,6 +102,11 @@ pub async fn handle_discover_command() -> Result<(), String> {
     all_addons.extend(plugins_found.iter().cloned());
     all_addons.extend(presets_found.iter().cloned());
     all_addons.extend(templates_found.iter().cloned());
+
+    if all_addons.is_empty() {
+        // No known types detected — include everything we discovered.
+        all_addons = addons_found.clone();
+    }
 
     println!();
 
@@ -220,7 +241,8 @@ pub async fn handle_discover_command() -> Result<(), String> {
         .cloned()
         .collect::<Vec<_>>();
 
-    let install_selected_addons_result = install_selected_addons(addons_to_install).await;
+    let install_selected_addons_result =
+        install_selected_addons(addons_to_install, no_clear_tmp).await;
     match install_selected_addons_result {
         Ok(addons_enriched) => {
             if let Err(e) = add_addons_to_config(addons_enriched).await {

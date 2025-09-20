@@ -8,6 +8,7 @@ pub mod params;
 
 pub fn insert_note_impl(
     engine: &mut crate::core::audio::engine::AudioEngine,
+    owner: Option<String>,
     waveform: String,
     freq: f32,
     amp: f32,
@@ -16,7 +17,7 @@ pub fn insert_note_impl(
     synth_params: HashMap<String, Value>,
     note_params: HashMap<String, Value>,
     automation: Option<HashMap<String, Value>>,
-) {
+) -> Vec<(usize, usize)> {
     let setup = params::build_note_setup(
         engine,
         &waveform,
@@ -29,7 +30,7 @@ pub fn insert_note_impl(
         &automation,
     );
 
-    dsp::render_notes_into_buffer(
+    let ranges = dsp::render_notes_into_buffer(
         engine,
         &waveform,
         freq,
@@ -41,4 +42,12 @@ pub fn insert_note_impl(
         automation,
         setup,
     );
+
+    if let Some(owner_name) = owner {
+        for (start, len) in ranges.iter() {
+            engine.record_last_note_range(&owner_name, *start, *len);
+        }
+    }
+
+    ranges
 }

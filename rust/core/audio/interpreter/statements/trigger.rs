@@ -26,6 +26,9 @@ pub fn interprete_trigger_statement(
         let mut trigger_src = String::new();
 
         match variable_table.variables.get(entity) {
+            Some(Value::String(s)) => {
+                trigger_val = Value::String(s.clone());
+            }
             Some(Value::Identifier(id)) => {
                 // Get real value from global variable table
                 if let Some(global_table) = &variable_table.parent {

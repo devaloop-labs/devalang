@@ -39,8 +39,20 @@ pub fn resolve_pattern(
         if let Some(t) = target {
             map.insert("target".to_string(), Value::String(t.clone()));
         }
-        // Keep raw pattern in 'pattern' key
-        map.insert("pattern".to_string(), resolved_value.clone());
+        // Keep raw pattern in 'pattern' key if it's a string, or merge options map
+        match resolved_value.clone() {
+            Value::String(s) => {
+                map.insert("pattern".to_string(), Value::String(s));
+            }
+            Value::Map(m) => {
+                for (k, v) in m {
+                    map.insert(k, v);
+                }
+            }
+            _ => {
+                map.insert("pattern".to_string(), resolved_value.clone());
+            }
+        }
 
         let resolved_stmt = Statement {
             kind: StatementKind::Pattern {

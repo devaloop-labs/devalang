@@ -17,21 +17,47 @@ pub fn inject_bank_triggers(
         .to_string();
     let alias_ref = alias_override.as_deref().unwrap_or(&default_alias);
 
-    let bank_path = match devalang_utils::path::get_deva_dir() {
-        Ok(dir) => dir.join("banks").join(bank_name),
-        Err(_) => Path::new("./.deva").join("banks").join(bank_name),
+    let root = match devalang_utils::path::get_deva_dir() {
+        Ok(dir) => dir,
+        Err(_) => Path::new("./.deva").to_path_buf(),
     };
-    let bank_toml_path = bank_path.join("bank.toml");
 
-    if !bank_toml_path.exists() {
-        return Ok(());
+    // Try both plural and singular folder names and both layouts (flat and nested)
+    let mut parsed_bankfile_opt: Option<devalang_types::BankFile> = None;
+    let sds = ["banks", "bank"];
+    for sd in &sds {
+        // candidate: .deva/<sd>/<bank_name>/bank.toml (flat dir name)
+        let candidate1 = root.join(sd).join(bank_name).join("bank.toml");
+        if candidate1.exists() {
+            let content = std::fs::read_to_string(&candidate1)
+                .map_err(|e| format!("Failed to read '{}': {}", candidate1.display(), e))?;
+            if let Ok(parsed) = toml::from_str::<devalang_types::BankFile>(&content) {
+                parsed_bankfile_opt = Some(parsed);
+                break;
+            }
+        }
+
+        // If bank_name uses dot notation, also try nested layout: .deva/<sd>/<publisher>/<name>/bank.toml
+        if bank_name.contains('.') {
+            let mut it = bank_name.splitn(2, '.');
+            let pubr = it.next().unwrap_or("");
+            let nm = it.next().unwrap_or("");
+            let candidate2 = root.join(sd).join(pubr).join(nm).join("bank.toml");
+            if candidate2.exists() {
+                let content = std::fs::read_to_string(&candidate2)
+                    .map_err(|e| format!("Failed to read '{}': {}", candidate2.display(), e))?;
+                if let Ok(parsed) = toml::from_str::<devalang_types::BankFile>(&content) {
+                    parsed_bankfile_opt = Some(parsed);
+                    break;
+                }
+            }
+        }
     }
 
-    let content = std::fs::read_to_string(&bank_toml_path)
-        .map_err(|e| format!("Failed to read '{}': {}", bank_toml_path.display(), e))?;
-
-    let parsed_bankfile: devalang_types::BankFile = toml::from_str(&content)
-        .map_err(|e| format!("Failed to parse '{}': {}", bank_toml_path.display(), e))?;
+    let parsed_bankfile = match parsed_bankfile_opt {
+        Some(p) => p,
+        None => return Ok(()),
+    };
 
     let mut bank_map = HashMap::new();
 
@@ -133,17 +159,24 @@ pub fn load_plugin_and_register(
         return;
     }
 
-    let expected_uri = format!("devalang://plugin/{}.{}", author, name);
+    let expected_uri = format!("devalang://plugin/{}/{}", author, name);
 
     let root = match devalang_utils::path::get_deva_dir() {
         Ok(dir) => dir,
         Err(_) => Path::new("./.deva").to_path_buf(),
     };
-    let plugin_dir_preferred = root.join("plugins").join(format!("{}.{}", author, name));
-    let toml_path_preferred = plugin_dir_preferred.join("plugin.toml");
-    let plugin_dir_fallback = root.join("plugins").join(author).join(name);
-    let toml_path_fallback = plugin_dir_fallback.join("plugin.toml");
-    let exists_locally = toml_path_preferred.exists() || toml_path_fallback.exists();
+    // Test both 'plugins' and 'plugin' folders
+    let mut exists_locally = false;
+    for sd in &["plugins", "plugin"] {
+        let plugin_dir_preferred = root.join(sd).join(format!("{}/{}", author, name));
+        let toml_path_preferred = plugin_dir_preferred.join("plugin.toml");
+        let plugin_dir_fallback = root.join(sd).join(author).join(name);
+        let toml_path_fallback = plugin_dir_fallback.join("plugin.toml");
+        if toml_path_preferred.exists() || toml_path_fallback.exists() {
+            exists_locally = true;
+            break;
+        }
+    }
 
     if exists_locally {
         let cfg_opt = crate::config::ops::load_config(None);
@@ -172,16 +205,18 @@ pub fn load_plugin_and_register(
 
     match load_plugin(author, name) {
         Ok((info, wasm)) => {
-            let uri = format!("devalang://plugin/{}.{}", author, name);
+            // keep dotted form for config/expected URIs, but inject a slash form into variables
+            let _uri_dot = format!("devalang://plugin/{}.{}", author, name);
+            let uri_inject = format!("devalang://plugin/{}/{}", author, name);
             global_store
                 .plugins
                 .insert(format!("{}:{}", author, name), (info, wasm));
             module
                 .variable_table
-                .set(alias.to_string(), Value::String(uri.clone()));
+                .set(alias.to_string(), Value::String(uri_inject.clone()));
             global_store
                 .variables
-                .set(alias.to_string(), Value::String(uri.clone()));
+                .set(alias.to_string(), Value::String(uri_inject.clone()));
 
             if let Some((plugin_info, _)) =
                 global_store.plugins.get(&format!("{}:{}", author, name))

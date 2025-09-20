@@ -1,7 +1,9 @@
+use crate::config::ops::load_config;
 use devalang_types::Value;
 use devalang_types::VariableTable;
 use devalang_utils::path::normalize_path;
 use rodio::{Decoder, Source};
+use std::path::PathBuf;
 use std::{collections::HashMap, fs::File, io::BufReader, path::Path};
 
 pub fn insert_sample_impl(
@@ -63,64 +65,163 @@ pub fn insert_sample_impl(
             other => other,
         };
 
-        // Determine the bank audio base directory. Prefer an optional
-        // `audioPath` declared in the bank's bank.toml (supports keys
-        // `audioPath` or `audio_path`). If absent, fall back to `audio/`.
-        let mut audio_dir = deva_dir.join(subdir).join(bank_name).join("audio");
-        // Try to read bank.toml to get audioPath
-        let bank_toml = deva_dir.join(subdir).join(bank_name).join("bank.toml");
-        if bank_toml.exists() {
-            if let Ok(content) = std::fs::read_to_string(&bank_toml) {
-                if let Ok(parsed) = toml::from_str::<toml::Value>(&content) {
-                    if let Some(ap) = parsed
-                        .get("audioPath")
-                        .or_else(|| parsed.get("audio_path"))
-                        .and_then(|v| v.as_str())
-                    {
-                        // normalize separators
-                        let ap_norm = ap.replace("\\", "/");
-                        audio_dir = deva_dir.join(subdir).join(bank_name).join(ap_norm);
+        // Try both plural and singular folder names (some installs use 'bank' instead of 'banks')
+        let singular = if subdir.ends_with('s') {
+            &subdir[..subdir.len() - 1]
+        } else {
+            subdir
+        };
+
+        // Build a list of candidate addon roots to support different layouts:
+        // - legacy flat: .deva/<subdir>/<publisher>.<name>
+        // - nested: .deva/<subdir>/<publisher>/<name>
+        // Test both plural and singular folder names.
+        let mut candidate_roots: Vec<PathBuf> = Vec::new();
+        for sd in &[subdir, singular] {
+            let base = deva_dir.join(sd).join(bank_name);
+            candidate_roots.push(base.clone());
+
+            if bank_name.contains('.') {
+                let mut it = bank_name.splitn(2, '.');
+                let pubr = it.next().unwrap_or("");
+                let nm = it.next().unwrap_or("");
+                candidate_roots.push(deva_dir.join(sd).join(pubr).join(nm));
+            }
+        }
+
+        // If none of the candidate roots yields the asset, we will also
+        // try to lookup referenced addons from the project config.
+
+        // Helper to resolve audio path for a given addon root
+        let resolve_from_root = |root: &PathBuf| -> Option<String> {
+            // Determine audio dir: prefer audioPath in bank.toml, else audio/
+            let mut audio_dir = root.join("audio");
+            let bank_toml = root.join("bank.toml");
+            if bank_toml.exists() {
+                if let Ok(content) = std::fs::read_to_string(&bank_toml) {
+                    if let Ok(parsed) = toml::from_str::<toml::Value>(&content) {
+                        if let Some(ap) = parsed
+                            .get("audioPath")
+                            .or_else(|| parsed.get("audio_path"))
+                            .and_then(|v| v.as_str())
+                        {
+                            let ap_norm = ap.replace("\\", "/");
+                            audio_dir = root.join(ap_norm);
+                        }
+                    }
+                }
+            }
+
+            let candidate = audio_dir.join(&entity_name);
+            if candidate.exists() {
+                return Some(candidate.to_string_lossy().to_string());
+            }
+
+            let has_extension = std::path::Path::new(&entity_name).extension().is_some();
+            if !has_extension {
+                let wav_candidate = audio_dir.join(format!("{}.wav", entity_name));
+                if wav_candidate.exists() {
+                    return Some(wav_candidate.to_string_lossy().to_string());
+                }
+
+                let legacy_candidate = root.join(format!("{}.wav", entity_name));
+                if legacy_candidate.exists() {
+                    return Some(legacy_candidate.to_string_lossy().to_string());
+                }
+            } else {
+                let legacy_candidate = root.join(&entity_name);
+                if legacy_candidate.exists() {
+                    return Some(legacy_candidate.to_string_lossy().to_string());
+                }
+            }
+
+            None
+        };
+
+        let mut found: Option<String> = None;
+        for root in &candidate_roots {
+            if let Some(p) = resolve_from_root(root) {
+                found = Some(p);
+                break;
+            }
+        }
+
+        // If not found in typical layouts, try to find the addon referenced in the project config
+        if found.is_none() {
+            if let Ok(config_path) = devalang_utils::path::get_devalang_config_path() {
+                if let Some(cfg) = load_config(Some(&config_path)) {
+                    // Scan banks or plugins depending on obj_type
+                    if obj_type == "bank" {
+                        if let Some(banks) = cfg.banks {
+                            for b in banks {
+                                if let Some(name_in_path) = b.path.strip_prefix("devalang://bank/")
+                                {
+                                    // match by exact, suffix, or dot notation
+                                    if name_in_path == bank_name
+                                        || name_in_path.ends_with(bank_name)
+                                    {
+                                        let root = deva_dir.join(subdir).join(name_in_path);
+                                        if let Some(p) = resolve_from_root(&root) {
+                                            found = Some(p);
+                                            break;
+                                        }
+                                        // try nested layout
+                                        if name_in_path.contains('.') {
+                                            let mut it = name_in_path.splitn(2, '.');
+                                            let pubr = it.next().unwrap_or("");
+                                            let nm = it.next().unwrap_or("");
+                                            let root2 = deva_dir.join(subdir).join(pubr).join(nm);
+                                            if let Some(p) = resolve_from_root(&root2) {
+                                                found = Some(p);
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } else if obj_type == "plugin" {
+                        if let Some(plugins) = cfg.plugins {
+                            for p in plugins {
+                                if let Some(name_in_path) =
+                                    p.path.strip_prefix("devalang://plugin/")
+                                {
+                                    if name_in_path == bank_name
+                                        || name_in_path.ends_with(bank_name)
+                                    {
+                                        let root = deva_dir.join(subdir).join(name_in_path);
+                                        if let Some(path_found) = resolve_from_root(&root) {
+                                            found = Some(path_found);
+                                            break;
+                                        }
+                                        if name_in_path.contains('.') {
+                                            let mut it = name_in_path.splitn(2, '.');
+                                            let pubr = it.next().unwrap_or("");
+                                            let nm = it.next().unwrap_or("");
+                                            let root2 = deva_dir.join(subdir).join(pubr).join(nm);
+                                            if let Some(path_found) = resolve_from_root(&root2) {
+                                                found = Some(path_found);
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
-        // Force looking into the computed audio_dir. If the entity_name
-        // already contains an extension (e.g. .wav/.mp3) or a nested path,
-        // preserve it as-is. Otherwise, try with a .wav extension.
-        let bank_base = audio_dir;
-        let candidate = bank_base.join(&entity_name);
 
-        if candidate.exists() {
-            resolved_path = candidate.to_string_lossy().to_string();
+        if let Some(p) = found {
+            resolved_path = p;
         } else {
-            // Detect whether the provided entity already includes an extension.
-            let has_extension = std::path::Path::new(&entity_name).extension().is_some();
-
-            if !has_extension {
-                // Try appending .wav as a fallback for shorthand names without extension
-                let wav_candidate = bank_base.join(format!("{}.wav", entity_name));
-                if wav_candidate.exists() {
-                    resolved_path = wav_candidate.to_string_lossy().to_string();
-                } else {
-                    // Last resort: use the legacy location (no audio/), also with .wav
-                    resolved_path = deva_dir
-                        .join(subdir)
-                        .join(bank_name)
-                        .join(format!("{}.wav", entity_name))
-                        .to_string_lossy()
-                        .to_string();
-                }
-            } else {
-                // If an extension was specified, don't append .wav; try legacy location
-                let legacy_candidate = deva_dir.join(subdir).join(bank_name).join(&entity_name);
-
-                if legacy_candidate.exists() {
-                    resolved_path = legacy_candidate.to_string_lossy().to_string();
-                } else {
-                    // No file found; fall back to the audio candidate path (even if missing)
-                    resolved_path = candidate.to_string_lossy().to_string();
-                }
-            }
+            // Not found; fallback to legacy candidate for error message
+            let legacy = deva_dir
+                .join(subdir)
+                .join(bank_name)
+                .join(format!("{}.wav", entity_name));
+            resolved_path = legacy.to_string_lossy().to_string();
         }
     } else {
         let entry_dir = module_root.parent().unwrap_or(&root);

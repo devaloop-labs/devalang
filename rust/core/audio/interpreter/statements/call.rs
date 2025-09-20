@@ -109,6 +109,18 @@ pub fn interprete_call_statement(
                 let total_bar = 4.0 * base_duration;
                 let step_duration = total_bar / step_count; // seconds per step
 
+                // extract optional swing/humanize from pattern_stmt.value
+                let mut swing: f32 = 0.0;
+                let mut humanize: f32 = 0.0;
+                if let Value::Map(m) = &pattern_stmt.value {
+                    if let Some(Value::Number(s)) = m.get("swing") {
+                        swing = *s;
+                    }
+                    if let Some(Value::Number(h)) = m.get("humanize") {
+                        humanize = *h;
+                    }
+                }
+
                 let mut updated_max = max_end_time;
 
                 for (i, ch) in pattern_str.chars().enumerate() {
@@ -117,7 +129,25 @@ pub fn interprete_call_statement(
                     }
 
                     // Schedule a trigger at cursor_time + offset
-                    let event_time = cursor_time + (i as f32) * step_duration;
+                    let mut event_time = cursor_time + (i as f32) * step_duration;
+                    if swing.abs() > 0.0001 {
+                        if i % 2 == 1 {
+                            event_time += swing * step_duration;
+                        } else {
+                            event_time -= swing * step_duration;
+                        }
+                    }
+
+                    if humanize.abs() > 0.0001 {
+                        let jitter_range = humanize * step_duration;
+                        let seed = (audio_engine.module_name.len() + i) as u64
+                            + (event_time.to_bits() as u64);
+                        let mut x = seed.wrapping_mul(0x9E3779B97F4A7C15).rotate_left(13);
+                        x ^= x >> 7;
+                        let r = (x as i64 % 1000) as f32 / 1000.0;
+                        let jitter = (r * 2.0 - 1.0) * jitter_range / 2.0;
+                        event_time += jitter;
+                    }
 
                     // Resolve trigger value similarly to interprete_trigger_statement
                     let mut trigger_val = Value::String(target_entity.clone());

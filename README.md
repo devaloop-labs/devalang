@@ -32,9 +32,8 @@ From studio sketches to live sets, Devalang gives you rhythmic control — with 
 >
 > Includes synthesis, playback, and rendering features, but is still in early development, and breaking changes may occur.
 >
-> **NEW**: [Devaforge is now available for creating addons](https://github.com/devaloop-labs/devaforge).
+> **NEW**: [Devalang WORKSHOP is now available](https://workshop.devalang.com).
 >
-> **NEW**: Now available for Windows, Linux, and macOS.
 
 ## 📚 Quick Access
 
@@ -192,6 +191,8 @@ devalang play --repeat
 
 ## 📰 What's new
 
+- **Effects chaining**: Added support for chaining multiple effects on synths and samples.
+- **New addons system**: Revamped the addons system for better management and integration.
 - **MIDI export**: Added the ability to export MIDI files from Devalang scripts.
 - **Synthesizer improvements**: Enhanced the built-in synthesizer with new types and modulation options.
 - **Devaforge**: Introduced a new system for creating and managing addons, including a CLI for addon generation.

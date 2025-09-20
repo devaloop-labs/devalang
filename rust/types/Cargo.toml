@@ -1,6 +1,6 @@
 [package]
 name = "devalang_types"
-version = "0.0.2"
+version = "0.0.4"
 description = "Types and traits for Devalang"
 license = "MIT"
 authors = ["Devaloop <contact@devaloop.com>"]

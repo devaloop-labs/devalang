@@ -2,7 +2,8 @@ use crate::core::{
     audio::{
         engine::AudioEngine,
         interpreter::statements::arrow_call::methods::{
-            chord::interprete_chord_method, note::interprete_note_method,
+            chord::interprete_chord_method, effects::apply_effect_chain,
+            note::interprete_note_method,
         },
     },
     parser::statement::{Statement, StatementKind},
@@ -144,10 +145,13 @@ pub fn interprete_arrow_call_statement(
             }
 
             _ => {
-                let logger = Logger::new();
-                logger.log_message(
-                    LogLevel::Error,
-                    &format!("Unknown method '{}' on synth '{}'.", method, target),
+                // Treat unknown methods as potential chainable effects (echo, reverb, slide, ...)
+                apply_effect_chain(
+                    method.as_str(),
+                    args,
+                    target.as_str(),
+                    audio_engine,
+                    variable_table,
                 );
             }
         }

@@ -4,6 +4,47 @@
 
 # Changelog
 
+## Version 0.0.1-beta.3 (2025-09-20)
+
+### ✨ Language Features
+
+- Implemented `synth` effects chaining to apply effects to individual synth notes.
+  - Example: `mySynth -> note(C4) -> slide({ duration: 2000 }) -> reverb({ room_size: 0.8 })`
+
+### 🛠️ CLI & Addons
+
+- Introduced a unified addon manager and removed the legacy `install` / `bank` commands:
+
+  - Use `devalang addon install <publisher>.<name>` to install banks or plugins.
+  - Use `devalang addon remove <publisher>.<name>` to remove banks or plugins.
+  - Use `devalang addon list` to list installed addons.
+
+- Improved the `discover` workflow:
+
+  - Recursively scans `.deva` for compiled archives (`.tar.gz` / `.tgz`) and proposes them for installation.
+  - Pre-classifies addon types by inspecting archive contents so installations can target the correct folder (bank/plugin/preset/template).
+  - Robust selection labels and mapping ensure the chosen addon is installed correctly.
+
+- Installation and extraction improvements:
+
+  - Archives are extracted into the appropriate destination based on detected type.
+  - Temporary extraction folder is cleaned up only when empty after installation.
+  - Added `--no-clear-tmp` flag to `discover` and addon install flows to preserve the temporary folder when desired.
+
+- Bugfixes: fixed selection-to-install mapping and improved success/error logging during install flows.
+
+### 🧪 Telemetry & Versioning
+
+- Telemetry now uses a runtime-first strategy to resolve the CLI version
+
+### 📦 Packaging & Tools
+
+- Added `typescript/scripts/version/copy-to-binary.ts` to copy `project-version.json` next to a packaged binary during release/packaging steps.
+
+### ✅ Bugfixes & Misc
+
+- Various fixes around temporary folder cleanup, archive detection, config updates and CLI ergonomics.
+
 ## Version 0.0.1-beta.2 (2025-09-07)
 
 ### 🛠️ MIDI & format

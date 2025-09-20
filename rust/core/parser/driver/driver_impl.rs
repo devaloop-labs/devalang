@@ -1,4 +1,5 @@
 use crate::core::lexer::token::TokenKind;
+use crate::core::parser::statement::StatementKind;
 use crate::core::store::global::GlobalStore;
 use devalang_types::Value;
 
@@ -30,7 +31,25 @@ pub fn parse_tokens_impl(
             continue;
         }
 
-        let statement = match &token.kind {
+        // If the line starts with an Arrow ("->"), treat it as a continuation of the
+        // previous arrow call: reuse the target from the last parsed ArrowCall statement
+        // so chained effects on subsequent lines are supported.
+        let statement = if token.kind == TokenKind::Arrow {
+            // find previous ArrowCall target if any
+            let prev_target = statements.last().and_then(
+                |s: &crate::core::parser::statement::Statement| match &s.kind {
+                    StatementKind::ArrowCall { target, .. } => Some(target.clone()),
+                    _ => None,
+                },
+            );
+
+            crate::core::parser::handler::arrow_call::parse_arrow_continuation(
+                parser,
+                global_store,
+                prev_target,
+            )
+        } else {
+            match &token.kind {
             TokenKind::At => crate::core::parser::handler::at::parse_at_token(parser, global_store),
             TokenKind::Identifier => {
                 if
@@ -111,6 +130,7 @@ pub fn parse_tokens_impl(
                     token.line,
                     token.column
                 )
+            }
             }
         };
 

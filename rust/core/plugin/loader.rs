@@ -6,7 +6,7 @@ use toml::Value as TomlValue;
 #[derive(Debug, Deserialize, Clone)]
 struct LocalExportEntry {
     pub name: String,
-    #[serde(rename = "type")]
+    // Local plugin.toml uses 'kind' to describe export type (e.g. "func", "number")
     pub kind: String,
     #[serde(default)]
     pub default: Option<TomlValue>,
@@ -15,8 +15,8 @@ struct LocalExportEntry {
 #[derive(Debug, Deserialize, Clone)]
 struct LocalPluginFile {
     pub plugin: LocalPluginInfo,
-    #[serde(default)]
-    pub export: Vec<LocalExportEntry>,
+    #[serde(rename = "exports", default)]
+    pub exports: Vec<LocalExportEntry>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -78,7 +78,7 @@ pub fn load_plugin(author: &str, name: &str) -> Result<(SharedPluginInfo, Vec<u8
 
     // Map local parsed plugin info to shared PluginInfo
     let mut exports: Vec<PluginExport> = Vec::new();
-    for e in plugin_file.export.iter() {
+    for e in plugin_file.exports.iter() {
         exports.push(PluginExport {
             name: e.name.clone(),
             kind: e.kind.clone(),

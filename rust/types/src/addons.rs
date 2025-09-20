@@ -4,6 +4,7 @@ use serde::Deserialize;
 pub struct DiscoveredAddon {
     pub path: std::path::PathBuf,
     pub name: String,
+    pub publisher: String,
     pub extension: String,
     pub addon_type: String,
 }
@@ -12,6 +13,7 @@ pub struct DiscoveredAddon {
 pub struct AddonWithMetadata {
     pub name: String,
     pub path: String,
+    pub publisher: String,
     pub addon_type: String,
     pub metadata: AddonMetadata,
 }
@@ -19,7 +21,7 @@ pub struct AddonWithMetadata {
 #[derive(Debug, Clone)]
 pub struct AddonMetadata {
     pub name: String,
-    pub author: String,
+    pub publisher: String,
     pub version: String,
     pub description: String,
     pub access: String,

@@ -45,12 +45,36 @@ pub fn parse_map_value(parser: &mut crate::core::parser::driver::parser::Parser)
             parser.advance();
         }
 
-        if !parser.match_token(TokenKind::Colon) {
-            logger.log_message(
-                LogLevel::Error,
-                &format!("Expected ':' after map key '{}'", key),
-            );
-            break;
+        // Accept both 'key: value' and short form 'key value' for convenience.
+        let mut saw_colon = false;
+        if parser.match_token(TokenKind::Colon) {
+            saw_colon = true;
+        } else {
+            // Peek to see if the next token looks like a value; if so, accept short form.
+            if let Some(peek) = parser.peek_clone() {
+                match peek.kind {
+                    TokenKind::String
+                    | TokenKind::Number
+                    | TokenKind::Identifier
+                    | TokenKind::LBracket
+                    | TokenKind::LBrace => {
+                        // short form accepted, do not consume here; value parsing will handle it
+                    }
+                    _ => {
+                        logger.log_message(
+                            LogLevel::Error,
+                            &format!("Expected ':' after map key '{}'", key),
+                        );
+                        break;
+                    }
+                }
+            } else {
+                logger.log_message(
+                    LogLevel::Error,
+                    &format!("Expected ':' after map key '{}'", key),
+                );
+                break;
+            }
         }
 
         // Skip separators and formatting before value

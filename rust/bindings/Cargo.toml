@@ -1,0 +1,9 @@
+[package]
+name = "devalang_bindings"
+version = "0.0.1"
+description = "Bindings for Devalang (to use them in external contexts)"
+license = "MIT"
+authors = ["Devaloop <contact@devaloop.com>"]
+edition = "2024"
+
+[dependencies]

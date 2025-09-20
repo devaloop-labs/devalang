@@ -1,10 +1,10 @@
-pub mod bank;
+pub mod addon;
 pub mod build;
 pub mod check;
 pub mod discover;
 pub mod init;
-pub mod install;
 pub mod login;
+pub mod me;
 pub mod parser;
 pub mod play;
 pub mod telemetry;

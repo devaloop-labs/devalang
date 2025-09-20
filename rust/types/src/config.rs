@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::{ Deserialize, Serialize };
 use toml::Value as TomlValue;
 
 use crate::TelemetrySettings;
@@ -57,13 +57,11 @@ pub struct ProjectConfigDefaults {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct ProjectConfigBankEntry {
     pub path: String,
-    pub version: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct ProjectConfigPluginEntry {
     pub path: String,
-    pub version: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]

@@ -86,11 +86,11 @@ pub fn interprete_note_method(
         let alias = waveform_str.split('.').next().unwrap_or("");
         if let Some(Value::String(uri)) = variable_table.get(alias) {
             if let Some(id) = uri.strip_prefix("devalang://plugin/") {
-                let mut parts = id.split('.');
+                let mut parts = id.split('/');
                 let author = parts.next().unwrap_or("");
                 let name = parts.next().unwrap_or("");
                 let key = format!("{}:{}", author, name);
-                if let Some((_info, wasm_bytes)) = global_store.plugins.get(&key) {
+                if let Some((info, wasm_bytes)) = global_store.plugins.get(&key) {
                     // Prepare buffer (stereo f32)
                     let sample_rate = 44100.0_f32;
                     let total_samples = ((duration_ms / 1000.0) * sample_rate) as usize;
@@ -120,6 +120,25 @@ pub fn interprete_note_method(
                             _ => {}
                         }
                     }
+
+                    // collect exported names to pass to the runner (preference list)
+                    let exported_names_vec: Vec<String> =
+                        info.exports.iter().map(|e| e.name.clone()).collect();
+
+                    // Debug log: exported names and synth param keys
+                    {
+                        let logger = devalang_utils::logger::Logger::new();
+                        logger.log_message(
+                            devalang_utils::logger::LogLevel::Debug,
+                            &format!(
+                                "Calling plugin runner for '{}' with {} exported names and {} synth params",
+                                key,
+                                exported_names_vec.len(),
+                                synth_params.len()
+                            )
+                        );
+                    }
+
                     let _ = runner.render_note_with_params_in_place(
                         wasm_bytes,
                         &mut fbuf,
@@ -131,7 +150,9 @@ pub fn interprete_note_method(
                         2,
                         &params_num,
                         Some(&params_str),
+                        Some(&exported_names_vec),
                     );
+
                     for (i, sample) in fbuf.iter().enumerate().take(total_samples * channels) {
                         let s = (sample.clamp(-1.0, 1.0) * (i16::MAX as f32)) as i16;
                         let idx = start_index + i;
@@ -178,8 +199,12 @@ pub fn interprete_note_method(
                 "arp" => {
                     // compute a step (ms) from synth params (rate/step). compute_arp_step
                     // will interpret `rate` as number of notes across the provided duration
-                    let step_ms = crate::core::audio::interpreter::statements::arrow_call::types::arp::
-                        compute_arp_step(duration_ms, 1, &synth_params);
+                    let step_ms =
+                        crate::core::audio::interpreter::statements::arrow_call::types::arp::compute_arp_step(
+                            duration_ms,
+                            1,
+                            &synth_params
+                        );
                     let steps = if step_ms > 0.0 {
                         ((duration_ms / step_ms).ceil() as usize).max(1)
                     } else {
@@ -198,13 +223,14 @@ pub fn interprete_note_method(
                                 amp_note,
                                 &synth_params,
                                 &final_note_params,
-                                &automation,
+                                &automation
                             );
 
                         // sub-note duration: default to step_ms so arp steps are audible and sequenced
                         let sub_duration_ms = if step_ms > 0.0 { step_ms } else { duration_ms };
 
-                        audio_engine.insert_note(
+                        let _ranges = audio_engine.insert_note(
+                            Some(target.to_string()),
                             waveform_str.to_string(),
                             freq_step,
                             amp_out,
@@ -214,6 +240,20 @@ pub fn interprete_note_method(
                             params_out.clone(),
                             automation.clone(),
                         );
+                        // Apply per-note effects if present in synth_params or note params
+                        if let Some(ev) = params_out.get("effects") {
+                            // for now expect effects as array of maps or identifiers
+                            match ev {
+                                Value::Array(arr) => {
+                                    for eff in arr.iter() {
+                                        if let Value::Map(_m) = eff {
+                                            // each map may have single key -> value
+                                        }
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
                     }
 
                     // mark handled to avoid the unconditional insert below
@@ -230,7 +270,7 @@ pub fn interprete_note_method(
                             amp_note,
                             &synth_params,
                             &final_note_params,
-                            &automation,
+                            &automation
                         );
                     final_amp = amp_out;
                     final_note_params = params_out;
@@ -246,7 +286,7 @@ pub fn interprete_note_method(
                             amp_note,
                             &synth_params,
                             &final_note_params,
-                            &automation,
+                            &automation
                         );
                     final_amp = amp_out;
                     final_note_params = params_out;
@@ -256,16 +296,31 @@ pub fn interprete_note_method(
         }
 
         if !handled {
-            audio_engine.insert_note(
+            let ranges = audio_engine.insert_note(
+                Some(target.to_string()),
                 waveform_str.to_string(),
                 final_freq,
                 final_amp,
                 start_ms,
                 duration_ms,
                 synth_params.clone(),
-                final_note_params,
-                automation,
+                final_note_params.clone(),
+                automation.clone(),
             );
+            // apply per-note effects specified in final_note_params
+            if let Some(Value::Map(eff_map)) = final_note_params.get("effects") {
+                // delegate to effects module per range
+                for (_start, _len) in ranges.iter() {
+                    // for simplicity apply using engine buffer ranges via effects module
+                    crate::core::audio::interpreter::statements::arrow_call::methods::effects::apply_effect_chain(
+                        "echo",
+                        &vec![Value::Map(eff_map.clone())],
+                        target,
+                        audio_engine,
+                        variable_table
+                    );
+                }
+            }
         }
     }
 
