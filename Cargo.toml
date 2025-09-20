@@ -6,7 +6,7 @@ description = "Write music like code. Devalang is a domain-specific language (DS
 license = "MIT"
 repository = "https://github.com/devaloop-labs/devalang"
 license-file = "LICENSE"
-keywords = ["devalang", "music", "dsl", "audio", "cli", "synthesis", "midi", "wasm", "vscode", "sound-design", "music-programming", "live-coding", "samples", "bank", "scripting"]
+keywords = ["music", "dsl", "audio", "cli", "synthesis"]
 categories = ["command-line-utilities", "development-tools", "parser-implementations"]
 readme = "README.md"
 homepage = "https://devalang.com"
@@ -30,7 +30,7 @@ default = ["cli"]
 cli = ["crossterm", "indicatif", "inquire", "zip", "reqwest", "flate2", "tokio"]
 
 [dependencies]
-devalang_types = { path = "rust/types", version = "0.0.2" }
+devalang_types = { path = "rust/types", version = "0.0.4" }
 devalang_bindings = { path = "rust/bindings", version = "0.0.1" }
 devalang_macros = { path = "rust/macros", version = "0.0.1" }
 clap = { version = "4.5", features = ["derive"] }
@@ -76,9 +76,9 @@ getrandom = { version = "0.3", features = ["wasm_js"] }
 uuid = { version = "1.18.0", features = ["v4", "js", "rng-getrandom"] }
 # Keep a lightweight linkage to the utils crate for wasm builds without
 # enabling native CLI features.
-devalang_utils = { path = "rust/utils", default-features = false, version = "0.0.1" }
+devalang_utils = { path = "rust/utils", default-features = false, version = "0.0.3" }
 
 # devalang_utils with CLI and wasmtime are only needed for native targets.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-devalang_utils = { path = "rust/utils", features = ["cli"], version = "0.0.1" }
+devalang_utils = { path = "rust/utils", features = ["cli"], version = "0.0.3" }
 wasmtime = "19"
