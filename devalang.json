@@ -1,0 +1,20 @@
+{
+  "project": {
+    "name": "Devalang Project"
+  },
+  "paths": {
+    "entry": "examples/index.deva",
+    "output": "output"
+  },
+  "audio": {
+    "format": ["wav", "mid"],
+    "bit_depth": 16,
+    "channels": 2,
+    "sample_rate": 44100,
+    "resample_quality": "sinc24",
+    "bpm": 120
+  },
+  "live": {
+    "crossfade_ms": 500
+  }
+}

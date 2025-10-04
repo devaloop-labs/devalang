@@ -1,0 +1,48 @@
+# Simple note playback
+bpm 120
+
+# Define a synth
+let synth = {
+    waveform: "sine",
+    attack: 0.01,
+    decay: 0.1,
+    sustain: 0.7,
+    release: 0.2
+}
+
+print "Playing C major scale"
+
+# Play notes with arrow call syntax
+synth -> note(C4)
+    -> velocity(100)
+    -> duration(500)
+
+synth -> note(D4)
+    -> velocity(100)
+    -> duration(500)
+
+synth -> note(E4)
+    -> velocity(100)
+    -> duration(500)
+
+synth -> note(F4)
+    -> velocity(100)
+    -> duration(500)
+
+synth -> note(G4)
+    -> velocity(100)
+    -> duration(500)
+
+synth -> note(A4)
+    -> velocity(100)
+    -> duration(500)
+
+synth -> note(B4)
+    -> velocity(100)
+    -> duration(500)
+
+synth -> note(C5)
+    -> velocity(100)
+    -> duration(500)
+
+print "Scale complete!"

@@ -1,0 +1,15 @@
+pub mod automation;
+pub mod effects;
+pub mod evaluator;
+pub mod events;
+pub mod fx;
+pub mod generator;
+pub mod graph;
+pub mod interpreter;
+pub mod lfo;
+pub mod midi;
+pub mod mixer;
+pub mod nodes;
+pub mod playback;
+pub mod settings;
+pub mod synth;

@@ -1,0 +1,54 @@
+# Arpeggio example
+bpm 140
+
+# Plucky synth good for arpeggios
+let arp_synth = {
+    waveform: "triangle",
+    attack: 0.001,
+    decay: 0.3,
+    sustain: 0.1,
+    release: 0.1,
+    type: "pluck"
+}
+
+print "Playing arpeggio"
+
+# Single notes with note(), full chords with chord(Cmaj)
+
+# Define arpeggio pattern as a group
+group arpeggio_pattern
+    arp_synth -> note(C4)
+        -> velocity(110)
+        -> duration(200)
+        -> pan(-0.3)
+    
+    arp_synth -> note(E4)
+        -> velocity(100)
+        -> duration(200)
+        -> pan(-0.1)
+    
+    arp_synth -> note(G4)
+        -> velocity(105)
+        -> duration(200)
+        -> pan(0.1)
+    
+    arp_synth -> note(C5)
+        -> velocity(110)
+        -> duration(200)
+        -> pan(0.3)
+    
+    arp_synth -> note(G4)
+        -> velocity(100)
+        -> duration(200)
+        -> pan(0.1)
+    
+    arp_synth -> note(E4)
+        -> velocity(95)
+        -> duration(200)
+        -> pan(-0.1)
+
+# Play the arpeggio twice
+loop 2
+    call arpeggio_pattern
+
+print "Arpeggio complete!"

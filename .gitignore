@@ -1,0 +1,12 @@
+/target
+Cargo.lock
+/node_modules
+/pkg
+
+# Devalang Specific
+/output
+/.deva
+
+# Environment files
+.env
+.env.*

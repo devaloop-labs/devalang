@@ -1,0 +1,38 @@
+# Chord Notation Examples
+# Demonstrates various chord types and notations supported by Devalang
+
+bpm 100
+
+# Define a pad synth for chords
+let pad = {
+    waveform: "sine",
+    attack: 0.05,
+    decay: 0.2,
+    sustain: 0.8,
+    release: 0.5
+}
+
+print "=== Major Chords ==="
+pad -> chord(Cmaj) -> velocity(0.7) -> duration(800)
+pad -> chord(Dmaj) -> velocity(0.7) -> duration(800)
+pad -> chord(Emaj) -> velocity(0.7) -> duration(800)
+
+print "=== Minor Chords ==="
+pad -> chord(Amin) -> velocity(0.7) -> duration(800)
+pad -> chord(Dmin) -> velocity(0.7) -> duration(800)
+pad -> chord(Emin) -> velocity(0.7) -> duration(800)
+
+print "=== Seventh Chords ==="
+pad -> chord(Cmaj7) -> velocity(0.6) -> duration(1000)
+pad -> chord(Dmin7) -> velocity(0.6) -> duration(1000)
+pad -> chord(G7) -> velocity(0.6) -> duration(1000)
+
+print "=== Diminished & Augmented ==="
+pad -> chord(Bdim) -> velocity(0.7) -> duration(800)
+pad -> chord(Caug) -> velocity(0.7) -> duration(800)
+
+print "=== Suspended Chords ==="
+pad -> chord(Csus2) -> velocity(0.7) -> duration(800)
+pad -> chord(Dsus4) -> velocity(0.7) -> duration(800)
+
+print "✅ Chord notation demo complete!"

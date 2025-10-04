@@ -1,0 +1,96 @@
+/// Global store module - manages global state and module registry
+use crate::language::syntax::ast::Value;
+use std::collections::HashMap;
+use std::sync::{Arc, RwLock};
+
+/// Global store for managing application state
+#[derive(Clone)]
+pub struct GlobalStore {
+    variables: Arc<RwLock<HashMap<String, Value>>>,
+    modules: Arc<RwLock<HashMap<String, ModuleInfo>>>,
+}
+
+#[derive(Clone, Debug)]
+pub struct ModuleInfo {
+    pub path: String,
+    pub variables: HashMap<String, Value>,
+}
+
+impl GlobalStore {
+    pub fn new() -> Self {
+        Self {
+            variables: Arc::new(RwLock::new(HashMap::new())),
+            modules: Arc::new(RwLock::new(HashMap::new())),
+        }
+    }
+
+    pub fn set_variable(&self, name: String, value: Value) {
+        if let Ok(mut vars) = self.variables.write() {
+            vars.insert(name, value);
+        }
+    }
+
+    pub fn get_variable(&self, name: &str) -> Option<Value> {
+        if let Ok(vars) = self.variables.read() {
+            vars.get(name).cloned()
+        } else {
+            None
+        }
+    }
+
+    pub fn register_module(&self, path: String, info: ModuleInfo) {
+        if let Ok(mut mods) = self.modules.write() {
+            mods.insert(path, info);
+        }
+    }
+
+    pub fn get_module(&self, path: &str) -> Option<ModuleInfo> {
+        if let Ok(mods) = self.modules.read() {
+            mods.get(path).cloned()
+        } else {
+            None
+        }
+    }
+
+    pub fn clear(&self) {
+        if let Ok(mut vars) = self.variables.write() {
+            vars.clear();
+        }
+        if let Ok(mut mods) = self.modules.write() {
+            mods.clear();
+        }
+    }
+}
+
+impl Default for GlobalStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_global_store_variables() {
+        let store = GlobalStore::new();
+        store.set_variable("x".to_string(), Value::Number(42.0));
+
+        let result = store.get_variable("x");
+        assert!(matches!(result, Some(Value::Number(n)) if (n - 42.0).abs() < f32::EPSILON));
+    }
+
+    #[test]
+    fn test_global_store_modules() {
+        let store = GlobalStore::new();
+        let info = ModuleInfo {
+            path: "test".to_string(),
+            variables: HashMap::new(),
+        };
+
+        store.register_module("test".to_string(), info.clone());
+        let result = store.get_module("test");
+        assert!(result.is_some());
+    }
+}

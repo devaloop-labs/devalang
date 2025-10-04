@@ -1,0 +1,73 @@
+# Full composition example
+bpm 128
+
+# Define synths
+let bass = {
+    waveform: "square",
+    attack: 0.01,
+    decay: 0.1,
+    sustain: 0.7,
+    release: 0.2
+}
+
+let lead = {
+    waveform: "triangle",
+    attack: 0.001,
+    decay: 0.3,
+    sustain: 0.1,
+    release: 0.1,
+    type: "pluck"
+}
+
+let pad = {
+    waveform: "sine",
+    attack: 0.2,
+    decay: 0.2,
+    sustain: 0.8,
+    release: 0.6,
+    type: "pad"
+}
+
+# Define musical sections
+group intro
+    print "=== Intro ==="
+    # Using chord notation for pads
+    pad -> chord(Cmaj) -> velocity(0.5) -> duration(2000)
+    sleep 2000
+
+group verse
+    print "=== Verse ==="
+    loop 2
+        # Bass notes
+        bass -> chord(C2) -> velocity(0.8) -> duration(500)
+        bass -> chord(G2) -> velocity(0.7) -> duration(500)
+        bass -> chord(A2) -> velocity(0.75) -> duration(500)
+        bass -> chord(F2) -> velocity(0.8) -> duration(500)
+
+group chorus
+    print "=== Chorus ==="
+    # Bass and lead playing together
+    group bass_line
+        bass -> chord(C2) -> velocity(0.9) -> duration(500)
+        bass -> chord(C2) -> velocity(0.8) -> duration(500)
+    
+    group lead_melody
+        sleep 250
+        # Melody notes
+        lead -> chord(E4) -> velocity(0.8) -> duration(200)
+        lead -> chord(G4) -> velocity(0.85) -> duration(200)
+        lead -> chord(C5) -> velocity(0.9) -> duration(300)
+    
+    spawn bass_line
+    spawn lead_melody
+    
+    sleep 1500
+
+# Song structure
+print "♪ Starting composition ♪"
+call intro
+call verse
+call chorus
+call verse
+call chorus
+print "♪ Composition complete ♪"

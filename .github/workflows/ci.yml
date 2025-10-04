@@ -1,0 +1,103 @@
+name: CI & Release
+
+permissions:
+  contents: write
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    name: Build binaries
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            bin_ext: ""
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            bin_ext: ""
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            bin_ext: ".exe"
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Install ALSA (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev pkg-config
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+          target: ${{ matrix.target }}
+
+      - name: NPM Install
+        run: npm install
+
+      - name: Build TS
+        run: npx tsc
+
+      - name: Build release
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Ensure out-tsc/bin exists (Unix)
+        if: runner.os != 'Windows'
+        run: mkdir -p out-tsc/bin
+
+      - name: Ensure out-tsc/bin exists (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force out-tsc/bin | Out-Null
+
+      - name: Copy binary (Unix)
+        if: runner.os != 'Windows'
+        run: cp target/${{ matrix.target }}/release/devalang${{ matrix.bin_ext }} out-tsc/bin/devalang-${{ matrix.target }}${{ matrix.bin_ext }}
+
+      - name: Copy binary (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Copy-Item "target\${{ matrix.target }}\release\devalang${{ matrix.bin_ext }}" "out-tsc\bin\devalang-${{ matrix.target }}${{ matrix.bin_ext }}" -Force
+
+      - name: Upload artifact (CI)
+        uses: actions/upload-artifact@v4
+        with:
+          name: devalang-${{ matrix.target }}
+          path: out-tsc/bin/*
+
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: devalang-*
+          merge-multiple: true
+
+      - name: List files
+        run: ls -la dist
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*

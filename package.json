@@ -1,0 +1,78 @@
+{
+  "name": "@devaloop/devalang",
+  "private": false,
+  "version": "0.1.0",
+  "description": "Write music like code. Devalang is a domain-specific language (DSL) for sound designers and music hackers. Compose, automate, and control sound — in plain text.",
+  "main": "out-tsc/index.js",
+  "types": "./out-tsc/index.d.ts",
+  "bin": {
+    "devalang": "./out-tsc/bin/index.js"
+  },
+  "scripts": {
+    "rust:fmt": "cargo fmt",
+    "rust:check": "cargo check --lib",
+    "rust:build": "cargo build --lib --release",
+    "rust:build:cli": "cargo build --features cli --release",
+    "rust:test": "cargo test",
+    "rust:wasm:web": "wasm-pack build --target web --out-dir pkg/web --no-default-features --features wasm",
+    "rust:wasm:node": "wasm-pack build --target nodejs --out-dir pkg/node --no-default-features --features wasm",
+    "rust:wasm:all": "npm run rust:wasm:web && npm run rust:wasm:node",
+    "ts:build": "tsc",
+    "ts:watch": "tsc --watch",
+    "ts:clean": "rimraf out-tsc",
+    "types:build": "tsc --emitDeclarationOnly",
+    "types:wasm": "npm run rust:wasm:node && node out-tsc/scripts/copy-wasm-dts.js",
+    "version:bump": "tsx src/typescript/scripts/version/index.ts bump",
+    "version:sync": "tsx src/typescript/scripts/version/index.ts sync",
+    "version:fetch": "tsx src/typescript/scripts/version/index.ts fetch",
+    "build": "npm run ts:build && npm run rust:build",
+    "build:all": "npm run rust:wasm:all && npm run ts:build",
+    "build:release": "npm run build:all && npm run rust:build:cli",
+    "test": "npm run rust:test",
+    "test:examples": "cargo run --features cli -- check --entry examples/",
+    "clean": "cargo clean && npm run ts:clean",
+    "prepare": "npm run ts:build",
+    "prepublishOnly": "npm run build:all",
+    "postinstall": "node -e \"try { require('./out-tsc/scripts/postinstall.js') } catch (e) { console.log('⚠️  Skipping postinstall (build first)') }\""
+  },
+  "homepage": "https://devalang.com",
+  "keywords": [
+    "devalang",
+    "music",
+    "sound",
+    "dsl",
+    "audio",
+    "synthesis",
+    "midi",
+    "wasm",
+    "live-coding",
+    "sound-design"
+  ],
+  "author": {
+    "name": "Devaloop",
+    "email": "contact@devaloop.com",
+    "url": "https://devaloop.com"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/devaloop-labs/devalang.git"
+  },
+  "devDependencies": {
+    "@types/follow-redirects": "^1.14.4",
+    "@types/node": "^20.19.19",
+    "follow-redirects": "^1.15.9",
+    "rimraf": "^5.0.10",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "files": [
+    "out-tsc/**/*",
+    "pkg/**/*",
+    "README.md",
+    "LICENSE"
+  ]
+}

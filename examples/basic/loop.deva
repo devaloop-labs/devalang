@@ -1,0 +1,19 @@
+# Loop example
+bpm 120
+
+# Simple loop - repeat 4 times
+print "Simple loop:"
+loop 4
+    print "Iteration"
+    sleep 250
+
+sleep 500
+
+# Nested loops
+print "Nested loops:"
+loop 2
+    print "Outer loop"
+    loop 3
+        print "  Inner loop"
+        sleep 200
+    sleep 300

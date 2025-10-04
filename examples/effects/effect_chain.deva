@@ -1,0 +1,37 @@
+# Effect chaining
+bpm 130
+
+let synth = {
+    waveform: "square",
+    attack: 0.01,
+    decay: 0.2,
+    sustain: 0.6,
+    release: 0.3
+}
+
+print "Chaining multiple effects"
+
+# Chain multiple effects together
+synth -> chord(C4) 
+      -> velocity(0.8) 
+      -> duration(500)
+      -> delay(0.3, 0.5)
+      -> reverb(0.4, 1.5)
+
+sleep 800
+
+synth -> chord(E4) 
+      -> velocity(0.7) 
+      -> duration(600)
+      -> drive(0.6)
+      -> chorus(0.5, 0.4)
+
+sleep 900
+
+synth -> chord(G4) 
+      -> velocity(0.9) 
+      -> duration(700)
+      -> distortion(0.7)
+      -> reverb(0.6, 2.0)
+
+print "Effect chain demonstration complete!"
