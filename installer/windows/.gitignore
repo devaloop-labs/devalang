@@ -1,0 +1,8 @@
+*.wixobj
+*.wixpdb
+*.log
+
+output/
+*.msi
+
+.vs/

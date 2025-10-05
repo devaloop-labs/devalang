@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<WixLocalization Culture="en-us"
+    xmlns="http://wixtoolset.org/schemas/v4/wxl">
+
+    <!-- Product information -->
+    <String Id="ProductName" Value="Devalang" />
+    <String Id="ManufacturerName" Value="Devaloop Labs" />
+    <String Id="ProductDescription" Value="Write music like code" />
+
+    <!-- Welcome dialog -->
+    <String Id="WelcomeTitle" Value="Welcome to Devalang Setup" />
+    <String Id="WelcomeDescription" Value="This wizard will guide you through the installation of Devalang, a domain-specific language for sound designers and music hackers." />
+
+    <!-- Progress messages -->
+    <String Id="ProgressTextInstalling" Value="Installing Devalang..." />
+    <String Id="ProgressTextUninstalling" Value="Uninstalling Devalang..." />
+
+    <!-- Exit dialog -->
+    <String Id="ExitDialogTitle" Value="Installation Complete" />
+    <String Id="ExitDialogDescription" Value="Devalang has been successfully installed on your computer." />
+
+</WixLocalization>

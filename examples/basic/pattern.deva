@@ -1,0 +1,18 @@
+# Pattern example
+bpm 120
+
+bank devaloop.808 as myBank
+
+# Pattern without options
+pattern kickPattern with myBank.kick = "x--- x--- x--- x---"
+
+# Pattern with options
+pattern snarePattern with myBank.snare {
+    swing: 0.1,
+    humanize: 0.02,
+    velocity: 0.8,
+    tempo: 250,
+} = "x--- x--- x--- x---"
+
+call kickPattern
+call snarePattern

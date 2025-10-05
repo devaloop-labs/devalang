@@ -1,0 +1,216 @@
+name: CI & Release
+
+permissions:
+  contents: write
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    name: Build binaries
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            bin_ext: ""
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            bin_ext: ""
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            bin_ext: ".exe"
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      # Install dependencies
+      - name: Install ALSA (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev pkg-config
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: NPM Install
+        run: npm install
+
+      # Build TypeScript code
+      - name: Build TS
+        run: npx tsc
+
+      # Build release binaries
+      - name: Build release
+        run: cargo build --features cli --release --target ${{ matrix.target }}
+
+      # Ensure output directory exists
+      - name: Ensure out-tsc/bin exists (Unix)
+        if: runner.os != 'Windows'
+        run: mkdir -p out-tsc/bin
+
+      - name: Ensure out-tsc/bin exists (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force out-tsc/bin | Out-Null
+
+      # Copy binaries
+      - name: Copy binary (Unix)
+        if: runner.os != 'Windows'
+        run: cp target/${{ matrix.target }}/release/devalang${{ matrix.bin_ext }} out-tsc/bin/devalang-${{ matrix.target }}${{ matrix.bin_ext }}
+
+      - name: Copy binary (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Copy-Item "target\${{ matrix.target }}\release\devalang${{ matrix.bin_ext }}" "out-tsc\bin\devalang-${{ matrix.target }}${{ matrix.bin_ext }}" -Force
+
+      # Package installers
+      - name: Package installer (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          cargo install cargo-deb
+          cargo deb --no-build --target ${{ matrix.target }}
+          mv target/${{ matrix.target }}/debian/*.deb devalang-${{ github.ref_name }}-amd64.deb
+
+      - name: Install WiX Toolset (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          dotnet tool install --global wix --version 6.0.2
+          wix --version
+
+      - name: Package MSI installer (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          # Copy binary to expected location for installer script
+          New-Item -ItemType Directory -Force "installer\target\Release" | Out-Null
+          Copy-Item "target\${{ matrix.target }}\release\devalang.exe" "installer\target\Release\devalang.exe" -Force
+          # Build MSI
+          cd ./installer/windows
+          .\build.ps1 -SkipBuild -Version "${{ github.ref_name }}"
+          Move-Item "output\Devalang-${{ github.ref_name }}-x64.msi" "..\..\Devalang-${{ github.ref_name }}-x64.msi" -Force
+
+      - name: Package installer (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          mkdir -p Devalang.app/Contents/MacOS
+          cp target/${{ matrix.target }}/release/devalang Devalang.app/Contents/MacOS/
+          # Create Info.plist if it doesn't exist
+          cat > Devalang.app/Contents/Info.plist << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleName</key>
+            <string>Devalang</string>
+            <key>CFBundleExecutable</key>
+            <string>devalang</string>
+            <key>CFBundleIdentifier</key>
+            <string>com.devaloop.devalang</string>
+            <key>CFBundleVersion</key>
+            <string>${{ github.ref_name }}</string>
+            <key>CFBundleShortVersionString</key>
+            <string>${{ github.ref_name }}</string>
+          </dict>
+          </plist>
+          EOF
+          hdiutil create -volname "Devalang" -srcfolder Devalang.app -ov -format UDZO Devalang-${{ github.ref_name }}.dmg
+
+      # Upload artifacts
+      - name: Upload binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: binary-${{ matrix.target }}
+          path: out-tsc/bin/devalang-${{ matrix.target }}${{ matrix.bin_ext }}
+
+      - name: Upload Linux installer
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-linux
+          path: devalang-${{ github.ref_name }}-amd64.deb
+
+      - name: Upload Windows installer
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-windows
+          path: Devalang-${{ github.ref_name }}-x64.msi
+
+      - name: Upload macOS installer
+        if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-macos
+          path: Devalang-${{ github.ref_name }}.dmg
+
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: List all files
+        run: |
+          echo "=== All downloaded artifacts ==="
+          find dist -type f
+
+      - name: Prepare release files
+        run: |
+          mkdir -p release
+          find dist -type f -exec cp {} release/ \;
+          ls -lah release/
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/*
+          body: |
+            ## Devalang ${{ github.ref_name }}
+
+            ### Downloads
+            - **Windows**: `Devalang-${{ github.ref_name }}-x64.msi`
+            - **macOS**: `Devalang-${{ github.ref_name }}.dmg`
+            - **Linux**: `devalang-${{ github.ref_name }}-amd64.deb`
+            - **Binaries**: Platform-specific executables
+
+            ### Installation
+
+            #### Windows
+            ```powershell
+            # Download and run the MSI installer
+            msiexec /i Devalang-${{ github.ref_name }}-x64.msi
+            ```
+
+            #### macOS
+            ```bash
+            # Mount and install from DMG
+            open Devalang-${{ github.ref_name }}.dmg
+            ```
+
+            #### Linux (Debian/Ubuntu)
+            ```bash
+            sudo dpkg -i devalang-${{ github.ref_name }}-amd64.deb
+            ```
+          draft: false
+          prerelease: false

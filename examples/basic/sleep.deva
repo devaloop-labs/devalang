@@ -1,0 +1,16 @@
+# Sleep example - timing control
+bpm 120
+
+print "Start"
+
+# Sleep for 500ms
+sleep 500
+print "After 500ms"
+
+# Sleep for 1 second
+sleep 1000
+print "After 1 second"
+
+# Sleep for 2 seconds
+sleep 2000
+print "After 2 seconds"

@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+  
+  <?define ProductVersion="0.1.2" ?>
+  <?define ProductName="Devalang" ?>
+  <?define Manufacturer="Devaloop Labs" ?>
+  <?define UpgradeCode="{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}" ?>
+  
+  <Package Name="$(var.ProductName)" 
+           Language="1033" 
+           Version="$(var.ProductVersion)" 
+           Manufacturer="$(var.Manufacturer)" 
+           UpgradeCode="$(var.UpgradeCode)"
+           InstallerVersion="500"
+           Compressed="yes"
+           Scope="perMachine">
+    
+    <SummaryInformation Description="Devalang - Write music like code" 
+                        Comments="Domain-specific language for sound designers and music hackers" 
+                        Manufacturer="$(var.Manufacturer)" />
+
+    <!-- Installer icon -->
+    <Icon Id="DevalangIcon" SourceFile="icon.ico" />
+    <Property Id="ARPPRODUCTICON" Value="DevalangIcon" />
+    
+    <!-- URLs and information -->
+    <Property Id="ARPHELPLINK" Value="https://docs.devalang.com" />
+    <Property Id="ARPURLINFOABOUT" Value="https://devalang.com" />
+    <Property Id="ARPURLUPDATEINFO" Value="https://github.com/devaloop-labs/devalang" />
+    
+    <!-- Upgrade support -->
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." 
+                  AllowSameVersionUpgrades="yes" />
+    
+    <!-- Installer media -->
+    <Media Id="1" Cabinet="devalang.cab" EmbedCab="yes" CompressionLevel="high" />
+
+    <!-- Installation condition (Windows 10+) -->
+    <Launch Condition="VersionNT &gt;= 603" 
+            Message="This application requires Windows 10 or higher." />
+
+    <!-- Features tree -->
+    <Feature Id="MainFeature" 
+             Title="Devalang Core" 
+             Description="Devalang compiler and runtime" 
+             Level="1" 
+             ConfigurableDirectory="INSTALLFOLDER" 
+             AllowAdvertise="no" 
+             Display="expand">
+      
+      <ComponentGroupRef Id="BinariesGroup" />
+      <ComponentGroupRef Id="DocumentationGroup" />
+      <ComponentRef Id="EnvironmentPath" />
+      <ComponentRef Id="ApplicationShortcut" />
+      
+      <!-- Examples feature removed for now - add manually if needed -->
+    </Feature>
+
+    <!-- User interface - Simplified for WiX 6.0 -->
+    <!-- To use the full UI, install WixToolset.UI.wixext extension -->
+    <WixVariable Id="WixUILicenseRtf" Value="license.rtf" />
+
+    <!-- Standard directories -->
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="Devalang">
+        <Directory Id="BinFolder" Name="bin" />
+        <Directory Id="DocsFolder" Name="docs" />
+        <Directory Id="ExamplesFolder" Name="examples" />
+        <Directory Id="LibFolder" Name="lib" />
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="Devalang" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder" />
+
+  </Package>
+
+  <!-- Component group: Binaries -->
+  <Fragment>
+    <ComponentGroup Id="BinariesGroup" Directory="BinFolder">
+      <Component Id="DevalangExe" Bitness="always64">
+        <File Id="DevalangExeFile" 
+              Source="..\target\Release\devalang.exe" 
+              KeyPath="yes" 
+              Checksum="yes" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+
+  <!-- Component group: Documentation -->
+  <Fragment>
+    <ComponentGroup Id="DocumentationGroup" Directory="INSTALLFOLDER">
+      <Component Id="ReadmeFile">
+        <File Id="ReadmeMd" 
+              Source="..\..\README.md" 
+              KeyPath="yes" />
+      </Component>
+      
+      <Component Id="LicenseFile">
+        <File Id="LicenseTxt" 
+              Source="..\..\LICENSE" 
+              KeyPath="yes" />
+      </Component>
+      
+      <Component Id="DevalangJsonConfig">
+        <File Id="DevalangJson" 
+              Source="..\..\devalang.json" 
+              KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+
+  <!-- Component group: Examples -->
+  <!-- Commented out - add specific example files as needed -->
+  <!--
+  <Fragment>
+    <ComponentGroup Id="ExamplesGroup" Directory="ExamplesFolder">
+      <Component Id="ExamplesComponent">
+        <File Id="Example1" 
+              Source="..\examples\basic\example.dva" 
+              KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+  -->
+
+  <!-- Add to system PATH -->
+  <Fragment>
+    <Component Id="EnvironmentPath" Directory="BinFolder" Bitness="always64" Guid="{B2C3D4E5-F6A7-8901-BCDE-F12345678901}">
+      <Environment Id="PATH" 
+                   Name="PATH" 
+                   Value="[BinFolder]" 
+                   Permanent="no" 
+                   Part="last" 
+                   Action="set" 
+                   System="yes" />
+      <CreateFolder />
+    </Component>
+  </Fragment>
+
+  <!-- Start Menu shortcuts -->
+  <Fragment>
+    <Component Id="ApplicationShortcut" Directory="ApplicationProgramsFolder">
+      <Shortcut Id="ApplicationStartMenuShortcut"
+                Name="Devalang CLI"
+                Description="Devalang - Write music like code"
+                Target="[BinFolder]devalang.exe"
+                WorkingDirectory="BinFolder"
+                Icon="DevalangIcon" />
+      
+      <Shortcut Id="DocumentationShortcut"
+                Name="Devalang Documentation"
+                Description="Open Devalang documentation website"
+                Target="https://docs.devalang.com" />
+      
+      <Shortcut Id="UninstallShortcut"
+                Name="Uninstall Devalang"
+                Description="Uninstalls Devalang"
+                Target="[SystemFolder]msiexec.exe"
+                Arguments="/x [ProductCode]" />
+      
+      <RemoveFolder Id="CleanUpShortCut" Directory="ApplicationProgramsFolder" On="uninstall" />
+      <RegistryValue Root="HKCU" 
+                     Key="Software\Devaloop\Devalang" 
+                     Name="installed" 
+                     Type="integer" 
+                     Value="1" 
+                     KeyPath="yes" />
+    </Component>
+  </Fragment>
+
+</Wix>

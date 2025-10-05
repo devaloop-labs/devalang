@@ -1,0 +1,1 @@
+// Workspace management bootstrap placeholder.

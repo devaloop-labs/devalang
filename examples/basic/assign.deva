@@ -1,0 +1,23 @@
+# Assign on the fly example
+bpm 120
+
+let mySynth = synth square {
+    attack: 0.01,
+    decay: 0.1,
+    sustain: 0.7,
+    release: 0.2
+}
+
+# Initial play with square wave, fast attack
+mySynth -> chord(C4) -> duration(1000)
+
+sleep(200)
+
+# Modify synth properties
+mySynth.attack = 0.5
+mySynth.waveform = "saw"
+mySynth.release = 1.0
+mySynth.type = "pad"
+
+# Play with saw wave, slow attack and release
+mySynth -> chord(C4) -> duration(1000)

@@ -1,0 +1,47 @@
+# Different synth types
+bpm 120
+
+# Pluck synth - sharp attack, quick decay
+let pluck = synth triangle {
+    attack: 0.001,
+    decay: 0.3,
+    sustain: 0.1,
+    release: 0.1,
+    type: "pluck"
+}
+
+# Pad synth - slow attack, long release
+let pad = synth sine {
+    attack: 0.3,
+    decay: 0.2,
+    sustain: 0.8,
+    release: 0.8,
+    type: "pad"
+}
+
+# Bass synth - low frequencies, punchy
+let bass = synth square {
+    attack: 0.01,
+    decay: 0.1,
+    sustain: 0.7,
+    release: 0.2
+}
+
+print "Pluck synth:"
+pluck -> chord(C4) -> duration(300)
+pluck -> chord(E4) -> duration(300)
+pluck -> chord(G4) -> duration(300)
+
+sleep 500
+
+print "Pad synth:"
+pad -> chord(C3, E3, G3) -> duration(2000)
+
+sleep 2500
+
+print "Bass synth:"
+bass -> chord(C2) -> duration(500)
+bass -> chord(G2) -> duration(500)
+bass -> chord(C2) -> duration(500)
+
+print "All synth types demonstrated!"
