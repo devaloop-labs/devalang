@@ -681,11 +681,11 @@ exports.export_midi_file = function(user_code, options, on_progress) {
     return takeFromExternrefTable0(ret[0]);
 };
 
-function __wbg_adapter_12(arg0, arg1, arg2) {
+function __wbg_adapter_6(arg0, arg1, arg2) {
     wasm.closure1053_externref_shim(arg0, arg1, arg2);
 }
 
-function __wbg_adapter_15(arg0, arg1) {
+function __wbg_adapter_11(arg0, arg1) {
     wasm.wasm_bindgen__convert__closures_____invoke__h6bc7bbf57d0f8b47(arg0, arg1);
 }
 
@@ -1091,7 +1091,7 @@ exports.__wbindgen_cast_4625c577ab2ec9ee = function(arg0) {
 
 exports.__wbindgen_cast_a94f99360413d298 = function(arg0, arg1) {
     // Cast intrinsic for `Closure(Closure { dtor_idx: 1052, function: Function { arguments: [Externref], shim_idx: 1053, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
-    const ret = makeMutClosure(arg0, arg1, 1052, __wbg_adapter_12);
+    const ret = makeMutClosure(arg0, arg1, 1052, __wbg_adapter_6);
     return ret;
 };
 
@@ -1109,7 +1109,7 @@ exports.__wbindgen_cast_d6cd19b81560fd6e = function(arg0) {
 
 exports.__wbindgen_cast_f9fe98a6d22609ab = function(arg0, arg1) {
     // Cast intrinsic for `Closure(Closure { dtor_idx: 151, function: Function { arguments: [], shim_idx: 152, ret: Unit, inner_ret: Some(Unit) }, mutable: false }) -> Externref`.
-    const ret = makeClosure(arg0, arg1, 151, __wbg_adapter_15);
+    const ret = makeClosure(arg0, arg1, 151, __wbg_adapter_11);
     return ret;
 };
 

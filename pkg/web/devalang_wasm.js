@@ -687,7 +687,7 @@ export function export_midi_file(user_code, options, on_progress) {
     return takeFromExternrefTable0(ret[0]);
 }
 
-function __wbg_adapter_14(arg0, arg1, arg2) {
+function __wbg_adapter_8(arg0, arg1, arg2) {
     wasm.closure1053_externref_shim(arg0, arg1, arg2);
 }
 
@@ -1065,7 +1065,7 @@ function __wbg_get_imports() {
     };
     imports.wbg.__wbindgen_cast_a94f99360413d298 = function(arg0, arg1) {
         // Cast intrinsic for `Closure(Closure { dtor_idx: 1052, function: Function { arguments: [Externref], shim_idx: 1053, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
-        const ret = makeMutClosure(arg0, arg1, 1052, __wbg_adapter_14);
+        const ret = makeMutClosure(arg0, arg1, 1052, __wbg_adapter_8);
         return ret;
     };
     imports.wbg.__wbindgen_cast_cb9088102bce6b30 = function(arg0, arg1) {

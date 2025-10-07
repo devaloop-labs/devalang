@@ -24,6 +24,9 @@ pub struct AddonCommand {
 pub enum AddonAction {
     Install {
         name: String,
+        /// Install from local .deva directory instead of remote
+        #[arg(short, long)]
+        local: bool,
     },
     Remove {
         name: String,
@@ -38,6 +41,12 @@ pub enum AddonAction {
         /// Filter by author
         #[arg(short, long)]
         author: Option<String>,
+        /// Discover local addons in .deva directory
+        #[arg(short, long)]
+        local: bool,
+        /// Prompt to install discovered addons
+        #[arg(short, long)]
+        install: bool,
     },
     Update {
         name: String,
@@ -52,9 +61,9 @@ impl AddonCommand {
         let logger = ctx.logger();
 
         match &self.action {
-            Some(AddonAction::Install { name }) => {
+            Some(AddonAction::Install { name, local }) => {
                 logger.action(format!("Installing addon '{}'...", name));
-                match install::install_addon(name.clone(), false).await {
+                match install::install_addon(name.clone(), *local, false).await {
                     Ok(_) => {
                         logger.success(format!("Addon '{}' installed successfully", name));
                     }
@@ -90,17 +99,38 @@ impl AddonCommand {
                 search,
                 addon_type,
                 author,
+                local,
+                install: should_install,
             }) => {
                 logger.action("Discovering addons...");
-                match discover::discover_addons(search.clone(), addon_type.clone(), author.clone())
-                    .await
+                match discover::discover_addons(
+                    search.clone(),
+                    addon_type.clone(),
+                    author.clone(),
+                    *local,
+                )
+                .await
                 {
                     Ok(addons) => {
-                        discover::display_addon_results(&addons);
+                        if *should_install && !addons.is_empty() {
+                            // Interactive installation
+                            match discover::prompt_and_install_addons(&addons, *local).await {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    logger.error(format!("Failed to install addons: {}", e));
+                                    return Err(e);
+                                }
+                            }
+                        } else {
+                            // Just display
+                            discover::display_addon_results(&addons, *local);
+                        }
                     }
                     Err(e) => {
                         logger.error(format!("Failed to discover addons: {}", e));
-                        logger.info("Visit https://devalang.com/forge to browse addons manually.");
+                        if !*local {
+                            logger.info("Visit https://workshop.devalang.com to browse addons manually.");
+                        }
                         return Err(e);
                     }
                 }
