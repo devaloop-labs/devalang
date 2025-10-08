@@ -76,6 +76,11 @@ pub enum StatementKind {
         name: String,
         alias: Option<String>,
     },
+    UsePlugin {
+        author: String,
+        name: String,
+        alias: String,
+    },
     Automate {
         target: String,
     },

@@ -1,0 +1,32 @@
+@use devaloop.acid as acid
+
+bpm 135
+
+bank devaloop.808 as drumkit
+
+on beat:
+    .drumkit.kick
+
+let acidBassline = synth acid.synth {
+    waveform: "saw",
+    cutoff: 420,
+    resonance: 0.92,
+    env_mod: 7.8,
+    decay: 220,
+    accent: 0.85,
+    drive: 2.4,
+    slide: 0.35,
+    glide: 1
+}
+
+group bassline:
+    acidBassline -> note(C2)
+        -> duration(2000)
+
+    acidBassline -> note(E2)
+        -> duration(2000)
+
+    acidBassline -> note(G2)
+        -> duration(2000)
+
+spawn bassline

@@ -11,6 +11,7 @@ pub mod midi;
 pub mod mixer;
 pub mod nodes;
 pub mod playback;
+#[cfg(feature = "cli")]
 pub mod samples;
 pub mod settings;
 pub mod synth;

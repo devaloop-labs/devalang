@@ -5,7 +5,10 @@ use anyhow::{Result, anyhow};
 use std::path::Path;
 
 #[cfg(any(feature = "cli", feature = "wasm"))]
-use midly::{Format, Header, MidiMessage, Smf, Timing, Track, TrackEvent, TrackEventKind};
+use midly::{Format, Header, MidiMessage, Smf, Timing, Track, TrackEvent, TrackEventKind, MetaMessage};
+
+#[cfg(all(target_arch = "wasm32", not(any(feature = "cli", feature = "wasm"))))]
+use crate::midly::{Format, Header, MidiMessage, Smf, Timing, Track, TrackEvent, TrackEventKind, MetaMessage};
 
 #[cfg(feature = "cli")]
 use std::collections::HashMap;
@@ -22,52 +25,83 @@ pub fn load_midi_file(path: &Path) -> Result<Value> {
     // Convert MIDI data to a map
     let mut midi_map = HashMap::new();
 
-    // Store tempo (from first track)
-    let mut bpm = 120.0;
-    let mut notes = Vec::new();
+    // Defaults
+    let mut bpm = 120.0f32;
+    let mut tempo_us_per_quarter: u32 = 500_000; // default 120 BPM
+    let mut notes: Vec<Value> = Vec::new();
+
+    // Determine ticks per beat from header timing
+    let ticks_per_beat: u32 = match smf.header.timing {
+        Timing::Metrical(t) => t.as_int() as u32,
+        _ => 480u32,
+    };
+
+    // Active note-on map to pair note-offs: key = (track, channel, key) -> Vec of indices in notes
+    let mut active: std::collections::HashMap<(usize, u8, u8), Vec<usize>> = std::collections::HashMap::new();
 
     // Process all tracks
     for (track_idx, track) in smf.tracks.iter().enumerate() {
-        let mut current_time = 0u32;
+        let mut current_ticks: u32 = 0;
 
         for event in track {
-            current_time += event.delta.as_int();
+            current_ticks = current_ticks.wrapping_add(event.delta.as_int() as u32);
 
             match event.kind {
-                TrackEventKind::Midi {
-                    channel: _,
-                    message,
-                } => {
+                TrackEventKind::Midi { channel, message } => {
+                    let chan = channel.as_int();
                     match message {
                         MidiMessage::NoteOn { key, vel } => {
-                            if vel > 0 {
-                                // Store note: { time, note, velocity, track }
+                            if vel.as_int() > 0 {
+                                // compute time in ms from ticks using current tempo
+                                let time_ms = (current_ticks as f32) * (tempo_us_per_quarter as f32) / (ticks_per_beat as f32) / 1000.0;
+
                                 let mut note_map = HashMap::new();
-                                note_map
-                                    .insert("time".to_string(), Value::Number(current_time as f32));
-                                note_map
-                                    .insert("note".to_string(), Value::Number(key.as_int() as f32));
-                                note_map.insert(
-                                    "velocity".to_string(),
-                                    Value::Number(vel.as_int() as f32),
-                                );
-                                note_map
-                                    .insert("track".to_string(), Value::Number(track_idx as f32));
+                                note_map.insert("tick".to_string(), Value::Number(current_ticks as f32));
+                                note_map.insert("time".to_string(), Value::Number(time_ms));
+                                // store beat position (useful to rescale when interpreter BPM changes)
+                                let beats = time_ms * (bpm as f32) / 60000.0; // time_ms / (60000/midi_bpm)
+                                note_map.insert("beat".to_string(), Value::Number(beats));
+                                note_map.insert("note".to_string(), Value::Number(key.as_int() as f32));
+                                note_map.insert("velocity".to_string(), Value::Number(vel.as_int() as f32));
+                                note_map.insert("track".to_string(), Value::Number(track_idx as f32));
+                                note_map.insert("channel".to_string(), Value::Number(chan as f32));
+
                                 notes.push(Value::Map(note_map));
+
+                                // record active index for pairing
+                                let idx = notes.len() - 1;
+                                active.entry((track_idx, chan as u8, key.as_int() as u8)).or_default().push(idx);
                             }
                         }
-                        MidiMessage::NoteOff { .. } => {
-                            // For now, we don't track note-off events
-                            // Could be extended to calculate note durations
+                        MidiMessage::NoteOff { key, .. } => {
+                            // pair with most recent active note-on for same track/channel/key
+                            let key_tuple = (track_idx, channel.as_int() as u8, key.as_int() as u8);
+                            if let Some(vec_idxs) = active.get_mut(&key_tuple) {
+                                if let Some(on_idx) = vec_idxs.pop() {
+                                    // compute duration from ticks
+                                    // find onset tick stored in notes[on_idx]
+                                    if let Some(Value::Map(on_map)) = notes.get_mut(on_idx) {
+                                        if let Some(Value::Number(on_tick)) = on_map.get("tick") {
+                                            let onset_ticks = *on_tick as u32;
+                                            let dur_ticks = current_ticks.saturating_sub(onset_ticks);
+                                            let duration_ms = (dur_ticks as f32) * (tempo_us_per_quarter as f32) / (ticks_per_beat as f32) / 1000.0;
+                                            on_map.insert("duration".to_string(), Value::Number(duration_ms));
+                                            // also store duration in beats for easier rescaling
+                                            let duration_beats = duration_ms * (bpm as f32) / 60000.0;
+                                            on_map.insert("duration_beats".to_string(), Value::Number(duration_beats));
+                                        }
+                                    }
+                                }
+                            }
                         }
                         _ => {}
                     }
                 }
                 TrackEventKind::Meta(meta) => {
                     // Extract tempo if present
-                    if let midly::MetaMessage::Tempo(tempo) = meta {
-                        // Convert microseconds per quarter note to BPM
-                        bpm = 60_000_000.0 / tempo.as_int() as f32;
+                    if let MetaMessage::Tempo(t) = meta {
+                        tempo_us_per_quarter = t.as_int();
+                        bpm = 60_000_000.0f32 / tempo_us_per_quarter as f32;
                     }
                 }
                 _ => {}
@@ -75,8 +109,23 @@ pub fn load_midi_file(path: &Path) -> Result<Value> {
         }
     }
 
+    // For any lingering active notes without note-off, set a default duration (500 ms)
+                for (_key, vec_idxs) in active.iter() {
+        for &idx in vec_idxs.iter() {
+            if let Some(Value::Map(m)) = notes.get_mut(idx) {
+                if !m.contains_key("duration") {
+                    m.insert("duration".to_string(), Value::Number(500.0));
+                    // default duration beats using current bpm
+                    let default_beats = 500.0 * (bpm as f32) / 60000.0;
+                    m.insert("duration_beats".to_string(), Value::Number(default_beats));
+                }
+            }
+        }
+    }
+
     // Store in map
     midi_map.insert("bpm".to_string(), Value::Number(bpm));
+    midi_map.insert("ticks_per_beat".to_string(), Value::Number(ticks_per_beat as f32));
     midi_map.insert("notes".to_string(), Value::Array(notes));
     midi_map.insert("type".to_string(), Value::String("midi".to_string()));
 
@@ -109,7 +158,7 @@ pub fn events_to_midi_bytes(events: &[AudioEvent], bpm: f32) -> Result<Vec<u8>> 
     let tempo_us_per_quarter = (60_000_000.0 / bpm) as u32;
     track_events.push(TrackEvent {
         delta: 0.into(),
-        kind: TrackEventKind::Meta(midly::MetaMessage::Tempo(tempo_us_per_quarter.into())),
+        kind: TrackEventKind::Meta(MetaMessage::Tempo(tempo_us_per_quarter.into())),
     });
 
     // Collect all note events (expand chords to individual notes)
@@ -206,7 +255,7 @@ pub fn events_to_midi_bytes(events: &[AudioEvent], bpm: f32) -> Result<Vec<u8>> 
     // End of track marker
     track_events.push(TrackEvent {
         delta: 0.into(),
-        kind: TrackEventKind::Meta(midly::MetaMessage::EndOfTrack),
+        kind: TrackEventKind::Meta(MetaMessage::EndOfTrack),
     });
 
     // Create SMF and write to memory buffer
@@ -240,7 +289,7 @@ pub fn export_midi_file(events: &[AudioEvent], output_path: &Path, bpm: f32) -> 
     let tempo_us_per_quarter = (60_000_000.0 / bpm) as u32;
     track_events.push(TrackEvent {
         delta: 0.into(),
-        kind: TrackEventKind::Meta(midly::MetaMessage::Tempo(tempo_us_per_quarter.into())),
+        kind: TrackEventKind::Meta(MetaMessage::Tempo(tempo_us_per_quarter.into())),
     });
 
     // Collect all note events (expand chords to individual notes)
@@ -337,7 +386,7 @@ pub fn export_midi_file(events: &[AudioEvent], output_path: &Path, bpm: f32) -> 
     // End of track marker
     track_events.push(TrackEvent {
         delta: 0.into(),
-        kind: TrackEventKind::Meta(midly::MetaMessage::EndOfTrack),
+        kind: TrackEventKind::Meta(MetaMessage::EndOfTrack),
     });
 
     // Create SMF and write to file

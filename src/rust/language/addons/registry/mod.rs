@@ -46,6 +46,10 @@ impl BankDefinition {
         self.triggers.get(trigger).cloned()
     }
 
+    pub fn list_triggers(&self) -> Vec<&String> {
+        self.triggers.keys().collect()
+    }
+
     fn load(identifier: &str, project_root: &Path, base_dir: &Path) -> Result<Self> {
         let manifest_path = locate_manifest(identifier, project_root, base_dir)
             .with_context(|| format!("unable to locate bank manifest for '{}'", identifier))?;
@@ -123,7 +127,7 @@ impl BankDefinition {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct BankRegistry {
     banks: HashMap<String, BankDefinition>,
 }
@@ -158,6 +162,15 @@ impl BankRegistry {
                 entry.insert(bank)
             }
         };
+
+        // Utiliser la référence temporaire pour afficher les journaux
+        println!("🔍 Enregistrement de la banque: {}", alias);
+        println!("   Identifiant: {}", result.identifier);
+        println!("   Déclencheurs disponibles:");
+        for trigger in result.triggers.keys() {
+            println!("      {}", trigger);
+        }
+
         Ok(result)
     }
 
@@ -169,6 +182,10 @@ impl BankRegistry {
 
     pub fn has_bank(&self, alias: &str) -> bool {
         self.banks.contains_key(alias)
+    }
+
+    pub fn list_banks(&self) -> Vec<(&String, &BankDefinition)> {
+        self.banks.iter().collect()
     }
 }
 

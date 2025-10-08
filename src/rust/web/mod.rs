@@ -9,7 +9,7 @@
 //! - `api`: Public WASM-bindgen exported functions for JS interop
 //! - `utils`: Utilities for data conversion and error handling
 
-#![cfg(target_arch = "wasm32")]
+#![cfg(all(target_arch = "wasm32", feature = "wasm"))]
 
 pub mod api;
 pub mod registry;

@@ -72,6 +72,10 @@ pub struct SynthDefinition {
     pub synth_type: Option<String>,
     pub filters: Vec<FilterDef>,
     pub options: HashMap<String, f32>, // Configurable synth type options
+    // Plugin support
+    pub plugin_author: Option<String>,
+    pub plugin_name: Option<String>,
+    pub plugin_export: Option<String>,
 }
 
 impl Default for SynthDefinition {
@@ -85,6 +89,9 @@ impl Default for SynthDefinition {
             synth_type: None,
             filters: Vec::new(),
             options: HashMap::new(),
+            plugin_author: None,
+            plugin_name: None,
+            plugin_export: None,
         }
     }
 }
@@ -120,8 +127,9 @@ impl AudioEventList {
         drive_amount: Option<f32>,
         drive_color: Option<f32>,
     ) {
-        // Capture synth definition snapshot at event creation time
+    // Capture synth definition snapshot at event creation time
         let synth_def = self.get_synth(synth_id).cloned().unwrap_or_default();
+    println!("🔔 add_note_event -> synth='{}' midi={} start_time={:.3} dur={:.3} vel={:.3}", synth_id, midi, start_time, duration, velocity);
         
         self.events.push(AudioEvent::Note {
             midi,
@@ -190,6 +198,7 @@ impl AudioEventList {
     }
 
     pub fn add_sample_event(&mut self, uri: &str, start_time: f32, velocity: f32) {
+        println!("🔔 add_sample_event -> uri='{}' start_time={:.3} vel={:.3}", uri, start_time, velocity);
         self.events.push(AudioEvent::Sample {
             uri: uri.to_string(),
             start_time,

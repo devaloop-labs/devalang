@@ -109,12 +109,17 @@ pub fn resolve_special_var(name: &str, context: &SpecialVarContext) -> Option<Va
         "$channels" => Some(Value::Number(context.channels as f32)),
 
         // Random variables (computed on-demand)
+        #[cfg(any(feature = "cli", feature = "wasm"))]
         "$random" | "$random.float" => Some(Value::Number(rand::random::<f32>())),
+        #[cfg(any(feature = "cli", feature = "wasm"))]
         "$random.noise" => Some(Value::Number(rand::random::<f32>() * 2.0 - 1.0)), // -1.0 to 1.0
+        #[cfg(any(feature = "cli", feature = "wasm"))]
         "$random.int" => Some(Value::Number((rand::random::<u32>() % 100) as f32)),
+        #[cfg(any(feature = "cli", feature = "wasm"))]
         "$random.bool" => Some(Value::Boolean(rand::random::<bool>())),
 
         // Nested random with ranges
+        #[cfg(any(feature = "cli", feature = "wasm"))]
         _ if name.starts_with("$random.range(") => {
             // Parse $random.range(min, max)
             parse_random_range(name)
@@ -125,6 +130,7 @@ pub fn resolve_special_var(name: &str, context: &SpecialVarContext) -> Option<Va
 }
 
 /// Parse $random.range(min, max) syntax
+#[cfg(any(feature = "cli", feature = "wasm"))]
 fn parse_random_range(name: &str) -> Option<Value> {
     // Extract content between parentheses
     let start = name.find('(')?;

@@ -8,7 +8,7 @@ impl AudioInterpreter {
     pub fn execute_loop(&mut self, count: &Value, body: &[Statement]) -> Result<()> {
         // Extract loop count
         let loop_count = match count {
-            Value::Number(n) => *n as usize,
+            Value::Number(n) => (*n) as usize,
             Value::Identifier(ident) => {
                 // Try to get variable value
                 if let Some(Value::Number(n)) = self.variables.get(ident) {

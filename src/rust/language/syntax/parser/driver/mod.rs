@@ -83,7 +83,7 @@ impl SimpleParser {
                     let error_msg = error.to_string();
 
                     // Push structured error to WASM registry if available
-                    #[cfg(target_arch = "wasm32")]
+                    #[cfg(feature = "wasm")]
                     {
                         use crate::web::registry::debug;
                         if debug::is_debug_errors_enabled() {
@@ -91,7 +91,9 @@ impl SimpleParser {
                                 error_msg.clone(),
                                 line_number,
                                 1,
+                                0,
                                 "ParseError".to_string(),
+                                "error".to_string(),
                             );
                         }
                     }
@@ -237,8 +239,8 @@ impl SimpleParser {
     }
 
     fn parse_line(line: &str, line_number: usize, path: &Path) -> Result<Statement> {
-        if line.starts_with('@') {
-            return parse_directive(line, line_number);
+            if line.starts_with('@') {
+            return parse_directive(line, line_number, path);
         }
 
         if line.starts_with('.') {
@@ -313,20 +315,20 @@ impl SimpleParser {
                 );
 
                 // Push structured error to WASM registry if available
-                #[cfg(target_arch = "wasm32")]
-                {
-                    use crate::web::registry::debug;
-                    if debug::is_debug_errors_enabled() {
-                        debug::push_parse_error_from_parts(
-                            format!("Unknown statement '{}'", keyword),
-                            line_number,
-                            1,
-                            "UnknownStatement".to_string(),
-                        );
-                    }
-                }
-
-                Ok(Statement::new(
+                        #[cfg(feature = "wasm")]
+                        {
+                            use crate::web::registry::debug;
+                            if debug::is_debug_errors_enabled() {
+                                debug::push_parse_error_from_parts(
+                                    format!("Unknown statement '{}'", keyword),
+                                    line_number,
+                                    1,
+                                    0,
+                                    "UnknownStatement".to_string(),
+                                    "error".to_string(),
+                                );
+                            }
+                        }                Ok(Statement::new(
                     StatementKind::Unknown,
                     Value::String(error_msg),
                     0,

@@ -6,6 +6,22 @@
 
 All notable changes to Devalang will be documented in this file.
 
+## Version 0.1.3 - 2025-10-06
+
+### 🛠️ Improvements
+
+- Improved addon management in the CLI.
+  - Use `devalang addon discover --local --install` to discover and install local **gzipped** addons (banks, plugins, etc.).
+- Modularized audio interpreter to improve maintainability and extensibility.
+- Re-implemented plugin usage in scripts with `@use <author>.<name> as <optional_alias>` syntax.
+  - Usage with synth: `let mySynth = synth myPlugin.synthVar = { waveform: "saw", ... }`
+- Re-implemented `@load` statement usable with both audio files (**only .wav for now**) and MIDI (**.mid**) files.
+- Re-implemented `@import` and `@export` statements for modularizing scripts.
+
+### 🐛 Bug Fixes
+
+- Fixed triggers not playing when classic call syntax was used
+
 ## Version 0.1.2 - 2025-10-05
 
 ### 🛠️ Improvements

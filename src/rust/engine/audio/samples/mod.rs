@@ -3,7 +3,7 @@
 //! This module provides functionality to load sample banks from disk (TOML manifests + WAV files)
 //! and manage a registry of loaded samples for use in audio rendering.
 
-#![cfg(not(target_arch = "wasm32"))]
+#![cfg(feature = "cli")]
 
 use anyhow::{Context, Result};
 use serde::Deserialize;
@@ -225,6 +225,33 @@ fn load_wav_file(path: &Path) -> Result<SampleData> {
 pub fn get_sample(uri: &str) -> Option<SampleData> {
     let mut registry = SAMPLE_REGISTRY.lock().unwrap();
     registry.get_sample(uri)
+}
+
+/// Register a sample into the global registry with the given URI.
+pub fn register_sample(uri: &str, data: SampleData) {
+    let mut registry = SAMPLE_REGISTRY.lock().unwrap();
+    registry.register_sample(uri.to_string(), data);
+}
+
+/// Convenience: load a WAV file at `path` and register it under an absolute path string URI.
+/// Returns the URI used (absolute path) on success.
+pub fn register_sample_from_path(path: &std::path::Path) -> Result<String, anyhow::Error> {
+    let abs = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        std::env::current_dir()?.join(path)
+    };
+    let abs_norm = abs.canonicalize().unwrap_or(abs);
+    let uri = abs_norm.to_string_lossy().to_string();
+
+    // Load WAV using existing loader
+    match load_wav_file(&abs_norm) {
+        Ok(data) => {
+            register_sample(&uri, data);
+            Ok(uri)
+        }
+        Err(e) => Err(e),
+    }
 }
 
 /// Get registry statistics (banks, total samples, loaded samples)
