@@ -6,7 +6,7 @@
 
 All notable changes to Devalang will be documented in this file.
 
-## Version 0.1.3 - 2025-10-06
+## Version 0.1.3 - 2025-10-08
 
 ### 🛠️ Improvements
 
@@ -17,10 +17,13 @@ All notable changes to Devalang will be documented in this file.
   - Usage with synth: `let mySynth = synth myPlugin.synthVar = { waveform: "saw", ... }`
 - Re-implemented `@load` statement usable with both audio files (**.wav, .mp3, .ogg, .flac**) and MIDI (**.mid**) files.
 - Re-implemented `@import` and `@export` statements for modularizing scripts.
+- Implemented audio export to **MP3** format.
 
 ### 🐛 Bug Fixes
 
 - Fixed triggers not playing when classic call syntax was used
+- Fixed unwrap without checking error when parsing wav files
+- Fixed unwrap without checking error when parsing print statements
 
 ## Version 0.1.2 - 2025-10-05
 

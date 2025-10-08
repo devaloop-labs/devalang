@@ -1,4 +1,5 @@
 pub mod automation;
+pub mod encoders;
 pub mod effects;
 pub mod evaluator;
 pub mod events;

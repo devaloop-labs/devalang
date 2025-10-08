@@ -245,7 +245,7 @@ mod tests {
         if let Some(parent_box) = child.parent {
             assert_eq!(parent_box.get("x"), Some(&Value::Number(2.0)));
         } else {
-            panic!("Parent should exist");
+            panic!("Test error: Parent should exist in this test scenario");
         }
     }
 

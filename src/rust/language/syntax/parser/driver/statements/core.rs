@@ -22,7 +22,10 @@ pub fn parse_tempo(
 
 /// Parse print statement
 pub fn parse_print(line: &str, line_number: usize) -> Result<Statement> {
-    let message = line.strip_prefix("print").unwrap().trim();
+    let message = line
+        .strip_prefix("print")
+        .ok_or_else(|| anyhow!("Invalid print statement: expected 'print' keyword at line {}", line_number))?
+        .trim();
 
     // If message is a quoted string, keep it as String; if it's a number, parse as Number;
     // otherwise treat as an identifier (variable name) so it can be resolved at runtime.

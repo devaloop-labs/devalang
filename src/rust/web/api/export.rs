@@ -22,10 +22,13 @@ pub struct ExportOptions {
     pub bit_depth: u8, // 16, 24, or 32
 
     #[serde(default = "default_format")]
-    pub format: String, // "wav" or "mp3"
+    pub format: String, // "wav", "mp3", "ogg", "flac", "opus"
 
     #[serde(default = "default_mp3_bitrate")]
-    pub mp3_bitrate: u32, // 128, 192, 256, 320
+    pub mp3_bitrate: u32, // 128, 192, 256, 320 (for MP3/OGG/Opus)
+
+    #[serde(default = "default_quality")]
+    pub quality: f32, // 0.0-10.0 (for OGG/Opus)
 }
 
 fn default_sample_rate() -> u32 {
@@ -43,6 +46,9 @@ fn default_format() -> String {
 fn default_mp3_bitrate() -> u32 {
     192
 }
+fn default_quality() -> f32 {
+    5.0
+}
 
 impl Default for ExportOptions {
     fn default() -> Self {
@@ -52,6 +58,7 @@ impl Default for ExportOptions {
             bit_depth: 16,
             format: "wav".to_string(),
             mp3_bitrate: 192,
+            quality: 5.0,
         }
     }
 }
@@ -108,9 +115,15 @@ pub fn get_render_metadata(user_code: &str, options: JsValue) -> Result<JsValue,
             let bytes_per_sample = (opts.bit_depth / 8) as usize;
             44 + (sample_count * 2 * bytes_per_sample) // WAV header + stereo samples
         }
-        "mp3" => {
-            // MP3 size estimation: (bitrate * duration) / 8
+        "mp3" | "ogg" | "opus" => {
+            // Compressed formats: (bitrate * duration) / 8
             ((opts.mp3_bitrate as f32 * duration) / 8.0) as usize
+        }
+        "flac" => {
+            // FLAC is lossless but compressed, estimate ~50-60% of WAV size
+            let bytes_per_sample = (opts.bit_depth / 8) as usize;
+            let wav_size = 44 + (sample_count * 2 * bytes_per_sample);
+            (wav_size as f32 * 0.55) as usize
         }
         _ => sample_count * 4, // Default to 32-bit float estimation
     };
@@ -182,24 +195,33 @@ pub fn export_audio(
         let _ = callback.call1(&JsValue::NULL, &JsValue::from_f64(0.7));
     }
 
-    // Convert to requested format
-    let bytes = match opts.format.as_str() {
-        "wav" => {
-            // Convert to WAV with specified bit depth
-            use crate::web::utils::conversion::pcm_to_wav_bytes_with_depth;
-            pcm_to_wav_bytes_with_depth(&buffer, opts.sample_rate, opts.bit_depth)
-                .map_err(|e| to_js_error(&format!("WAV encoding error: {}", e)))?
-        }
-        "mp3" => {
-            // For now, MP3 is not implemented - return error
-            // In future: use minimp3 or lame encoder
-            return Err(to_js_error(
-                "MP3 export not yet implemented in v2.0 - coming in v2.1",
-            ));
-        }
-        _ => {
-            return Err(to_js_error(&format!("Unsupported format: {}", opts.format)));
-        }
+    // Convert to requested format using the encoder system
+    let bytes = {
+        use crate::engine::audio::encoders::{AudioFormat, EncoderOptions, encode_audio};
+        
+        let format = AudioFormat::from_str(&opts.format)
+            .ok_or_else(|| to_js_error(&format!(
+                "Unsupported format: '{}'. Supported formats: wav, mp3, ogg, flac, opus", 
+                opts.format
+            )))?;
+
+        let encoder_opts = match format {
+            AudioFormat::Wav => EncoderOptions::wav(opts.sample_rate, opts.bit_depth),
+            AudioFormat::Mp3 => EncoderOptions::mp3(opts.sample_rate, opts.mp3_bitrate),
+            AudioFormat::Ogg => EncoderOptions::ogg(opts.sample_rate, opts.quality),
+            AudioFormat::Flac => EncoderOptions::flac(opts.sample_rate, opts.bit_depth),
+            AudioFormat::Opus => {
+                let mut opt = EncoderOptions::default();
+                opt.format = AudioFormat::Opus;
+                opt.sample_rate = opts.sample_rate;
+                opt.bitrate_kbps = opts.mp3_bitrate;
+                opt.quality = opts.quality;
+                opt
+            }
+        };
+
+        encode_audio(&buffer, &encoder_opts)
+            .map_err(|e| to_js_error(&format!("Encoding error: {}", e)))?
     };
 
     // Convert to Uint8Array

@@ -93,18 +93,31 @@ Create a file `hello.deva`:
 # Set the tempo
 bpm 120
 
-# Load a bank of sounds
+# Load a bank of sounds (make sur you have the bank installed)
 bank devaloop.808 as drums
 
-# Create a simple drum pattern
+# Create a simple kick pattern
 pattern kickPattern with drums.kick = "x--- x--- x--- x---"
-pattern snarePattern with drums.snare = "---- x--- ---- x---"
-pattern hihatPattern with drums.hihat = "x-x- x-x- x-x- x-x-"
 
-# Play the patterns
-call kickPattern
-call snarePattern
-call hihatPattern
+# Define a synth and a melody
+let mySynth = synth saw
+
+# Define a melody using a group to organize notes
+group myMelody:
+    mySynth -> note(C5)
+        -> duration(500)
+
+    mySynth -> note(E5)
+        -> duration(500)
+
+    mySynth -> note(G5)
+        -> duration(500)
+
+# Play the melody
+spawn myMelody
+
+# Play the kick pattern
+spawn kickPattern
 ```
 
 ### Build the audio
@@ -161,7 +174,7 @@ devalang play --live --input hello.deva
 ### 📦 **Output Formats**
 - ✅ **WAV** — 16/24/32-bit audio export
 - ✅ **MIDI** — Standard MIDI file export
-- ⚠️ **MP3/FLAC** — Planned for v0.1.1
+- ✅ **MP3/FLAC** — Planned
 
 ### 🎯 **Performance**
 - ⚡ **Fast builds** — 7-10ms for typical projects

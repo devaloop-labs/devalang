@@ -42,7 +42,7 @@ pub fn parse(entry_path: &str, source: &str) -> Result<JsValue, JsValue> {
                 .iter()
                 .map(|stmt| StatementInfo {
                     kind: format!("{:?}", stmt.kind),
-                    line: 0, // TODO: Get actual line number
+                    line: stmt.line_number,
                 })
                 .collect();
 

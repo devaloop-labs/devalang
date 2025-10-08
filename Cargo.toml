@@ -80,9 +80,8 @@ wasm-bindgen-futures = { version = "0.4", optional = true }
 # UUID with different features for CLI and WASM
 uuid = { version = "1.18.1", default-features = false }
 
-# Audio encoding for MP3/FLAC
-# Note: For now, we'll implement MP3/FLAC via symphonia or external tools
-# Full encoding support coming in future versions
+# Audio encoding for multi-format export
+mp3lame-encoder = "0.2"  # MP3 encoding using LAME (CLI only, requires C library)
 
 [dev-dependencies]
 tempfile = "3.8"
