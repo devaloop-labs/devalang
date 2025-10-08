@@ -22,7 +22,7 @@ crate-type = ["cdylib", "rlib"]
 
 [features]
 default = ["cli"]
-cli = ["dep:clap", "dep:crossterm", "dep:tokio", "dep:notify", "dep:toml", "dep:time", "dep:rodio", "dep:inquire", "dep:atty", "dep:hound", "dep:midly", "dep:tiny_http", "dep:webbrowser", "dep:wasmtime", "dep:reqwest", "dep:dirs", "dep:zip", "dep:urlencoding", "dep:flate2", "dep:tar", "dep:rand", "uuid/v4"]
+cli = ["dep:clap", "dep:crossterm", "dep:tokio", "dep:notify", "dep:toml", "dep:time", "dep:rodio", "dep:inquire", "dep:atty", "dep:hound", "dep:midly", "dep:tiny_http", "dep:webbrowser", "dep:wasmtime", "dep:reqwest", "dep:dirs", "dep:zip", "dep:urlencoding", "dep:flate2", "dep:tar", "dep:rand", "dep:mp3lame-encoder", "uuid/v4"]
 wasm = ["dep:js-sys", "dep:web-sys", "dep:wasm-bindgen-futures", "dep:wasm-bindgen", "dep:serde-wasm-bindgen", "dep:getrandom", "getrandom/js", "dep:rand", "dep:hound", "dep:midly", "dep:toml", "uuid/js", "dep:reqwest", "dep:dirs", "dep:zip", "dep:urlencoding", "dep:flate2", "dep:tar"]
 plugin = ["dep:paste"]
 
@@ -81,7 +81,9 @@ wasm-bindgen-futures = { version = "0.4", optional = true }
 uuid = { version = "1.18.1", default-features = false }
 
 # Audio encoding for multi-format export
-mp3lame-encoder = "0.2"  # MP3 encoding using LAME (CLI only, requires C library)
+# LAME bindings are C-based and not compatible with WASM. Make optional and enabled
+# only for native/CLI builds via the `cli` feature.
+mp3lame-encoder = { version = "0.2", optional = true }
 
 [dev-dependencies]
 tempfile = "3.8"

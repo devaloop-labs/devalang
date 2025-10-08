@@ -130,7 +130,16 @@ impl EncoderOptions {
 pub fn encode_audio(pcm_samples: &[f32], options: &EncoderOptions) -> Result<Vec<u8>> {
     match options.format {
         AudioFormat::Wav => encode_wav(pcm_samples, options),
-        AudioFormat::Mp3 => encode_mp3(pcm_samples, options),
+        AudioFormat::Mp3 => {
+            #[cfg(feature = "cli")]
+            {
+                return encode_mp3(pcm_samples, options);
+            }
+            #[cfg(not(feature = "cli"))]
+            {
+                return Err(anyhow!("MP3 export not available in this build (disabled for WASM)."));
+            }
+        }
         AudioFormat::Ogg => encode_ogg(pcm_samples, options),
         AudioFormat::Flac => encode_flac(pcm_samples, options),
         AudioFormat::Opus => encode_opus(pcm_samples, options),
@@ -199,10 +208,11 @@ fn encode_wav(pcm_samples: &[f32], options: &EncoderOptions) -> Result<Vec<u8>> 
 }
 
 /// Encode to MP3 format using LAME encoder
+#[cfg(feature = "cli")]
 fn encode_mp3(pcm_samples: &[f32], options: &EncoderOptions) -> Result<Vec<u8>> {
     use mp3lame_encoder::{Builder, FlushNoGap, InterleavedPcm};
     use std::mem::MaybeUninit;
-    
+
     // Convert mono f32 samples to stereo i16 for LAME
     let mut stereo_samples: Vec<i16> = Vec::with_capacity(pcm_samples.len() * 2);
     for &sample in pcm_samples {
@@ -211,15 +221,15 @@ fn encode_mp3(pcm_samples: &[f32], options: &EncoderOptions) -> Result<Vec<u8>> 
         stereo_samples.push(i16_sample); // Left channel
         stereo_samples.push(i16_sample); // Right channel (duplicate for stereo)
     }
-    
+
     // Create MP3 encoder with specified settings
     let mut builder = Builder::new().ok_or_else(|| anyhow!("Failed to create MP3 encoder"))?;
-    
+
     builder.set_num_channels(2)
         .map_err(|_| anyhow!("Failed to set channels"))?;
     builder.set_sample_rate(options.sample_rate)
         .map_err(|_| anyhow!("Failed to set sample rate"))?;
-    
+
     // Set bitrate - convert from kbps to the bitrate enum
     let bitrate = match options.bitrate_kbps {
         128 => mp3lame_encoder::Bitrate::Kbps128,
@@ -230,42 +240,38 @@ fn encode_mp3(pcm_samples: &[f32], options: &EncoderOptions) -> Result<Vec<u8>> 
     };
     builder.set_brate(bitrate)
         .map_err(|_| anyhow!("Failed to set bitrate"))?;
-    
+
     builder.set_quality(mp3lame_encoder::Quality::Best)
         .map_err(|_| anyhow!("Failed to set quality"))?;
-    
+
     let mut encoder = builder.build()
         .map_err(|_| anyhow!("Failed to build MP3 encoder"))?;
-    
+
     // Allocate output buffer for MP3 data
     // MP3 compression typically reduces size by ~10x, but we allocate more to be safe
     let max_output_size = (stereo_samples.len() * 5 / 4) + 7200;
     let mut output_buffer: Vec<MaybeUninit<u8>> = vec![MaybeUninit::uninit(); max_output_size];
-    
+
     // Encode the audio data
     let input = InterleavedPcm(&stereo_samples);
     let encoded_size = encoder.encode(input, &mut output_buffer)
         .map_err(|_| anyhow!("Failed to encode MP3"))?;
-    
+
     // Convert the written portion to initialized bytes
     let mut mp3_buffer = Vec::with_capacity(encoded_size + 7200);
-    for i in 0..encoded_size {
-        unsafe {
-            mp3_buffer.push(output_buffer[i].assume_init());
-        }
+    unsafe {
+        mp3_buffer.extend(output_buffer[..encoded_size].iter().map(|b| b.assume_init()));
     }
-    
+
     // Flush the encoder to get remaining data
     let mut flush_buffer: Vec<MaybeUninit<u8>> = vec![MaybeUninit::uninit(); 7200];
     let flushed_size = encoder.flush::<FlushNoGap>(&mut flush_buffer)
         .map_err(|_| anyhow!("Failed to flush MP3 encoder"))?;
-    
-    for i in 0..flushed_size {
-        unsafe {
-            mp3_buffer.push(flush_buffer[i].assume_init());
-        }
+
+    unsafe {
+        mp3_buffer.extend(flush_buffer[..flushed_size].iter().map(|b| b.assume_init()));
     }
-    
+
     Ok(mp3_buffer)
 }
 

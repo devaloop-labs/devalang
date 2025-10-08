@@ -198,6 +198,28 @@ state => {
 }
 );
 
+function makeClosure(arg0, arg1, dtor, f) {
+    const state = { a: arg0, b: arg1, cnt: 1, dtor };
+    const real = (...args) => {
+
+        // First up with a closure we increment the internal reference
+        // count. This ensures that the Rust closure environment won't
+        // be deallocated while we're invoking it.
+        state.cnt++;
+        try {
+            return f(state.a, state.b, ...args);
+        } finally {
+            if (--state.cnt === 0) {
+                wasm.__wbindgen_export_5.get(state.dtor)(state.a, state.b); state.a = 0;
+                CLOSURE_DTORS.unregister(state);
+            }
+        }
+    };
+    real.original = state;
+    CLOSURE_DTORS.register(real, state, state);
+    return real;
+}
+
 function makeMutClosure(arg0, arg1, dtor, f) {
     const state = { a: arg0, b: arg1, cnt: 1, dtor };
     const real = (...args) => {
@@ -223,71 +245,6 @@ function makeMutClosure(arg0, arg1, dtor, f) {
     CLOSURE_DTORS.register(real, state, state);
     return real;
 }
-
-function makeClosure(arg0, arg1, dtor, f) {
-    const state = { a: arg0, b: arg1, cnt: 1, dtor };
-    const real = (...args) => {
-
-        // First up with a closure we increment the internal reference
-        // count. This ensures that the Rust closure environment won't
-        // be deallocated while we're invoking it.
-        state.cnt++;
-        try {
-            return f(state.a, state.b, ...args);
-        } finally {
-            if (--state.cnt === 0) {
-                wasm.__wbindgen_export_5.get(state.dtor)(state.a, state.b); state.a = 0;
-                CLOSURE_DTORS.unregister(state);
-            }
-        }
-    };
-    real.original = state;
-    CLOSURE_DTORS.register(real, state, state);
-    return real;
-}
-
-function takeFromExternrefTable0(idx) {
-    const value = wasm.__wbindgen_export_4.get(idx);
-    wasm.__externref_table_dealloc(idx);
-    return value;
-}
-/**
- * Parse Devalang source code
- *
- * # Arguments
- * * `entry_path` - Path to the source file (for error messages)
- * * `source` - Source code to parse
- *
- * # Returns
- * JSON object with parse results
- * @param {string} entry_path
- * @param {string} source
- * @returns {any}
- */
-exports.parse = function(entry_path, source) {
-    const ptr0 = passStringToWasm0(entry_path, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ptr1 = passStringToWasm0(source, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len1 = WASM_VECTOR_LEN;
-    const ret = wasm.parse(ptr0, len0, ptr1, len1);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-};
-
-/**
- * Quick parse check - returns true if code parses without errors
- * @param {string} source
- * @returns {boolean}
- */
-exports.check_syntax = function(source) {
-    const ptr0 = passStringToWasm0(source, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.check_syntax(ptr0, len0);
-    return ret !== 0;
-};
-
 /**
  * Enable hot reload mode with callback
  * @param {Function} callback
@@ -325,6 +282,11 @@ exports.register_playhead_callback = function(callback) {
     return ret;
 };
 
+function takeFromExternrefTable0(idx) {
+    const value = wasm.__wbindgen_export_4.get(idx);
+    wasm.__externref_table_dealloc(idx);
+    return value;
+}
 /**
  * Collect all playhead events that have been generated
  *
@@ -473,6 +435,75 @@ exports.collect_parse_errors = function(clear) {
 };
 
 /**
+ * Render MIDI from Devalang code
+ * Returns MIDI file as Uint8Array
+ * @param {string} user_code
+ * @param {any} options
+ * @param {Function | null} [on_progress]
+ * @returns {Uint8Array}
+ */
+exports.render_midi_array = function(user_code, options, on_progress) {
+    const ptr0 = passStringToWasm0(user_code, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.render_midi_array(ptr0, len0, options, isLikeNone(on_progress) ? 0 : addToExternrefTable0(on_progress));
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+};
+
+/**
+ * Export MIDI file (browser download)
+ * This is just a convenience wrapper that returns the same data as render_midi_array
+ * @param {string} user_code
+ * @param {any} options
+ * @param {Function | null} [on_progress]
+ * @returns {Uint8Array}
+ */
+exports.export_midi_file = function(user_code, options, on_progress) {
+    const ptr0 = passStringToWasm0(user_code, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.export_midi_file(ptr0, len0, options, isLikeNone(on_progress) ? 0 : addToExternrefTable0(on_progress));
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+};
+
+/**
+ * Get metadata for code without full rendering (fast preview)
+ * @param {string} user_code
+ * @param {any} options
+ * @returns {any}
+ */
+exports.get_render_metadata = function(user_code, options) {
+    const ptr0 = passStringToWasm0(user_code, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.get_render_metadata(ptr0, len0, options);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+};
+
+/**
+ * Export audio with format options (WAV 16/24/32 bit, MP3)
+ * @param {string} user_code
+ * @param {any} options
+ * @param {Function | null} [on_progress]
+ * @returns {Uint8Array}
+ */
+exports.export_audio = function(user_code, options, on_progress) {
+    const ptr0 = passStringToWasm0(user_code, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.export_audio(ptr0, len0, options, isLikeNone(on_progress) ? 0 : addToExternrefTable0(on_progress));
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+};
+
+/**
  * Register a bank from a simple JSON manifest (for testing/manual registration)
  *
  * Manifest format:
@@ -547,39 +578,6 @@ exports.load_bank_from_url = function(url) {
 };
 
 /**
- * Get metadata for code without full rendering (fast preview)
- * @param {string} user_code
- * @param {any} options
- * @returns {any}
- */
-exports.get_render_metadata = function(user_code, options) {
-    const ptr0 = passStringToWasm0(user_code, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.get_render_metadata(ptr0, len0, options);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-};
-
-/**
- * Export audio with format options (WAV 16/24/32 bit, MP3)
- * @param {string} user_code
- * @param {any} options
- * @param {Function | null} [on_progress]
- * @returns {Uint8Array}
- */
-exports.export_audio = function(user_code, options, on_progress) {
-    const ptr0 = passStringToWasm0(user_code, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.export_audio(ptr0, len0, options, isLikeNone(on_progress) ? 0 : addToExternrefTable0(on_progress));
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-};
-
-/**
  * Render audio from Devalang code
  * Returns audio buffer as Float32Array
  * @param {string} user_code
@@ -646,17 +644,24 @@ exports.get_code_to_buffer_metadata = function(user_code, options) {
 };
 
 /**
- * Render MIDI from Devalang code
- * Returns MIDI file as Uint8Array
- * @param {string} user_code
- * @param {any} options
- * @param {Function | null} [on_progress]
- * @returns {Uint8Array}
+ * Parse Devalang source code
+ *
+ * # Arguments
+ * * `entry_path` - Path to the source file (for error messages)
+ * * `source` - Source code to parse
+ *
+ * # Returns
+ * JSON object with parse results
+ * @param {string} entry_path
+ * @param {string} source
+ * @returns {any}
  */
-exports.render_midi_array = function(user_code, options, on_progress) {
-    const ptr0 = passStringToWasm0(user_code, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+exports.parse = function(entry_path, source) {
+    const ptr0 = passStringToWasm0(entry_path, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.render_midi_array(ptr0, len0, options, isLikeNone(on_progress) ? 0 : addToExternrefTable0(on_progress));
+    const ptr1 = passStringToWasm0(source, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.parse(ptr0, len0, ptr1, len1);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -664,33 +669,27 @@ exports.render_midi_array = function(user_code, options, on_progress) {
 };
 
 /**
- * Export MIDI file (browser download)
- * This is just a convenience wrapper that returns the same data as render_midi_array
- * @param {string} user_code
- * @param {any} options
- * @param {Function | null} [on_progress]
- * @returns {Uint8Array}
+ * Quick parse check - returns true if code parses without errors
+ * @param {string} source
+ * @returns {boolean}
  */
-exports.export_midi_file = function(user_code, options, on_progress) {
-    const ptr0 = passStringToWasm0(user_code, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+exports.check_syntax = function(source) {
+    const ptr0 = passStringToWasm0(source, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.export_midi_file(ptr0, len0, options, isLikeNone(on_progress) ? 0 : addToExternrefTable0(on_progress));
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
+    const ret = wasm.check_syntax(ptr0, len0);
+    return ret !== 0;
 };
 
-function __wbg_adapter_6(arg0, arg1, arg2) {
-    wasm.closure1053_externref_shim(arg0, arg1, arg2);
+function __wbg_adapter_10(arg0, arg1, arg2) {
+    wasm.closure1048_externref_shim(arg0, arg1, arg2);
 }
 
-function __wbg_adapter_11(arg0, arg1) {
-    wasm.wasm_bindgen__convert__closures_____invoke__h6bc7bbf57d0f8b47(arg0, arg1);
+function __wbg_adapter_13(arg0, arg1) {
+    wasm.wasm_bindgen__convert__closures_____invoke__h4a794a844ef21195(arg0, arg1);
 }
 
 function __wbg_adapter_118(arg0, arg1, arg2, arg3) {
-    wasm.closure1086_externref_shim(arg0, arg1, arg2, arg3);
+    wasm.closure1082_externref_shim(arg0, arg1, arg2, arg3);
 }
 
 exports.__wbg_Error_e17e777aac105295 = function(arg0, arg1) {
@@ -1077,6 +1076,12 @@ exports.__wbg_wbindgenthrow_451ec1a8469d7eb6 = function(arg0, arg1) {
     throw new Error(getStringFromWasm0(arg0, arg1));
 };
 
+exports.__wbindgen_cast_089f7963b31d5cfd = function(arg0, arg1) {
+    // Cast intrinsic for `Closure(Closure { dtor_idx: 229, function: Function { arguments: [], shim_idx: 230, ret: Unit, inner_ret: Some(Unit) }, mutable: false }) -> Externref`.
+    const ret = makeClosure(arg0, arg1, 229, __wbg_adapter_13);
+    return ret;
+};
+
 exports.__wbindgen_cast_2241b6af4c4b2941 = function(arg0, arg1) {
     // Cast intrinsic for `Ref(String) -> Externref`.
     const ret = getStringFromWasm0(arg0, arg1);
@@ -1089,9 +1094,9 @@ exports.__wbindgen_cast_4625c577ab2ec9ee = function(arg0) {
     return ret;
 };
 
-exports.__wbindgen_cast_a94f99360413d298 = function(arg0, arg1) {
-    // Cast intrinsic for `Closure(Closure { dtor_idx: 1052, function: Function { arguments: [Externref], shim_idx: 1053, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
-    const ret = makeMutClosure(arg0, arg1, 1052, __wbg_adapter_6);
+exports.__wbindgen_cast_cae0637775396db2 = function(arg0, arg1) {
+    // Cast intrinsic for `Closure(Closure { dtor_idx: 1047, function: Function { arguments: [Externref], shim_idx: 1048, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+    const ret = makeMutClosure(arg0, arg1, 1047, __wbg_adapter_10);
     return ret;
 };
 
@@ -1104,12 +1109,6 @@ exports.__wbindgen_cast_cb9088102bce6b30 = function(arg0, arg1) {
 exports.__wbindgen_cast_d6cd19b81560fd6e = function(arg0) {
     // Cast intrinsic for `F64 -> Externref`.
     const ret = arg0;
-    return ret;
-};
-
-exports.__wbindgen_cast_f9fe98a6d22609ab = function(arg0, arg1) {
-    // Cast intrinsic for `Closure(Closure { dtor_idx: 151, function: Function { arguments: [], shim_idx: 152, ret: Unit, inner_ret: Some(Unit) }, mutable: false }) -> Externref`.
-    const ret = makeClosure(arg0, arg1, 151, __wbg_adapter_11);
     return ret;
 };
 

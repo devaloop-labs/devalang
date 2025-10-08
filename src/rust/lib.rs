@@ -95,6 +95,34 @@ pub mod web_sys {
     }
 }
 
+// Fallback stub for `web` module when not compiling for wasm32 at all.
+// Some code references `crate::web::registry` even when building for native
+// (e.g., tests or host builds). Provide a minimal stub so those references
+// compile in non-wasm builds.
+#[cfg(not(target_arch = "wasm32"))]
+pub mod web {
+    pub mod registry {
+        pub mod samples {
+            pub fn get_sample(_name: &str) -> Option<Vec<f32>> { None }
+        }
+        pub mod debug {
+            pub fn log(_msg: &str) {}
+            pub fn is_debug_errors_enabled() -> bool { false }
+            pub fn push_parse_error_from_parts(_source: String, _line: usize, _column: usize, _length: usize, _message: String, _severity: String) {}
+        }
+        pub mod banks {
+            pub struct BankEntry { pub full_name: String, pub alias: String }
+            use std::cell::RefCell;
+            thread_local! {
+                pub static REGISTERED_BANKS: RefCell<Vec<BankEntry>> = RefCell::new(Vec::new());
+            }
+        }
+        pub mod playhead {
+            pub fn push_event<T>(_event: T) {}
+        }
+    }
+}
+
 // Stub for midly when not available
 #[cfg(all(target_arch = "wasm32", not(any(feature = "wasm", feature = "cli"))))]
 pub mod midly {

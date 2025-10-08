@@ -4,7 +4,7 @@
     "Devaloop <contact@devaloop.com>"
   ],
   "description": "Write music like code. Devalang is a domain-specific language (DSL) for sound designers and music hackers. Compose, automate, and control sound — in plain text.",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "license": "SEE LICENSE IN LICENSE",
   "repository": {
     "type": "git",

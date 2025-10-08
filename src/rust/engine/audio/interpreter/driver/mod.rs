@@ -4,7 +4,32 @@ use crate::engine::functions::FunctionRegistry;
 use crate::engine::special_vars::{SpecialVarContext, is_special_var, resolve_special_var};
 use crate::engine::audio::events::SynthDefinition;
 use crate::language::syntax::ast::{Statement, Value};
+#[cfg(feature = "cli")]
 use crate::language::addons::registry::BankRegistry;
+
+// Provide a lightweight stub for BankRegistry when CLI feature is disabled (WASM/plugin builds)
+#[cfg(not(feature = "cli"))]
+#[allow(dead_code)]
+#[derive(Clone)]
+pub struct BankRegistry;
+
+#[cfg(not(feature = "cli"))]
+impl BankRegistry {
+    pub fn new() -> Self { BankRegistry }
+    pub fn list_banks(&self) -> Vec<(String, StubBank)> { Vec::new() }
+    pub fn resolve_trigger(&self, _var: &str, _prop: &str) -> Option<std::path::PathBuf> { None }
+    pub fn register_bank(&self, _alias: String, _name: &str, _cwd: &std::path::Path, _cwd2: &std::path::Path) -> Result<(), anyhow::Error> { Ok(()) }
+}
+
+#[cfg(not(feature = "cli"))]
+#[allow(dead_code)]
+#[derive(Clone)]
+pub struct StubBank;
+
+#[cfg(not(feature = "cli"))]
+impl StubBank {
+    pub fn list_triggers(&self) -> Vec<String> { Vec::new() }
+}
 /// Audio interpreter driver - main execution loop
 use anyhow::Result;
 use std::collections::HashMap;

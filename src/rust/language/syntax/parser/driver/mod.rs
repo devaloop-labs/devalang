@@ -87,14 +87,12 @@ impl SimpleParser {
                     {
                         use crate::web::registry::debug;
                         if debug::is_debug_errors_enabled() {
-                            debug::push_parse_error_from_parts(
-                                error_msg.clone(),
-                                line_number,
-                                1,
-                                0,
-                                "ParseError".to_string(),
-                                "error".to_string(),
-                            );
+                                debug::push_parse_error_from_parts(
+                                    error_msg.clone(),
+                                    line_number,
+                                    1,
+                                    "ParseError".to_string(),
+                                );
                         }
                     }
 
@@ -274,7 +272,7 @@ impl SimpleParser {
             return parse_arrow_call(line, line_number);
         }
 
-        match keyword.as_str() {
+    return match keyword.as_str() {
             "bpm" | "tempo" => parse_tempo(parts, line_number),
             "print" => parse_print(line, line_number),
             "sleep" => parse_sleep(parts, line_number),
@@ -315,26 +313,26 @@ impl SimpleParser {
                 );
 
                 // Push structured error to WASM registry if available
-                        #[cfg(feature = "wasm")]
-                        {
-                            use crate::web::registry::debug;
-                            if debug::is_debug_errors_enabled() {
-                                debug::push_parse_error_from_parts(
-                                    format!("Unknown statement '{}'", keyword),
-                                    line_number,
-                                    1,
-                                    0,
-                                    "UnknownStatement".to_string(),
-                                    "error".to_string(),
-                                );
-                            }
-                        }                Ok(Statement::new(
+                #[cfg(feature = "wasm")]
+                {
+                    use crate::web::registry::debug;
+                    if debug::is_debug_errors_enabled() {
+                        debug::push_parse_error_from_parts(
+                            format!("Unknown statement '{}'", keyword),
+                            line_number,
+                            1,
+                            "UnknownStatement".to_string(),
+                        );
+                    }
+                }
+
+                return Ok(Statement::new(
                     StatementKind::Unknown,
                     Value::String(error_msg),
                     0,
                     line_number,
                     1,
-                ))
+                ));
             }
         }
     }

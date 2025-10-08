@@ -58,9 +58,7 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
                                 format!("{}", e),
                                 stmt.line,
                                 stmt.column,
-                                0,
                                 "RuntimeError".to_string(),
-                                "error".to_string(),
                             );
                         }
                     }

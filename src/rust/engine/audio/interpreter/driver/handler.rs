@@ -305,13 +305,23 @@ pub fn handle_load(interpreter: &mut AudioInterpreter, source: &str, alias: &str
                 Ok(())
             }
             "wav" | "flac" | "mp3" | "ogg" => {
-                // For now support WAV via existing parser; other formats may be supported later.
-                use crate::engine::audio::samples;
-                let registered = samples::register_sample_from_path(path)?;
-                // Record the sample URI under the alias variable as a string (consistent with triggers)
-                interpreter.variables.insert(alias.to_string(), Value::String(registered.clone()));
-                        // Sample file loaded (silent)
-                Ok(())
+                // For native/CLI builds, register sample via the samples subsystem.
+                #[cfg(feature = "cli")]
+                {
+                    use crate::engine::audio::samples;
+                    let registered = samples::register_sample_from_path(path)?;
+                    // Record the sample URI under the alias variable as a string (consistent with triggers)
+                    interpreter.variables.insert(alias.to_string(), Value::String(registered.clone()));
+                    // Sample file loaded (silent)
+                    return Ok(());
+                }
+
+                // For non-CLI builds (WASM/plugins), fallback to storing the original path as a string.
+                #[cfg(not(feature = "cli"))]
+                {
+                    interpreter.variables.insert(alias.to_string(), Value::String(source.to_string()));
+                    return Ok(());
+                }
             }
             _ => Err(anyhow::anyhow!("Unsupported file type for @load: {}", ext)),
         }
@@ -391,6 +401,7 @@ pub fn handle_bind(interpreter: &mut AudioInterpreter, source: &str, target: &st
     Ok(())
 }
 
+#[cfg(feature = "cli")]
 pub fn handle_use_plugin(interpreter: &mut AudioInterpreter, author: &str, name: &str, alias: &str) -> Result<()> {
     use crate::engine::plugin::loader::load_plugin;
 
@@ -422,6 +433,18 @@ pub fn handle_use_plugin(interpreter: &mut AudioInterpreter, author: &str, name:
         }
     }
 
+    Ok(())
+}
+
+#[cfg(not(feature = "cli"))]
+pub fn handle_use_plugin(interpreter: &mut AudioInterpreter, author: &str, name: &str, alias: &str) -> Result<()> {
+    // Plugin loading not supported in this build (WASM/plugin builds). Insert a minimal placeholder so scripts can still reference the alias.
+    let mut plugin_map = HashMap::new();
+    plugin_map.insert("_type".to_string(), Value::String("plugin_stub".to_string()));
+    plugin_map.insert("_author".to_string(), Value::String(author.to_string()));
+    plugin_map.insert("_name".to_string(), Value::String(name.to_string()));
+    interpreter.variables.insert(alias.to_string(), Value::Map(plugin_map));
+    println!("🔌 Plugin stub inserted for {}.{} as {} (loader not available in this build)", author, name, alias);
     Ok(())
 }
 
@@ -475,9 +498,6 @@ pub fn handle_bank(interpreter: &mut AudioInterpreter, name: &str, alias: &Optio
             }
         }
     }
-
-    #[cfg(not(feature = "wasm"))]
-            // Bank handling completed
 
     Ok(())
 }
