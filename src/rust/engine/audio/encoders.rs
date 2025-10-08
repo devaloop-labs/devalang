@@ -147,6 +147,7 @@ pub fn encode_audio(pcm_samples: &[f32], options: &EncoderOptions) -> Result<Vec
 }
 
 /// Encode to WAV format (using hound)
+#[cfg(any(feature = "cli", feature = "wasm"))]
 fn encode_wav(pcm_samples: &[f32], options: &EncoderOptions) -> Result<Vec<u8>> {
     use hound::{WavSpec, WavWriter, SampleFormat};
     use std::io::Cursor;
@@ -205,6 +206,12 @@ fn encode_wav(pcm_samples: &[f32], options: &EncoderOptions) -> Result<Vec<u8>> 
         .map_err(|e| anyhow!("Failed to finalize WAV: {}", e))?;
 
     Ok(cursor.into_inner())
+}
+
+/// Fallback stub when `hound` isn't enabled (e.g., plugin-only build without features)
+#[cfg(not(any(feature = "cli", feature = "wasm")))]
+fn encode_wav(_pcm_samples: &[f32], _options: &EncoderOptions) -> Result<Vec<u8>> {
+    Err(anyhow!("WAV export not available in this build: missing 'hound' dependency. Enable the 'cli' or 'wasm' feature to include WAV support."))
 }
 
 /// Encode to MP3 format using LAME encoder
