@@ -1,3 +1,0 @@
-let testVar = 12
-
-@export { testVar }

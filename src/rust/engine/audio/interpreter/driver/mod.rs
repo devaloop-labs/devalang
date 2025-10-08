@@ -3,7 +3,7 @@ use crate::engine::events::EventRegistry;
 use crate::engine::functions::FunctionRegistry;
 use crate::engine::special_vars::{SpecialVarContext, is_special_var, resolve_special_var};
 use crate::engine::audio::events::SynthDefinition;
-use crate::language::syntax::ast::{Statement, StatementKind, Value};
+use crate::language::syntax::ast::{Statement, Value};
 use crate::language::addons::registry::BankRegistry;
 /// Audio interpreter driver - main execution loop
 use anyhow::Result;
@@ -57,11 +57,11 @@ impl AudioInterpreter {
 
     /// Helper to print banks and triggers for debugging
     fn debug_list_banks(&self) {
-        println!("🔍 Déclencheurs disponibles dans BankRegistry:");
+        println!("🔍 Available triggers in BankRegistry:");
         for (bank_name, bank) in self.banks.list_banks() {
-            println!("   Banque: {}", bank_name);
+            println!("   Bank: {}", bank_name);
             for trigger in bank.list_triggers() {
-                println!("      Déclencheur: {}", trigger);
+                println!("      Trigger: {}", trigger);
             }
         }
     }
@@ -75,64 +75,7 @@ impl AudioInterpreter {
         // Phase 1: Collect events
         self.collect_events(statements)?;
 
-        // Diagnostic: detailed listing of planned audio events (notes/chords/samples)
-        {
-            use crate::engine::audio::events::AudioEvent;
-
-            // Build a sortable list of (start, end, idx, &AudioEvent)
-            let mut list: Vec<(f32, f32, usize, &AudioEvent)> = Vec::new();
-            for (i, ev) in self.events.events.iter().enumerate() {
-                match ev {
-                    AudioEvent::Note { start_time, duration, .. } => {
-                        let end = start_time + duration;
-                        list.push((*start_time, end, i, ev));
-                    }
-                    AudioEvent::Chord { start_time, duration, .. } => {
-                        let end = start_time + duration;
-                        list.push((*start_time, end, i, ev));
-                    }
-                    AudioEvent::Sample { start_time, .. } => {
-                        // estimate sample duration if unknown (used for overlap detection)
-                        let end = start_time + 2.0;
-                        list.push((*start_time, end, i, ev));
-                    }
-                }
-            }
-
-            list.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
-
-            println!("🔎 Planned audio events: count={} ", list.len());
-            for (s, e, idx, ev) in &list {
-                match ev {
-                    AudioEvent::Note { midi, start_time, duration, synth_id, .. } => {
-                        println!("   [{}] Note midi={} synth='{}' start={:.3}s end={:.3}s dur={:.3}s", idx, midi, synth_id, start_time, e, duration);
-                    }
-                    AudioEvent::Chord { midis, start_time, duration, synth_id, .. } => {
-                        println!("   [{}] Chord midis={:?} synth='{}' start={:.3}s end={:.3}s dur={:.3}s", idx, midis, synth_id, start_time, e, duration);
-                    }
-                    AudioEvent::Sample { uri, start_time, velocity } => {
-                        println!("   [{}] Sample uri='{}' start={:.3}s end={:.3}s vel={:.3}", idx, uri, start_time, e, velocity);
-                    }
-                }
-            }
-
-            // Detect temporal overlaps (any two events whose intervals intersect)
-            for i in 0..list.len() {
-                let (s1, e1, idx1, ev1) = list[i];
-                for j in i+1..list.len() {
-                    let (s2, e2, idx2, ev2) = list[j];
-                    // if next event starts after current end, break inner loop (list sorted by start)
-                    if s2 >= e1 { break; }
-                    // otherwise intervals overlap
-                    let overlap = (e1.min(e2) - s2).max(0.0);
-                    if overlap > 0.0001 {
-                        // print summary of overlapping pair
-                        println!("⚠️  Overlap detected: idx{} ({:.3}-{:.3}s) ↔ idx{} ({:.3}-{:.3}s) overlap={:.3}s",
-                            idx1, s1, e1, idx2, s2, e2, overlap);
-                    }
-                }
-            }
-        }
+        // Phase 2: Render audio
 
         // Phase 2: Render audio
         self.render_audio()

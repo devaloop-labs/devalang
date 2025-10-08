@@ -1,7 +1,6 @@
 /// Module loader - handles file loading and module dependencies
 use anyhow::Result;
 use std::path::Path;
-use std::fs;
 use crate::language::syntax::parser::driver::SimpleParser;
 use crate::language::syntax::ast::{StatementKind, Value, Statement};
 use std::collections::HashMap;

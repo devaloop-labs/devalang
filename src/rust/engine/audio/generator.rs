@@ -81,15 +81,14 @@ pub fn generate_note_with_options(
     pan: f32,    // -1.0 (left) to 1.0 (right), 0.0 = center
     detune: f32, // cents, -100 to 100
 ) -> Result<Vec<f32>> {
-    println!("🎵 [GEN] Generating note: midi={}, plugin_author={:?}, plugin_name={:?}, plugin_export={:?}", 
-        midi_note, params.plugin_author, params.plugin_name, params.plugin_export);
+    // Generating note (diagnostics suppressed)
     
     // Check if we should use a WASM plugin
     #[cfg(feature = "cli")]
     {
         if let Some(ref author) = params.plugin_author {
             if let Some(ref name) = params.plugin_name {
-                println!("   → Using PLUGIN path!");
+                // Using plugin path
                 return generate_note_with_plugin(
                     midi_note,
                     duration_ms,
@@ -106,7 +105,7 @@ pub fn generate_note_with_options(
         }
     }
     
-    println!("   → Using CLASSIC synth path!");
+    // Using classic synth path
 
     let base_frequency = midi_to_frequency(midi_note);
 

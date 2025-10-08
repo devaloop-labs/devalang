@@ -15,7 +15,7 @@ All notable changes to Devalang will be documented in this file.
 - Modularized audio interpreter to improve maintainability and extensibility.
 - Re-implemented plugin usage in scripts with `@use <author>.<name> as <optional_alias>` syntax.
   - Usage with synth: `let mySynth = synth myPlugin.synthVar = { waveform: "saw", ... }`
-- Re-implemented `@load` statement usable with both audio files (**only .wav for now**) and MIDI (**.mid**) files.
+- Re-implemented `@load` statement usable with both audio files (**.wav, .mp3, .ogg, .flac**) and MIDI (**.mid**) files.
 - Re-implemented `@import` and `@export` statements for modularizing scripts.
 
 ### 🐛 Bug Fixes

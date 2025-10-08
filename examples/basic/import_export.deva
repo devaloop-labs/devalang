@@ -1,0 +1,7 @@
+@import { myVar } from "./my_module.deva"
+
+print myVar
+
+let myNewVar = 10
+
+@export { myNewVar }

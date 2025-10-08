@@ -89,13 +89,11 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
                 let event_name = event.trim_end_matches(':').trim().to_string();
                 let handler = EventHandler { event_name: event_name.clone(), body: body.clone(), once };
                 interpreter.event_registry.register_handler(handler);
-                println!("📡 Event handler registered: {} (once={})", event_name, once);
             }
             StatementKind::Emit { event, payload } => {
                 let data = if let Some(Value::Map(map)) = payload { map.clone() } else { HashMap::new() };
                 interpreter.event_registry.emit(event.clone(), data, interpreter.cursor_time);
                 super::handler::execute_event_handlers(interpreter, event)?;
-                println!("📤 Event emitted: {}", event);
             }
             StatementKind::Assign { target, property } => { super::handler::handle_assign(interpreter, target, property, &stmt.value)?; }
             StatementKind::Load { source, alias } => { super::handler::handle_load(interpreter, source, alias)?; }
@@ -106,7 +104,6 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
             StatementKind::Pattern { name, target } => {
                 let pattern_stmt = Statement { kind: StatementKind::Pattern { name: name.clone(), target: target.clone() }, value: stmt.value.clone(), indent: stmt.indent, line: stmt.line, column: stmt.column };
                 interpreter.variables.insert(name.clone(), Value::Statement(Box::new(pattern_stmt)));
-                println!("📝 Pattern defined: {}", name);
             }
             StatementKind::Bank { name, alias } => { super::handler::handle_bank(interpreter, name, alias)?; }
             StatementKind::Bind { source, target } => { super::handler::handle_bind(interpreter, source, target, &stmt.value)?; }
@@ -118,24 +115,21 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
                             for name in names {
                                 if let Some(val) = exports.variables.get(name) {
                                     interpreter.variables.insert(name.clone(), val.clone());
-                                    println!("🔗 Imported variable '{}' from {}", name, source);
                                 } else if let Some(group_body) = exports.groups.get(name) {
                                     interpreter.groups.insert(name.clone(), group_body.clone());
-                                    println!("🔗 Imported group '{}' from {}", name, source);
                                 } else if let Some(pattern_stmt) = exports.patterns.get(name) {
                                     interpreter.variables.insert(name.clone(), Value::Statement(Box::new(pattern_stmt.clone())));
-                                    println!("🔗 Imported pattern '{}' from {}", name, source);
                                 } else {
-                                    println!("⚠️  Import: '{}' not found in {}", name, source);
+                                    println!("Import: '{}' not found in {}", name, source);
                                 }
                             }
                         }
                         Err(e) => {
-                            println!("⚠️  Failed to load module {}: {}", source, e);
+                            println!("Failed to load module {}: {}", source, e);
                         }
                     }
                 } else {
-                    println!("⚠️  Import path not found: {}", source);
+                    println!("Import path not found: {}", source);
                 }
             }
             StatementKind::Trigger { entity, duration: _, effects: _ } => { super::handler::handle_trigger(interpreter, entity)?; }
@@ -144,7 +138,7 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
     }
 
     if !spawns.is_empty() {
-        println!("🚀 Executing {} spawn(s) in parallel", spawns.len());
+    // Executing spawns in parallel
         let current_time = interpreter.cursor_time;
         let current_bpm = interpreter.bpm;
         let groups_snapshot = interpreter.groups.clone();
@@ -160,7 +154,7 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
                         let (var_name, property) = (parts[0], parts[1]);
                         if let Some(Value::Map(map)) = variables_snapshot.get(var_name) {
                             if let Some(Value::String(sample_uri)) = map.get(property) {
-                                println!("🎵 Spawn nested sample: {}.{} -> {}", var_name, property, sample_uri);
+                                // Spawn nested sample
                                 let mut event_list = AudioEventList::new();
                                 event_list.add_sample_event(sample_uri.trim_matches('"').trim_matches('\''), current_time, 1.0);
                                 return Ok(event_list);
@@ -170,7 +164,7 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
                 }
                 if let Some(sample_value) = variables_snapshot.get(resolved_name) {
                     if let Value::String(sample_uri) = sample_value {
-                        println!("🎵 Spawn sample: {} -> {}", resolved_name, sample_uri);
+                        // Spawn sample
                         let mut event_list = AudioEventList::new();
                         event_list.add_sample_event(sample_uri.trim_matches('"').trim_matches('\''), current_time, 1.0);
                         return Ok(event_list);
@@ -196,21 +190,19 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
                 local_interpreter.events.synths = interpreter.events.synths.clone();
 
                     if let Some(body) = groups_snapshot.get(resolved_name) {
-                        println!("🎬 Spawn group: {} (parallel)", resolved_name);
+                        // Spawn group (parallel)
                         collect_events(&mut local_interpreter, body)?;
                         Ok(local_interpreter.events)
                     } else {
-                    println!("⚠️  Warning: Spawn target '{}' not found (neither sample nor group)", resolved_name);
+                    println!("Warning: Spawn target '{}' not found (neither sample nor group)", resolved_name);
                     Ok(AudioEventList::new())
                 }
             } else { Ok(AudioEventList::new()) }
         }).collect();
 
         for result in spawn_results {
-            match result { Ok(spawn_events) => { interpreter.events.merge(spawn_events); }, Err(e) => { println!("⚠️  Error in spawn execution: {}", e); } }
+            match result { Ok(spawn_events) => { interpreter.events.merge(spawn_events); }, Err(e) => { println!("Error in spawn execution: {}", e); } }
         }
-
-        println!("✅ Parallel spawn execution completed");
     }
 
     // Emit some built-in beat events to trigger 'on beat' handlers.

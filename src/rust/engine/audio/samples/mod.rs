@@ -137,11 +137,11 @@ impl SampleRegistry {
         // Load WAV file
         match load_wav_file(&wav_path) {
             Ok(data) => {
-                println!("🔄 Lazy loaded sample: {}/{}", bank_id, trigger_name);
+                // Lazy loaded sample
                 Some(data)
             }
             Err(e) => {
-                eprintln!("⚠️  Failed to lazy load {:?}: {}", wav_path, e);
+                eprintln!("Failed to lazy load {:?}: {}", wav_path, e);
                 None
             }
         }
@@ -197,7 +197,7 @@ pub fn load_bank_from_directory(bank_path: &Path) -> Result<String> {
     let mut registry = SAMPLE_REGISTRY.lock().unwrap();
     registry.register_bank_metadata(metadata);
 
-    println!("✅ Bank registered: {} ({} triggers available for lazy loading)", bank_id, triggers.len());
+    // Bank registered
 
     Ok(bank_id)
 }
@@ -217,6 +217,56 @@ fn load_wav_file(path: &Path) -> Result<SampleData> {
 
     Ok(SampleData {
         samples,
+        sample_rate,
+    })
+}
+
+/// Attempt to load an audio file in any supported format.
+/// First try the existing WAV parser, then fall back to `rodio::Decoder` which
+/// supports MP3/FLAC/OGG and other formats when the CLI feature enables `rodio`.
+fn load_audio_file(path: &Path) -> Result<SampleData> {
+    // Try WAV parser first (fast, native implementation)
+    if let Ok(data) = load_wav_file(path) {
+        return Ok(data);
+    }
+
+    // Fallback: use rodio decoder (requires the `cli` feature which enables `rodio`)
+    // This handles mp3, flac, ogg, and many container formats via Symphonia/rodio.
+    use std::fs::File;
+    use std::io::BufReader;
+    use rodio::Decoder;
+    use rodio::Source; // bring trait methods (sample_rate, channels, convert_samples) into scope
+
+    let file = File::open(path).with_context(|| format!("Failed to open {:?}", path))?;
+    let reader = BufReader::new(file);
+
+    let decoder = Decoder::new(reader).map_err(|e| anyhow::anyhow!("rodio decode error: {}", e))?;
+
+    let sample_rate = decoder.sample_rate();
+    let channels = decoder.channels();
+
+    // Convert all samples to f32 then to mono if needed.
+    let samples_f32: Vec<f32> = decoder.convert_samples::<f32>().collect();
+
+    let mono_f32 = if channels > 1 {
+        let ch = channels as usize;
+        let frames = samples_f32.len() / ch;
+        let mut mono = Vec::with_capacity(frames);
+        for f in 0..frames {
+            let mut acc = 0.0f32;
+            for c in 0..ch {
+                acc += samples_f32[f * ch + c];
+            }
+            mono.push(acc / ch as f32);
+        }
+        mono
+    } else {
+        samples_f32
+    };
+
+    // Keep samples as f32 (normalized) to match SampleData type
+    Ok(SampleData {
+        samples: mono_f32,
         sample_rate,
     })
 }
@@ -244,8 +294,8 @@ pub fn register_sample_from_path(path: &std::path::Path) -> Result<String, anyho
     let abs_norm = abs.canonicalize().unwrap_or(abs);
     let uri = abs_norm.to_string_lossy().to_string();
 
-    // Load WAV using existing loader
-    match load_wav_file(&abs_norm) {
+    // Load audio file using generic loader (WAV parser first, then fall back to rodio)
+    match load_audio_file(&abs_norm) {
         Ok(data) => {
             register_sample(&uri, data);
             Ok(uri)

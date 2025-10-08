@@ -1,5 +1,1 @@
 print "Write your script here !"
-
-@import { testVar } from "./test.deva"
-
-print testVar

@@ -239,7 +239,7 @@ pub fn handle_assign(interpreter: &mut AudioInterpreter, target: &str, property:
     Ok(())
 }
 
-pub fn extract_synth_def_from_map(interpreter: &AudioInterpreter, map: &HashMap<String, Value>) -> Result<crate::engine::audio::events::SynthDefinition> {
+pub fn extract_synth_def_from_map(_interpreter: &AudioInterpreter, map: &HashMap<String, Value>) -> Result<crate::engine::audio::events::SynthDefinition> {
     use crate::engine::audio::events::extract_filters;
 
     let waveform = crate::engine::audio::events::extract_string(map, "waveform", "sine");
@@ -301,7 +301,7 @@ pub fn handle_load(interpreter: &mut AudioInterpreter, source: &str, alias: &str
                 use crate::engine::audio::midi::load_midi_file;
                 let midi_data = load_midi_file(path)?;
                 interpreter.variables.insert(alias.to_string(), midi_data);
-                println!("🎵 Loaded MIDI file: {} as {}", source, alias);
+                        // MIDI file loaded (silent)
                 Ok(())
             }
             "wav" | "flac" | "mp3" | "ogg" => {
@@ -310,7 +310,7 @@ pub fn handle_load(interpreter: &mut AudioInterpreter, source: &str, alias: &str
                 let registered = samples::register_sample_from_path(path)?;
                 // Record the sample URI under the alias variable as a string (consistent with triggers)
                 interpreter.variables.insert(alias.to_string(), Value::String(registered.clone()));
-                println!("🎵 Loaded sample file: {} as {} (uri={})", source, alias, registered);
+                        // Sample file loaded (silent)
                 Ok(())
             }
             _ => Err(anyhow::anyhow!("Unsupported file type for @load: {}", ext)),
@@ -379,12 +379,12 @@ pub fn handle_bind(interpreter: &mut AudioInterpreter, source: &str, target: &st
                     };
 
                     // Diagnostic: log each scheduled note from bind (midi, time ms, start_time sec)
-                    println!("🔔 bind_note -> midi={} time_ms={:.0} start_time_s={:.3} synth={}", note, time, time / 1000.0, target);
+                    // bound note scheduled
                     interpreter.events.events.push(event);
                 }
             }
 
-            println!("🔗 Bound {} notes from {} to {}", notes_array.len(), source, target);
+            // Bound notes from source to target
         }
     }
 
@@ -477,7 +477,7 @@ pub fn handle_bank(interpreter: &mut AudioInterpreter, name: &str, alias: &Optio
     }
 
     #[cfg(not(feature = "wasm"))]
-    println!("🏦 Bank handling completed for {} (alias {}).", name, target_alias);
+            // Bank handling completed
 
     Ok(())
 }
@@ -500,25 +500,25 @@ pub fn handle_trigger(interpreter: &mut AudioInterpreter, entity: &str) -> Resul
                         } else {
                     #[cfg(not(feature = "wasm"))]
                     {
-                        println!("🔍 Tentative de résolution du déclencheur: {}", resolved_entity);
+                        println!("🔍 Attempting to resolve trigger: {}", resolved_entity);
                         // First try to produce an internal devalang://bank URI (preferred, supports lazy loading)
                         let resolved_uri = interpreter.resolve_sample_uri(resolved_entity);
                         if resolved_uri != resolved_entity {
-                            println!("🎵 Résolution via variable: {} -> {}", resolved_entity, resolved_uri);
+                            println!("🎵 Resolved via variable: {} -> {}", resolved_entity, resolved_uri);
                             interpreter.events.add_sample_event(&resolved_uri, interpreter.cursor_time, 1.0);
                             let beat_duration = interpreter.beat_duration();
                             interpreter.cursor_time += beat_duration;
                         } else if let Some(pathbuf) = interpreter.banks.resolve_trigger(var_name, property) {
                             if let Some(path_str) = pathbuf.to_str() {
-                                println!("🎵 Résolution réussie (fichier): {}.{} -> {}", var_name, property, path_str);
+                                println!("🎵 Resolved (file): {}.{} -> {}", var_name, property, path_str);
                                 interpreter.events.add_sample_event(path_str, interpreter.cursor_time, 1.0);
                                 let beat_duration = interpreter.beat_duration();
                                 interpreter.cursor_time += beat_duration;
                             } else {
-                                println!("⚠️ Résolution échouée pour {}.{} (path invalide)", var_name, property);
+                                println!("⚠️ Resolution failed for {}.{} (invalid path)", var_name, property);
                             }
                         } else {
-                            println!("⚠️ Aucun chemin trouvé pour {} via BankRegistry", resolved_entity);
+                            println!("⚠️ No path found for {} via BankRegistry", resolved_entity);
                         }
                     }
                 }
@@ -534,7 +534,7 @@ pub fn handle_trigger(interpreter: &mut AudioInterpreter, entity: &str) -> Resul
         }
     }
 
-    println!("🔄 Déclencheur interprété: {}", entity);
+    println!("🔄 Trigger interpreted: {}", entity);
     #[cfg(not(feature = "wasm"))]
     {
         println!("🔍 Déclencheurs disponibles dans BankRegistry:");
@@ -547,7 +547,7 @@ pub fn handle_trigger(interpreter: &mut AudioInterpreter, entity: &str) -> Resul
     }
 
     // Note: do not call interpreter.render_audio() here - rendering is handled by the build pipeline.
-    println!("🎵 Trigger queued for rendering: {} (events collected)", entity);
+    // Trigger queued for rendering (events collected)
 
     Ok(())
 }

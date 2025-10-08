@@ -58,7 +58,7 @@ impl WasmPluginRunner {
         
         // Créer l'instance si elle n'existe pas
         if !cache.contains_key(&hash) {
-            eprintln!("🆕 [CACHE] Creating NEW instance for synth_id '{:?}' (hash: {})", instance_key, hash);
+            // Creating new instance for synth_id
             let module = Module::new(&self.engine, wasm_bytes)
                 .map_err(|e| format!("Failed to compile wasm: {e}"))?;
             
@@ -84,7 +84,7 @@ impl WasmPluginRunner {
             
             cache.insert(hash, (store, instance));
         } else {
-            eprintln!("♻️  [CACHE] REUSING instance for synth_id '{:?}' (hash: {})", instance_key, hash);
+            // Reusing cached instance for synth_id
         }
         
         // Récupérer l'instance cachée
@@ -114,7 +114,7 @@ impl WasmPluginRunner {
         
         // Apply plugin options by calling setter functions if available
         if let Some(opts) = options {
-            eprintln!("🔧 [PLUGIN] Applying {} options to plugin", opts.len());
+            // Applying plugin options
             
             // Map of parameter names to setter functions
             let setter_map: HashMap<&str, &str> = [
@@ -136,25 +136,24 @@ impl WasmPluginRunner {
                     // Try to get the setter function
                     if let Ok(setter) = entry.1.get_typed_func::<f32, ()>(&mut entry.0, setter_name) {
                         // Call setter with the parameter value
-                        eprintln!("   ✓ Setting {}: {} -> {}", key, value, setter_name);
+                        // Setting option
                         let _ = setter.call(&mut entry.0, *value);
                     } else {
-                        eprintln!("   ⚠ Setter not found: {}", setter_name);
+                        // Setter not found
                     }
                 } else {
-                    eprintln!("   ⚠ Unknown parameter: {}", key);
+                    // Unknown parameter
                 }
             }
         } else {
-            eprintln!("🔧 [PLUGIN] No options provided, using defaults");
+            // No plugin options provided
         }
         
         // Allocate memory in WASM for the buffer
         let byte_len = std::mem::size_of_val(buffer);
         let ptr = Self::alloc_temp(&mut entry.0, &entry.1, &memory, byte_len)? as i32;
         
-        eprintln!("🎵 [PLUGIN] Calling {} with freq={:.2}Hz, amp={:.2}, duration={}ms, sr={}, ch={}, buffer_len={}", 
-                  func_name, freq, amp, duration_ms, sample_rate, channels, buffer.len());
+    // Calling plugin with parameters (log removed)
         
         // Copy buffer into WASM memory
         let mem_slice = memory
@@ -191,10 +190,10 @@ impl WasmPluginRunner {
         };
         dst_bytes.copy_from_slice(mem_slice_after);
         
-        // Debug: Check if buffer has any non-zero values
-        let non_zero = buffer.iter().any(|&x| x.abs() > 0.0001);
-        let max_val = buffer.iter().map(|&x| x.abs()).fold(0.0f32, f32::max);
-        eprintln!("📊 [PLUGIN] Result: non_zero={}, max_amplitude={:.6}", non_zero, max_val);
+    // Debug: Check if buffer has any non-zero values
+    let _non_zero = buffer.iter().any(|&x| x.abs() > 0.0001);
+    let _max_val = buffer.iter().map(|&x| x.abs()).fold(0.0f32, f32::max);
+    // Plugin result diagnostics
         
         Ok(())
     }
