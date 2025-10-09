@@ -209,39 +209,55 @@ impl FunctionExecutor for DelayFunction {
                 "delay() requires at least 1 argument (delay time in ms)"
             ));
         }
+        // Support both positional args: delay(time, feedback?, mix?)
+        // and map-style: delay({ time: 300, feedback: 0.3, mix: 0.5 })
+        let mut time_val: Option<f32> = None;
+        let mut feedback: f32 = 0.3;
+        let mut mix: f32 = 0.5;
 
-        // Time in ms (required)
-        let time = match &args[0] {
-            Value::Number(t) => *t,
-            _ => {
-                return Err(anyhow!(
-                    "delay() first argument must be a number (time in ms)"
-                ));
+        if let Some(Value::Map(params)) = args.first() {
+            if let Some(Value::Number(t)) = params.get("time") {
+                time_val = Some(*t);
             }
-        };
+            if let Some(Value::Number(f)) = params.get("feedback") {
+                feedback = *f;
+            }
+            if let Some(Value::Number(m)) = params.get("mix") {
+                mix = *m;
+            }
+        } else {
+            // Positional
+            // Time in ms (required)
+            time_val = match &args[0] {
+                Value::Number(t) => Some(*t),
+                _ => None,
+            };
 
-        // Feedback (optional, default 0.3)
-        let feedback = if args.len() > 1 {
-            match &args[1] {
-                Value::Number(f) => *f,
-                _ => {
+            if args.len() > 1 {
+                if let Value::Number(f) = &args[1] {
+                    feedback = *f;
+                } else {
                     return Err(anyhow!(
                         "delay() second argument must be a number (feedback)"
                     ));
                 }
             }
-        } else {
-            0.3
-        };
 
-        // Mix (optional, default 0.5)
-        let mix = if args.len() > 2 {
-            match &args[2] {
-                Value::Number(m) => *m,
-                _ => return Err(anyhow!("delay() third argument must be a number (mix)")),
+            if args.len() > 2 {
+                if let Value::Number(m) = &args[2] {
+                    mix = *m;
+                } else {
+                    return Err(anyhow!("delay() third argument must be a number (mix)"));
+                }
             }
+        }
+
+        let time = if let Some(t) = time_val {
+            t
         } else {
-            0.5
+            return Err(anyhow!(
+                "delay() requires a time parameter either as first numeric arg or as {{ time: ... }}"
+            ));
         };
 
         context.set("delay_time", Value::Number(time));
@@ -262,16 +278,22 @@ impl FunctionExecutor for ReverbFunction {
     }
 
     fn execute(&self, context: &mut FunctionContext, args: &[Value]) -> Result<()> {
-        if args.is_empty() {
+        // Accept either reverb(0.3) or reverb({ size: 0.9 })
+        let mut amount = 0.5; // default
+
+        if let Some(Value::Map(params)) = args.first() {
+            if let Some(Value::Number(s)) = params.get("size") {
+                amount = *s;
+            } else if let Some(Value::Number(a)) = params.get("amount") {
+                amount = *a;
+            }
+        } else if let Some(Value::Number(a)) = args.get(0) {
+            amount = *a;
+        } else {
             return Err(anyhow!(
-                "reverb() requires 1 argument (reverb amount 0.0-1.0)"
+                "reverb() requires either a numeric argument or a parameter map {{ size: ... }}"
             ));
         }
-
-        let amount = match &args[0] {
-            Value::Number(a) => *a,
-            _ => return Err(anyhow!("reverb() argument must be a number")),
-        };
 
         context.set("reverb_amount", Value::Number(amount));
         context.set("reverb_size", Value::Number(amount)); // Keep compatibility
@@ -295,22 +317,34 @@ impl FunctionExecutor for DriveFunction {
                 "drive() requires at least 1 argument (drive amount 0.0-1.0)"
             ));
         }
+        // Support both positional: drive(amount, color?) and map: drive({ gain: 2.0, color: 0.5 })
+        let mut amount = 0.5;
+        let mut color = 0.5;
 
-        // Amount (required)
-        let amount = match &args[0] {
-            Value::Number(a) => *a,
-            _ => return Err(anyhow!("drive() first argument must be a number (amount)")),
-        };
+        if let Some(Value::Map(params)) = args.first() {
+            if let Some(Value::Number(g)) = params.get("gain") {
+                amount = *g;
+            } else if let Some(Value::Number(a)) = params.get("amount") {
+                amount = *a;
+            }
 
-        // Color/tone (optional, default 0.5)
-        let color = if args.len() > 1 {
-            match &args[1] {
-                Value::Number(c) => *c,
-                _ => return Err(anyhow!("drive() second argument must be a number (color)")),
+            if let Some(Value::Number(c)) = params.get("color") {
+                color = *c;
             }
         } else {
-            0.5
-        };
+            // Positional
+            amount = match &args[0] {
+                Value::Number(a) => *a,
+                _ => return Err(anyhow!("drive() first argument must be a number (amount)")),
+            };
+
+            if args.len() > 1 {
+                color = match &args[1] {
+                    Value::Number(c) => *c,
+                    _ => return Err(anyhow!("drive() second argument must be a number (color)")),
+                };
+            }
+        }
 
         context.set("drive_amount", Value::Number(amount));
         context.set("drive_amp", Value::Number(amount)); // Keep compatibility

@@ -127,7 +127,7 @@ impl AudioEventList {
         drive_amount: Option<f32>,
         drive_color: Option<f32>,
     ) {
-    // Capture synth definition snapshot at event creation time
+        // Capture synth definition snapshot at event creation time
         let synth_def = self.get_synth(synth_id).cloned().unwrap_or_default();
         self.events.push(AudioEvent::Note {
             midi,
@@ -172,7 +172,7 @@ impl AudioEventList {
     ) {
         // Capture synth definition snapshot at event creation time
         let synth_def = self.get_synth(synth_id).cloned().unwrap_or_default();
-        
+
         self.events.push(AudioEvent::Chord {
             midis,
             start_time,

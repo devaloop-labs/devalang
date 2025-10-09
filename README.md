@@ -28,7 +28,6 @@ From studio sketches to live sets, Devalang puts musical ideas into motion.
 
 > **🚀 v0.1.0 - Complete Rewriting**
 >
->
 > **NEW**: [Devalang Playground V2.0 is now available](https://playground.devalang.com) — Try it in your browser!
 
 ---
@@ -83,17 +82,35 @@ devalang build --path examples/index.deva --formats wav mid
 devalang play --live --input examples/index.deva
 ```
 
----
+## 📦 (optional) Install addons
 
-## 🎵 Your First Devalang Script
+Devalang supports addons to extend functionalities. This allows you to easily add sound banks, effects, or other features.
 
-Create a file `hello.deva`:
+To create your own addon, please refer to the [Devaforge documentation](https://github.com/devaloop-labs/devaforge/tree/main/docs).
+
+```bash
+# List available addons
+devalang addon list
+
+# Install an addon (format: <author>.<addon-name>)
+devalang addon install devaloop.808
+```
+
+This will install the `devaloop.808` sound bank in your current working directory inside `.deva` folder. 
+
+**You can then use it in your Devalang scripts !**
+
+## 🎵 Your First Devalang File
+
+### Write the script
+
+Create a file `hello.deva` or `index.deva` (if you do not specify `--input` argument, it defaults to `index.deva`).
 
 ```deva
 # Set the tempo
 bpm 120
 
-# Load a bank of sounds (make sur you have the bank installed)
+# Load a bank of sounds (make sure you have the bank installed)
 bank devaloop.808 as drums
 
 # Create a simple kick pattern
@@ -120,16 +137,46 @@ spawn myMelody
 spawn kickPattern
 ```
 
+### (optional) Configure project settings
+
+You can create a `devalang.json` (recommended) or `devalang.toml` file to customize check/build/play settings.
+
+This typically evitate to re-type common arguments like `--path`, `--formats`, etc.
+
+> Comments are not supported in config files, please use `devalang init` to generate a default config.
+
+```jsonc
+{
+  "project": {
+    "name": "My Awesome Project"        // Change this to adjust project name
+  },
+  "paths": {
+    "entry": "audio/helloWorld.deva",   // Change this to adjust entry file path
+    "output": "output"                  // Change this to adjust output directory
+  },
+  "audio": {
+    "format": ["wav", "mid"],           // Change this to adjust output formats (options: wav, mid, mp3)
+    "bit_depth": 16,                    // Change this to 24 or 32 for higher quality
+    "channels": 2,                      // Change this to 1 for mono output
+    "sample_rate": 44100,               // Change this to 48000 for higher quality
+    "resample_quality": "sinc24",       // Change this to adjust resampling quality (options: sinc8, sinc16, sinc24, sinc32)
+    "bpm": 120                           // Change this to adjust the project tempo (only if not set in code)
+  },
+  "live": {
+    "crossfade_ms": 500                  // Change this to adjust crossfade duration when playing live
+  }
+}
+
+```
+
 ### Build the audio
 
 ```bash
-# Build to WAV
-devalang build --path hello.deva --formats wav
-
-# Output: ./output/audio/hello.wav
+# Build to WAV, MP3, and MIDI
+devalang build --path hello.deva --formats wav,mp3,mid
 ```
 
-# Play the audio
+### Play the audio
 
 ```bash
 # Play the audio file
@@ -137,9 +184,11 @@ devalang play --input hello.deva
 
 # Play live (repeats and watch until stopped)
 devalang play --live --input hello.deva
-```
 
----
+# Play live loop with very short crossfade
+# With 50ms, transitions between loops are no more distinguishable
+devalang play --live --crossfade-ms 50 --input hello.deva
+```
 
 ## 🚀 Features
 
@@ -174,7 +223,7 @@ devalang play --live --input hello.deva
 ### 📦 **Output Formats**
 - ✅ **WAV** — 16/24/32-bit audio export
 - ✅ **MIDI** — Standard MIDI file export
-- ✅ **MP3/FLAC** — Planned
+- ✅ **MP3** — Lossy audio export (via LAME)
 
 ### 🎯 **Performance**
 - ⚡ **Fast builds** — 7-10ms for typical projects

@@ -48,7 +48,7 @@ impl Oscillator {
 
         for frame in 0..params.frames {
             let sample = self.generate_sample() * self.amplitude;
-            
+
             // Write to all channels (interleaved)
             for ch in 0..params.channels {
                 let idx = (frame * params.channels + ch) as usize;
@@ -121,7 +121,7 @@ impl ADSREnvelope {
     /// Call this for each sample and increment current_sample.
     pub fn get_value(&self, sustain_samples: u32) -> f32 {
         let sample = self.current_sample;
-        
+
         if sample < self.attack_samples {
             // Attack phase: 0.0 to 1.0
             sample as f32 / self.attack_samples as f32
@@ -191,22 +191,22 @@ impl LowPassFilter {
         // Calculate filter coefficient (cutoff normalized to sample rate)
         let f = 2.0 * self.cutoff / sample_rate;
         let f_clamped = f.clamp(0.0, 1.0); // Prevent aliasing
-        
+
         // Resonance feedback with compensation
         // At high resonance, the filter self-oscillates
         let fb = self.resonance * 4.0; // 4.0 for strong resonance
         let feedback_signal = self.stage4 * fb;
-        
+
         // Input with feedback subtracted (negative feedback loop)
         let input_compensated = input - feedback_signal;
-        
+
         // 4 cascaded one-pole lowpass stages (Moog ladder topology)
         // Each stage: output = output + f * (input - output)
         self.stage1 += f_clamped * (input_compensated - self.stage1);
         self.stage2 += f_clamped * (self.stage1 - self.stage2);
         self.stage3 += f_clamped * (self.stage2 - self.stage3);
         self.stage4 += f_clamped * (self.stage3 - self.stage4);
-        
+
         // Output is the 4th stage (24dB/octave rolloff)
         self.stage4.clamp(-2.0, 2.0) // Allow some headroom for resonance peaks
     }

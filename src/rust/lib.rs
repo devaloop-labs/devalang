@@ -10,12 +10,12 @@ pub mod utils;
 #[cfg(feature = "plugin")]
 pub mod plugin {
     //! Plugin development SDK for Devalang
-    //! 
+    //!
     //! This module provides types, macros, and utilities for writing WASM plugins.
     //! Enable the "plugin" feature to use this module.
-    
+
     pub use crate::engine::plugin::bindings::*;
-    
+
     // Re-export macros from crate root (they are exported there due to #[macro_export])
     pub use crate::{export_plugin, export_plugin_with_state, simple_oscillator_plugin};
 }
@@ -42,7 +42,7 @@ pub mod web;
 pub mod web {
     //! Stub module for web functionality when compiling plugins
     //! This prevents compilation errors when plugin code references web modules
-    
+
     pub mod registry {
         pub mod samples {
             pub fn get_sample(_name: &str) -> Option<Vec<f32>> {
@@ -61,12 +61,14 @@ pub mod web {
                 _length: usize,
                 _message: String,
                 _severity: String,
-            ) {}
+            ) {
+            }
         }
         pub mod banks {
             use std::collections::HashMap;
-            pub static REGISTERED_BANKS: once_cell::sync::Lazy<std::sync::Mutex<HashMap<String, String>>> = 
-                once_cell::sync::Lazy::new(|| std::sync::Mutex::new(HashMap::new()));
+            pub static REGISTERED_BANKS: once_cell::sync::Lazy<
+                std::sync::Mutex<HashMap<String, String>>,
+            > = once_cell::sync::Lazy::new(|| std::sync::Mutex::new(HashMap::new()));
         }
         pub mod playhead {
             #[derive(Default)]
@@ -103,15 +105,30 @@ pub mod web_sys {
 pub mod web {
     pub mod registry {
         pub mod samples {
-            pub fn get_sample(_name: &str) -> Option<Vec<f32>> { None }
+            pub fn get_sample(_name: &str) -> Option<Vec<f32>> {
+                None
+            }
         }
         pub mod debug {
             pub fn log(_msg: &str) {}
-            pub fn is_debug_errors_enabled() -> bool { false }
-            pub fn push_parse_error_from_parts(_source: String, _line: usize, _column: usize, _length: usize, _message: String, _severity: String) {}
+            pub fn is_debug_errors_enabled() -> bool {
+                false
+            }
+            pub fn push_parse_error_from_parts(
+                _source: String,
+                _line: usize,
+                _column: usize,
+                _length: usize,
+                _message: String,
+                _severity: String,
+            ) {
+            }
         }
         pub mod banks {
-            pub struct BankEntry { pub full_name: String, pub alias: String }
+            pub struct BankEntry {
+                pub full_name: String,
+                pub alias: String,
+            }
             use std::cell::RefCell;
             thread_local! {
                 pub static REGISTERED_BANKS: RefCell<Vec<BankEntry>> = RefCell::new(Vec::new());
@@ -128,72 +145,88 @@ pub mod web {
 pub mod midly {
     //! Stub module for midly when compiling plugins
     pub struct Header;
-    pub enum Format { SingleTrack }
-    pub enum Timing { Metrical(u16) }
-    
+    pub enum Format {
+        SingleTrack,
+    }
+    pub enum Timing {
+        Metrical(u16),
+    }
+
     #[derive(Debug, Clone)]
     pub struct TrackEvent {
         pub delta: u28,
         pub kind: TrackEventKind,
     }
-    
+
     #[derive(Debug, Clone)]
     pub struct u28(pub u32);
     impl From<u32> for u28 {
-        fn from(v: u32) -> Self { u28(v) }
+        fn from(v: u32) -> Self {
+            u28(v)
+        }
     }
-    
+
     #[derive(Debug, Clone)]
     pub struct u24(pub u32);
     impl From<u32> for u24 {
-        fn from(v: u32) -> Self { u24(v) }
+        fn from(v: u32) -> Self {
+            u24(v)
+        }
     }
-    
+
     #[derive(Debug, Clone)]
     pub struct u7(pub u8);
     impl From<u8> for u7 {
-        fn from(v: u8) -> Self { u7(v) }
+        fn from(v: u8) -> Self {
+            u7(v)
+        }
     }
-    
+
     #[derive(Debug, Clone)]
     pub struct u4(pub u8);
     impl From<u8> for u4 {
-        fn from(v: u8) -> Self { u4(v) }
+        fn from(v: u8) -> Self {
+            u4(v)
+        }
     }
-    
+
     #[derive(Debug, Clone)]
-    pub enum MetaMessage { 
-        Tempo(u24), 
-        EndOfTrack 
+    pub enum MetaMessage {
+        Tempo(u24),
+        EndOfTrack,
     }
-    
+
     #[derive(Debug, Clone)]
-    pub enum TrackEventKind { 
-        Meta(MetaMessage), 
-        Midi { channel: u4, message: MidiMessage } 
+    pub enum TrackEventKind {
+        Meta(MetaMessage),
+        Midi { channel: u4, message: MidiMessage },
     }
-    
+
     #[derive(Debug, Clone)]
-    pub enum MidiMessage { 
-        NoteOn { key: u7, vel: u7 }, 
-        NoteOff { key: u7, vel: u7 } 
+    pub enum MidiMessage {
+        NoteOn { key: u7, vel: u7 },
+        NoteOff { key: u7, vel: u7 },
     }
-    
+
     pub struct Track(Vec<TrackEvent>);
     impl From<Vec<TrackEvent>> for Track {
-        fn from(events: Vec<TrackEvent>) -> Self { Track(events) }
+        fn from(events: Vec<TrackEvent>) -> Self {
+            Track(events)
+        }
     }
-    
+
     pub struct Smf {
         pub tracks: Vec<Track>,
     }
-    
+
     impl Header {
-        pub fn new(_format: Format, _timing: Timing) -> Self { Header }
+        pub fn new(_format: Format, _timing: Timing) -> Self {
+            Header
+        }
     }
-    
+
     impl Smf {
-        pub fn new(_header: Header) -> Self { 
+        pub fn new(_header: Header) -> Self {
             Smf { tracks: Vec::new() }
         }
         pub fn write<W: std::io::Write>(&self, _writer: &mut W) -> std::io::Result<()> {

@@ -77,9 +77,15 @@ macro_rules! export_plugin {
             // SAFETY: Host guarantees valid pointer and length
             unsafe {
                 let out = core::slice::from_raw_parts_mut(out_ptr, out_len_usize);
-                
+
                 // Call the implementation function
-                let implementation: fn(&mut [f32], $crate::engine::plugin::bindings::types::BufferParams, $crate::engine::plugin::bindings::types::Note, f32, f32) = $impl_fn;
+                let implementation: fn(
+                    &mut [f32],
+                    $crate::engine::plugin::bindings::types::BufferParams,
+                    $crate::engine::plugin::bindings::types::Note,
+                    f32,
+                    f32,
+                ) = $impl_fn;
                 implementation(out, params, note, freq, amp);
             }
         }
@@ -127,12 +133,12 @@ macro_rules! export_plugin_with_state {
     ) => {
         use std::sync::Mutex;
         use once_cell::sync::Lazy;
-        
+
         $state_struct
-        
-        static STATE: Lazy<Mutex<std::collections::HashMap<String, Box<dyn std::any::Any + Send>>>> = 
+
+        static STATE: Lazy<Mutex<std::collections::HashMap<String, Box<dyn std::any::Any + Send>>>> =
             Lazy::new(|| Mutex::new(std::collections::HashMap::new()));
-        
+
         #[unsafe(no_mangle)]
         pub extern "C" fn $name(
             out_ptr: *mut f32,
@@ -170,7 +176,7 @@ macro_rules! export_plugin_with_state {
 
             unsafe {
                 let out = core::slice::from_raw_parts_mut(out_ptr, out_len_usize);
-                
+
                 // Get or create state for this instance
                 let instance_key = "default".to_string(); // TODO: pass instance ID
                 let mut states = STATE.lock().unwrap();
@@ -178,12 +184,12 @@ macro_rules! export_plugin_with_state {
                     .or_insert_with(|| Box::new($default_state))
                     .downcast_mut()
                     .unwrap();
-                
+
                 let render_fn: fn(&mut _, &mut [f32], $crate::engine::plugin::bindings::types::BufferParams, $crate::engine::plugin::bindings::types::Note, f32, f32) = $render;
                 render_fn(state, out, params, note, freq, amp);
             }
         }
-        
+
         $(
             paste::paste! {
                 #[unsafe(no_mangle)]

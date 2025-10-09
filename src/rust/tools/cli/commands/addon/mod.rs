@@ -129,7 +129,9 @@ impl AddonCommand {
                     Err(e) => {
                         logger.error(format!("Failed to discover addons: {}", e));
                         if !*local {
-                            logger.info("Visit https://workshop.devalang.com to browse addons manually.");
+                            logger.info(
+                                "Visit https://workshop.devalang.com to browse addons manually.",
+                            );
                         }
                         return Err(e);
                     }

@@ -1,14 +1,5 @@
 @load "./samples/kick.wav" as kick
-@load "./samples/lead.mid" as myMidi
 
-# This will play the kick sample
+# This will play the kick sample each beat
 on beat:
     .kick
-
-group myMidiGroup:
-    let myBassline = synth saw
-    
-    # This will play the midi pattern with the sine synth
-    bind myMidi -> myBassline
-
-spawn myMidiGroup

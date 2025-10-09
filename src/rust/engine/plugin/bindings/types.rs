@@ -20,8 +20,8 @@ pub struct Note {
 impl Default for Note {
     fn default() -> Self {
         Self {
-            pitch: 60,      // Middle C
-            velocity: 100,  // Strong velocity
+            pitch: 60,     // Middle C
+            velocity: 100, // Strong velocity
             duration_ms: 500,
         }
     }
@@ -127,13 +127,7 @@ impl BufferParams {
 /// - `note`: The note being played
 /// - `freq`: Frequency in Hz (derived from note pitch)
 /// - `amp`: Amplitude (0.0 to 1.0)
-pub type RenderFn = fn(
-    out: &mut [f32],
-    params: BufferParams,
-    note: Note,
-    freq: f32,
-    amp: f32,
-);
+pub type RenderFn = fn(out: &mut [f32], params: BufferParams, note: Note, freq: f32, amp: f32);
 
 /// Extended render function signature with additional context.
 ///

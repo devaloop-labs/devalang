@@ -6,12 +6,12 @@
 #![cfg(feature = "cli")]
 
 use anyhow::{Context, Result};
+use once_cell::sync::Lazy;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
-use once_cell::sync::Lazy;
 
 /// Global sample registry for native builds
 static SAMPLE_REGISTRY: Lazy<Arc<Mutex<SampleRegistry>>> =
@@ -62,9 +62,9 @@ pub struct BankMetadata {
 /// Sample registry for managing loaded samples with lazy loading
 #[derive(Debug)]
 pub struct SampleRegistry {
-    samples: HashMap<String, SampleData>,           // Loaded samples cache
-    banks: HashMap<String, BankMetadata>,           // Bank metadata for lazy loading
-    loaded_samples: HashMap<String, bool>,          // Track which samples are loaded
+    samples: HashMap<String, SampleData>,  // Loaded samples cache
+    banks: HashMap<String, BankMetadata>,  // Bank metadata for lazy loading
+    loaded_samples: HashMap<String, bool>, // Track which samples are loaded
 }
 
 impl SampleRegistry {
@@ -205,7 +205,7 @@ pub fn load_bank_from_directory(bank_path: &Path) -> Result<String> {
 /// Load WAV file and convert to mono f32 PCM
 fn load_wav_file(path: &Path) -> Result<SampleData> {
     let bytes = fs::read(path)?;
-    
+
     // Use the common WAV parser
     let parser_result = crate::utils::wav_parser::parse_wav_generic(&bytes)
         .map_err(|e| anyhow::anyhow!("WAV parse error: {}", e))?;
@@ -232,10 +232,10 @@ fn load_audio_file(path: &Path) -> Result<SampleData> {
 
     // Fallback: use rodio decoder (requires the `cli` feature which enables `rodio`)
     // This handles mp3, flac, ogg, and many container formats via Symphonia/rodio.
-    use std::fs::File;
-    use std::io::BufReader;
     use rodio::Decoder;
-    use rodio::Source; // bring trait methods (sample_rate, channels, convert_samples) into scope
+    use rodio::Source;
+    use std::fs::File;
+    use std::io::BufReader; // bring trait methods (sample_rate, channels, convert_samples) into scope
 
     let file = File::open(path).with_context(|| format!("Failed to open {:?}", path))?;
     let reader = BufReader::new(file);
@@ -313,19 +313,19 @@ pub fn get_stats() -> (usize, usize, usize) {
 /// Auto-discover and load banks from standard locations
 pub fn auto_load_banks() -> Result<()> {
     let mut possible_paths = Vec::new();
-    
+
     // 1. Current directory + addons/banks
     if let Ok(cwd) = std::env::current_dir() {
         possible_paths.push(cwd.join("addons").join("banks"));
         possible_paths.push(cwd.join(".deva").join("banks"));
     }
-    
+
     // 2. Home directory + .deva/banks
     if let Some(home_dir) = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")) {
         let home_path = PathBuf::from(home_dir);
         possible_paths.push(home_path.join(".deva").join("banks"));
     }
-    
+
     // 3. Parent directories (useful for monorepo structures)
     if let Ok(cwd) = std::env::current_dir() {
         let mut current = cwd.as_path();

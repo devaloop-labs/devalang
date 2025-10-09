@@ -29,7 +29,7 @@ pub fn parse_wav_generic(data: &[u8]) -> Result<(u16, u32, Vec<i16>), String> {
         let chunk_size = u32::from_le_bytes(
             data[pos + 4..pos + 8]
                 .try_into()
-                .map_err(|_| "Invalid chunk size bytes in WAV file")?
+                .map_err(|_| "Invalid chunk size bytes in WAV file")?,
         ) as usize;
         pos += 8;
 
@@ -46,22 +46,22 @@ pub fn parse_wav_generic(data: &[u8]) -> Result<(u16, u32, Vec<i16>), String> {
                 let audio_format = u16::from_le_bytes(
                     data[pos..pos + 2]
                         .try_into()
-                        .map_err(|_| "Invalid audio format bytes in WAV file")?
+                        .map_err(|_| "Invalid audio format bytes in WAV file")?,
                 );
                 channels = u16::from_le_bytes(
                     data[pos + 2..pos + 4]
                         .try_into()
-                        .map_err(|_| "Invalid channel count bytes in WAV file")?
+                        .map_err(|_| "Invalid channel count bytes in WAV file")?,
                 );
                 sample_rate = u32::from_le_bytes(
                     data[pos + 4..pos + 8]
                         .try_into()
-                        .map_err(|_| "Invalid sample rate bytes in WAV file")?
+                        .map_err(|_| "Invalid sample rate bytes in WAV file")?,
                 );
                 bits = u16::from_le_bytes(
                     data[pos + 14..pos + 16]
                         .try_into()
-                        .map_err(|_| "Invalid bit depth bytes in WAV file")?
+                        .map_err(|_| "Invalid bit depth bytes in WAV file")?,
                 );
 
                 if audio_format != 1 {

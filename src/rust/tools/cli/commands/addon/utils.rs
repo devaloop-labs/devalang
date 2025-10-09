@@ -87,7 +87,10 @@ pub async fn ask_api_for_signed_url(
 }
 
 /// Extracts a .tar.gz addon archive to the appropriate directory
-pub fn extract_addon_archive(archive_path: &std::path::Path, deva_dir: &std::path::Path) -> Result<()> {
+pub fn extract_addon_archive(
+    archive_path: &std::path::Path,
+    deva_dir: &std::path::Path,
+) -> Result<()> {
     use flate2::read::GzDecoder;
     use std::fs::File;
     use tar::Archive;
@@ -103,8 +106,8 @@ pub fn extract_addon_archive(archive_path: &std::path::Path, deva_dir: &std::pat
         .map_err(|e| anyhow::anyhow!("Failed to detect addon type: {}", e))?;
 
     // Reopen archive for extraction (Archive consumes the reader)
-    let file = File::open(archive_path)
-        .map_err(|e| anyhow::anyhow!("Failed to reopen archive: {}", e))?;
+    let file =
+        File::open(archive_path).map_err(|e| anyhow::anyhow!("Failed to reopen archive: {}", e))?;
     let gz = GzDecoder::new(file);
     let mut archive = Archive::new(gz);
 
@@ -113,8 +116,10 @@ pub fn extract_addon_archive(archive_path: &std::path::Path, deva_dir: &std::pat
         .file_name()
         .and_then(|f| f.to_str())
         .ok_or_else(|| anyhow::anyhow!("Invalid archive filename"))?;
-    
-    let stem = filename.trim_end_matches(".tar.gz").trim_end_matches(".tgz");
+
+    let stem = filename
+        .trim_end_matches(".tar.gz")
+        .trim_end_matches(".tgz");
     let (publisher, name) = if let Some(dot_pos) = stem.find('.') {
         (&stem[..dot_pos], &stem[dot_pos + 1..])
     } else {
@@ -131,7 +136,7 @@ pub fn extract_addon_archive(archive_path: &std::path::Path, deva_dir: &std::pat
     };
 
     let target_dir = deva_dir.join(type_dir).join(publisher).join(name);
-    
+
     if target_dir.exists() {
         std::fs::remove_dir_all(&target_dir)
             .map_err(|e| anyhow::anyhow!("Failed to remove existing addon directory: {}", e))?;
@@ -141,14 +146,17 @@ pub fn extract_addon_archive(archive_path: &std::path::Path, deva_dir: &std::pat
         .map_err(|e| anyhow::anyhow!("Failed to create target directory: {}", e))?;
 
     // Extract all files
-    archive.unpack(&target_dir)
+    archive
+        .unpack(&target_dir)
         .map_err(|e| anyhow::anyhow!("Failed to extract archive: {}", e))?;
 
     Ok(())
 }
 
 /// Detects addon type by scanning archive for manifest files
-fn detect_addon_type_from_archive(archive: &mut tar::Archive<flate2::read::GzDecoder<std::fs::File>>) -> Result<String> {
+fn detect_addon_type_from_archive(
+    archive: &mut tar::Archive<flate2::read::GzDecoder<std::fs::File>>,
+) -> Result<String> {
     for entry in archive.entries()? {
         let entry = entry?;
         let path = entry.path()?;

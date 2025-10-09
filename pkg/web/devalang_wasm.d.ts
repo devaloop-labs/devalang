@@ -71,24 +71,6 @@ export function collect_last_errors(clear: boolean): any;
  */
 export function collect_parse_errors(clear: boolean): any;
 /**
- * Render MIDI from Devalang code
- * Returns MIDI file as Uint8Array
- */
-export function render_midi_array(user_code: string, options: any, on_progress?: Function | null): Uint8Array;
-/**
- * Export MIDI file (browser download)
- * This is just a convenience wrapper that returns the same data as render_midi_array
- */
-export function export_midi_file(user_code: string, options: any, on_progress?: Function | null): Uint8Array;
-/**
- * Get metadata for code without full rendering (fast preview)
- */
-export function get_render_metadata(user_code: string, options: any): any;
-/**
- * Export audio with format options (WAV 16/24/32 bit, MP3)
- */
-export function export_audio(user_code: string, options: any, on_progress?: Function | null): Uint8Array;
-/**
  * Register a bank from a simple JSON manifest (for testing/manual registration)
  *
  * Manifest format:
@@ -155,6 +137,24 @@ export function render_wav_preview(user_code: string, options: any, on_progress?
  */
 export function get_code_to_buffer_metadata(user_code: string, options: any): any;
 /**
+ * Get metadata for code without full rendering (fast preview)
+ */
+export function get_render_metadata(user_code: string, options: any): any;
+/**
+ * Export audio with format options (WAV 16/24/32 bit, MP3)
+ */
+export function export_audio(user_code: string, options: any, on_progress?: Function | null): Uint8Array;
+/**
+ * Render MIDI from Devalang code
+ * Returns MIDI file as Uint8Array
+ */
+export function render_midi_array(user_code: string, options: any, on_progress?: Function | null): Uint8Array;
+/**
+ * Export MIDI file (browser download)
+ * This is just a convenience wrapper that returns the same data as render_midi_array
+ */
+export function export_midi_file(user_code: string, options: any, on_progress?: Function | null): Uint8Array;
+/**
  * Parse Devalang source code
  *
  * # Arguments
@@ -186,13 +186,9 @@ export interface InitOutput {
   readonly set_wasm_debug_errors: (a: number) => void;
   readonly collect_last_errors: (a: number) => [number, number, number];
   readonly collect_parse_errors: (a: number) => [number, number, number];
-  readonly register_playhead_callback: (a: any) => any;
-  readonly disable_hot_reload: () => void;
   readonly enable_hot_reload: (a: any) => void;
-  readonly export_midi_file: (a: number, b: number, c: any, d: number) => [number, number, number];
-  readonly render_midi_array: (a: number, b: number, c: any, d: number) => [number, number, number];
-  readonly get_render_metadata: (a: number, b: number, c: any) => [number, number, number];
-  readonly export_audio: (a: number, b: number, c: any, d: number) => [number, number, number];
+  readonly disable_hot_reload: () => void;
+  readonly register_playhead_callback: (a: any) => any;
   readonly register_bank_json: (a: number, b: number) => [number, number];
   readonly register_bank_from_manifest: (a: number, b: number) => any;
   readonly load_bank_from_url: (a: number, b: number) => any;
@@ -200,8 +196,12 @@ export interface InitOutput {
   readonly debug_render: (a: number, b: number, c: any) => [number, number, number];
   readonly render_wav_preview: (a: number, b: number, c: any, d: number) => [number, number, number];
   readonly get_code_to_buffer_metadata: (a: number, b: number, c: any) => [number, number, number];
+  readonly get_render_metadata: (a: number, b: number, c: any) => [number, number, number];
+  readonly export_audio: (a: number, b: number, c: any, d: number) => [number, number, number];
+  readonly export_midi_file: (a: number, b: number, c: any, d: number) => [number, number, number];
   readonly parse: (a: number, b: number, c: number, d: number) => [number, number, number];
   readonly check_syntax: (a: number, b: number) => number;
+  readonly render_midi_array: (a: number, b: number, c: any, d: number) => [number, number, number];
   readonly __wbindgen_malloc: (a: number, b: number) => number;
   readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
   readonly __wbindgen_exn_store: (a: number) => void;

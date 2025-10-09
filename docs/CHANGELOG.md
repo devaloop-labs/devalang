@@ -6,6 +6,17 @@
 
 All notable changes to Devalang will be documented in this file.
 
+## Version 0.1.4 - 2025-10-09
+
+### 🛠️ Improvements
+
+- Re-implemented `routing` capability
+
+### 🐛 Bug Fixes
+
+- Fixed issue with inline `pattern` not working as expected.
+- Patched CLI dependencies to include mp3lame and exclude it from the WASM build.
+
 ## Version 0.1.3 - 2025-10-08
 
 ### 🛠️ Improvements

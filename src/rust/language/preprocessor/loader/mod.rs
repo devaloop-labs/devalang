@@ -1,9 +1,9 @@
+use crate::language::syntax::ast::{Statement, StatementKind, Value};
+use crate::language::syntax::parser::driver::SimpleParser;
 /// Module loader - handles file loading and module dependencies
 use anyhow::Result;
-use std::path::Path;
-use crate::language::syntax::parser::driver::SimpleParser;
-use crate::language::syntax::ast::{StatementKind, Value, Statement};
 use std::collections::HashMap;
+use std::path::Path;
 
 /// Load a module from a file path
 pub fn load_module_from_path(_path: &Path) -> Result<()> {
@@ -35,13 +35,17 @@ pub fn load_module_exports(path: &Path) -> Result<ModuleExports> {
     let mut exports: Vec<String> = Vec::new();
     for s in &stmts {
         if let StatementKind::Export { names, .. } = &s.kind {
-            for n in names { exports.push(n.clone()); }
+            for n in names {
+                exports.push(n.clone());
+            }
         }
     }
 
     for s in &stmts {
         match &s.kind {
-            StatementKind::Let { name, value } | StatementKind::Var { name, value } | StatementKind::Const { name, value } => {
+            StatementKind::Let { name, value }
+            | StatementKind::Var { name, value }
+            | StatementKind::Const { name, value } => {
                 if exports.contains(name) {
                     if let Some(v) = value {
                         variables.insert(name.clone(), v.clone());
@@ -62,5 +66,9 @@ pub fn load_module_exports(path: &Path) -> Result<ModuleExports> {
         }
     }
 
-    Ok(ModuleExports { variables, groups, patterns })
+    Ok(ModuleExports {
+        variables,
+        groups,
+        patterns,
+    })
 }

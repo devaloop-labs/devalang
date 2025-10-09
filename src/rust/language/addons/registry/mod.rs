@@ -163,14 +163,6 @@ impl BankRegistry {
             }
         };
 
-        // Use the temporary reference to display logs
-        println!("🔍 Registering bank: {}", alias);
-        println!("   Identifier: {}", result.identifier);
-        println!("   Available triggers:");
-        for trigger in result.triggers.keys() {
-            println!("      {}", trigger);
-        }
-
         Ok(result)
     }
 

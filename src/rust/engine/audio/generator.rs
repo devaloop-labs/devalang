@@ -70,7 +70,7 @@ pub fn generate_note(
 }
 
 /// Generate stereo audio samples for a single note with pan and detune options
-/// 
+///
 /// If params contains plugin information, it will use the WASM plugin instead of built-in synth
 pub fn generate_note_with_options(
     midi_note: u8,
@@ -82,7 +82,7 @@ pub fn generate_note_with_options(
     detune: f32, // cents, -100 to 100
 ) -> Result<Vec<f32>> {
     // Generating note (diagnostics suppressed)
-    
+
     // Check if we should use a WASM plugin
     #[cfg(feature = "cli")]
     {
@@ -104,7 +104,7 @@ pub fn generate_note_with_options(
             }
         }
     }
-    
+
     // Using classic synth path
 
     let base_frequency = midi_to_frequency(midi_note);
@@ -387,21 +387,23 @@ fn generate_note_with_plugin(
     use once_cell::sync::Lazy;
     use std::sync::Mutex;
 
-    println!("🎸 [PLUGIN_GEN] Generating note with plugin: {}.{} (export: {:?})", 
-        plugin_author, plugin_name, plugin_export);
+    println!(
+        "🎸 [PLUGIN_GEN] Generating note with plugin: {}.{} (export: {:?})",
+        plugin_author, plugin_name, plugin_export
+    );
 
     // Global plugin runner (cached)
-    static PLUGIN_RUNNER: Lazy<Mutex<WasmPluginRunner>> = 
+    static PLUGIN_RUNNER: Lazy<Mutex<WasmPluginRunner>> =
         Lazy::new(|| Mutex::new(WasmPluginRunner::new()));
-    
+
     // Global plugin cache
-    static PLUGIN_CACHE: Lazy<Mutex<HashMap<String, Vec<u8>>>> = 
+    static PLUGIN_CACHE: Lazy<Mutex<HashMap<String, Vec<u8>>>> =
         Lazy::new(|| Mutex::new(HashMap::new()));
 
     // Get or load plugin
     let plugin_key = format!("{}.{}", plugin_author, plugin_name);
     let mut cache = PLUGIN_CACHE.lock().unwrap();
-    
+
     let wasm_bytes = if let Some(bytes) = cache.get(&plugin_key) {
         println!("   Using cached plugin ({}  bytes)", bytes.len());
         bytes.clone()
@@ -410,13 +412,14 @@ fn generate_note_with_plugin(
         // Load plugin
         let (info, bytes) = load_plugin(plugin_author, plugin_name)
             .map_err(|e| anyhow::anyhow!("Failed to load plugin: {}", e))?;
-        
-        eprintln!("✅ Loaded plugin: {}.{} (v{})", 
-            info.author, 
-            info.name, 
+
+        eprintln!(
+            "✅ Loaded plugin: {}.{} (v{})",
+            info.author,
+            info.name,
             info.version.as_deref().unwrap_or("unknown")
         );
-        
+
         cache.insert(plugin_key.clone(), bytes.clone());
         bytes
     };
@@ -429,14 +432,14 @@ fn generate_note_with_plugin(
     } else {
         base_frequency
     };
-    
+
     let duration_seconds = duration_ms / 1000.0;
     let total_samples = (duration_seconds * sample_rate as f32) as usize;
     let mut buffer = vec![0.0f32; total_samples * 2]; // stereo
 
     // Prepare options for plugin (merge waveform + custom options)
     let mut plugin_options = params.options.clone();
-    
+
     // Add waveform if not already in options
     if !plugin_options.contains_key("waveform") {
         // Try to convert waveform string to numeric value if possible
@@ -453,25 +456,34 @@ fn generate_note_with_plugin(
     // Call plugin
     let runner = PLUGIN_RUNNER.lock().unwrap();
     let synth_id = format!("{}_{}", plugin_key, plugin_export.unwrap_or("default"));
-    
-    println!("   📋 Buffer before plugin: first 10 samples: {:?}", &buffer[0..10.min(buffer.len())]);
-    
-    runner.render_note_in_place(
-        &wasm_bytes,
-        &mut buffer,
-        Some(&synth_id),
-        plugin_export,
-        frequency,
-        velocity,
-        duration_ms as i32,
-        sample_rate as i32,
-        2, // stereo
-        Some(&plugin_options),
-    ).map_err(|e| anyhow::anyhow!("Plugin render error: {}", e))?;
 
-    println!("   📋 Buffer after plugin: first 10 samples: {:?}", &buffer[0..10.min(buffer.len())]);
-    println!("   📋 Buffer stats: len={}, max={:.4}, rms={:.4}", 
-        buffer.len(), 
+    println!(
+        "   📋 Buffer before plugin: first 10 samples: {:?}",
+        &buffer[0..10.min(buffer.len())]
+    );
+
+    runner
+        .render_note_in_place(
+            &wasm_bytes,
+            &mut buffer,
+            Some(&synth_id),
+            plugin_export,
+            frequency,
+            velocity,
+            duration_ms as i32,
+            sample_rate as i32,
+            2, // stereo
+            Some(&plugin_options),
+        )
+        .map_err(|e| anyhow::anyhow!("Plugin render error: {}", e))?;
+
+    println!(
+        "   📋 Buffer after plugin: first 10 samples: {:?}",
+        &buffer[0..10.min(buffer.len())]
+    );
+    println!(
+        "   📋 Buffer stats: len={}, max={:.4}, rms={:.4}",
+        buffer.len(),
         buffer.iter().map(|s| s.abs()).fold(0.0f32, f32::max),
         (buffer.iter().map(|s| s * s).sum::<f32>() / buffer.len() as f32).sqrt()
     );
@@ -482,7 +494,7 @@ fn generate_note_with_plugin(
         let pan_angle = (pan + 1.0) * 0.25 * std::f32::consts::PI;
         let left_gain = pan_angle.cos();
         let right_gain = pan_angle.sin();
-        
+
         for i in (0..buffer.len()).step_by(2) {
             if i + 1 < buffer.len() {
                 buffer[i] *= left_gain;

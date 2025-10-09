@@ -1,11 +1,11 @@
 use crate::engine::audio::events::AudioEventList;
+use crate::engine::audio::events::SynthDefinition;
 use crate::engine::events::EventRegistry;
 use crate::engine::functions::FunctionRegistry;
 use crate::engine::special_vars::{SpecialVarContext, is_special_var, resolve_special_var};
-use crate::engine::audio::events::SynthDefinition;
-use crate::language::syntax::ast::{Statement, Value};
 #[cfg(feature = "cli")]
 use crate::language::addons::registry::BankRegistry;
+use crate::language::syntax::ast::{Statement, Value};
 
 // Provide a lightweight stub for BankRegistry when CLI feature is disabled (WASM/plugin builds)
 #[cfg(not(feature = "cli"))]
@@ -15,10 +15,24 @@ pub struct BankRegistry;
 
 #[cfg(not(feature = "cli"))]
 impl BankRegistry {
-    pub fn new() -> Self { BankRegistry }
-    pub fn list_banks(&self) -> Vec<(String, StubBank)> { Vec::new() }
-    pub fn resolve_trigger(&self, _var: &str, _prop: &str) -> Option<std::path::PathBuf> { None }
-    pub fn register_bank(&self, _alias: String, _name: &str, _cwd: &std::path::Path, _cwd2: &std::path::Path) -> Result<(), anyhow::Error> { Ok(()) }
+    pub fn new() -> Self {
+        BankRegistry
+    }
+    pub fn list_banks(&self) -> Vec<(String, StubBank)> {
+        Vec::new()
+    }
+    pub fn resolve_trigger(&self, _var: &str, _prop: &str) -> Option<std::path::PathBuf> {
+        None
+    }
+    pub fn register_bank(
+        &self,
+        _alias: String,
+        _name: &str,
+        _cwd: &std::path::Path,
+        _cwd2: &std::path::Path,
+    ) -> Result<(), anyhow::Error> {
+        Ok(())
+    }
 }
 
 #[cfg(not(feature = "cli"))]
@@ -28,15 +42,17 @@ pub struct StubBank;
 
 #[cfg(not(feature = "cli"))]
 impl StubBank {
-    pub fn list_triggers(&self) -> Vec<String> { Vec::new() }
+    pub fn list_triggers(&self) -> Vec<String> {
+        Vec::new()
+    }
 }
 /// Audio interpreter driver - main execution loop
 use anyhow::Result;
 use std::collections::HashMap;
 
 pub mod collector;
-pub mod handler;
 pub mod extractor;
+pub mod handler;
 pub mod renderer;
 
 pub struct AudioInterpreter {
@@ -336,7 +352,10 @@ impl AudioInterpreter {
     }
 
     /// Extract synth definition from a map
-    pub fn extract_synth_def_from_map(&self, map: &HashMap<String, Value>) -> Result<SynthDefinition> {
+    pub fn extract_synth_def_from_map(
+        &self,
+        map: &HashMap<String, Value>,
+    ) -> Result<SynthDefinition> {
         handler::extract_synth_def_from_map(self, map)
     }
 
@@ -351,7 +370,10 @@ impl AudioInterpreter {
     }
 
     /// Extract pattern string and options from pattern value
-    pub fn extract_pattern_data(&self, value: &Value) -> (Option<String>, Option<HashMap<String, f32>>) {
+    pub fn extract_pattern_data(
+        &self,
+        value: &Value,
+    ) -> (Option<String>, Option<HashMap<String, f32>>) {
         handler::extract_pattern_data(self, value)
     }
 

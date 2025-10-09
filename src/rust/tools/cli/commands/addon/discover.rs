@@ -65,7 +65,7 @@ async fn discover_local_addons(
 
     // Filter according to search criteria
     let mut filtered_addons = discovered_addons;
-    
+
     if let Some(ref term) = search_term {
         let term_lower = term.to_lowercase();
         filtered_addons.retain(|addon| {
@@ -110,15 +110,12 @@ fn walk_dir_collect_tar_gz(base: &Path, out: &mut Vec<AddonSearchResult>) -> Res
 
     for entry in entries.filter_map(|e| e.ok()) {
         let path = entry.path();
-        
+
         if path.is_dir() {
             // Recurse into subdirectories
             walk_dir_collect_tar_gz(&path, out)?;
         } else if path.is_file() {
-            let filename = path
-                .file_name()
-                .and_then(|s| s.to_str())
-                .unwrap_or("");
+            let filename = path.file_name().and_then(|s| s.to_str()).unwrap_or("");
 
             if filename.ends_with(".tar.gz") || filename.ends_with(".tgz") {
                 // Extract the name (remove extension)
@@ -211,7 +208,10 @@ pub async fn prompt_and_install_addons(addons: &[AddonSearchResult], local: bool
                 "template" => "📄",
                 _ => "📦",
             };
-            format!("{} {} by {} ({})", type_emoji, addon.name, addon.author, addon.addon_type)
+            format!(
+                "{} {} by {} ({})",
+                type_emoji, addon.name, addon.author, addon.addon_type
+            )
         })
         .collect();
 
@@ -257,7 +257,8 @@ pub async fn prompt_and_install_addons(addons: &[AddonSearchResult], local: bool
     for addon in to_install {
         let slug = if local {
             // For local install, use the filename from path
-            addon.path
+            addon
+                .path
                 .file_name()
                 .and_then(|f| f.to_str())
                 .unwrap_or(&addon.slug)
@@ -311,10 +312,20 @@ pub fn display_addon_results(addons: &[AddonSearchResult], local: bool) {
     let banks: Vec<_> = addons.iter().filter(|a| a.addon_type == "bank").collect();
     let plugins: Vec<_> = addons.iter().filter(|a| a.addon_type == "plugin").collect();
     let presets: Vec<_> = addons.iter().filter(|a| a.addon_type == "preset").collect();
-    let templates: Vec<_> = addons.iter().filter(|a| a.addon_type == "template").collect();
-    let unknown: Vec<_> = addons.iter().filter(|a| a.addon_type == "unknown").collect();
+    let templates: Vec<_> = addons
+        .iter()
+        .filter(|a| a.addon_type == "template")
+        .collect();
+    let unknown: Vec<_> = addons
+        .iter()
+        .filter(|a| a.addon_type == "unknown")
+        .collect();
 
-    let location = if local { "project .deva directory" } else { "remote" };
+    let location = if local {
+        "project .deva directory"
+    } else {
+        "remote"
+    };
     println!("\n📦 Found {} addon(s) in {}:\n", addons.len(), location);
 
     // Display banks
@@ -368,7 +379,9 @@ pub fn display_addon_results(addons: &[AddonSearchResult], local: bool) {
     }
 
     if local {
-        println!("💡 Use 'devalang addon discover --local --install' to install these addons interactively\n");
+        println!(
+            "💡 Use 'devalang addon discover --local --install' to install these addons interactively\n"
+        );
     } else {
         println!("💡 Use 'devalang addon install <slug>' to install an addon\n");
     }

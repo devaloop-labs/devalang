@@ -21,7 +21,15 @@ pub fn execute_arrow_call(
     };
 
     // Execute first method
-    registry.execute(method, &mut context, args)?;
+    if registry.has(method) {
+        registry.execute(method, &mut context, args)?;
+    } else {
+        // Not a registered function: treat as a routing/target name
+        context.set(
+            "route_to",
+            crate::language::syntax::ast::Value::String(method.to_string()),
+        );
+    }
 
     // Execute chained methods if any
     if let Some(chain_calls) = chain {
@@ -51,7 +59,15 @@ pub fn execute_arrow_call(
                     .unwrap_or(&[]);
 
                 // Execute chained method
-                registry.execute(method_name, &mut context, method_args)?;
+                if registry.has(method_name) {
+                    registry.execute(method_name, &mut context, method_args)?;
+                } else {
+                    // Treat unknown chained method as routing/target directive
+                    context.set(
+                        "route_to",
+                        crate::language::syntax::ast::Value::String(method_name.to_string()),
+                    );
+                }
             }
         }
     }

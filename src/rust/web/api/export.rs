@@ -198,12 +198,13 @@ pub fn export_audio(
     // Convert to requested format using the encoder system
     let bytes = {
         use crate::engine::audio::encoders::{AudioFormat, EncoderOptions, encode_audio};
-        
-        let format = AudioFormat::from_str(&opts.format)
-            .ok_or_else(|| to_js_error(&format!(
-                "Unsupported format: '{}'. Supported formats: wav, mp3, ogg, flac, opus", 
+
+        let format = AudioFormat::from_str(&opts.format).ok_or_else(|| {
+            to_js_error(&format!(
+                "Unsupported format: '{}'. Supported formats: wav, mp3, ogg, flac, opus",
                 opts.format
-            )))?;
+            ))
+        })?;
 
         let encoder_opts = match format {
             AudioFormat::Wav => EncoderOptions::wav(opts.sample_rate, opts.bit_depth),

@@ -38,14 +38,14 @@ pub fn parse_pattern(
                 if let Some(brace_end) = joined.rfind('}') {
                     // Extract options block
                     let options_str = &joined[brace_start + 1..brace_end];
-                    
+
                     // Parse options (key: value pairs)
                     for pair in options_str.split(',') {
                         let parts: Vec<&str> = pair.split(':').collect();
                         if parts.len() == 2 {
                             let key = parts[0].trim().to_string();
                             let value_str = parts[1].trim();
-                            
+
                             // Parse value
                             let value = if let Ok(num) = value_str.parse::<f32>() {
                                 Value::Number(num)
@@ -58,11 +58,11 @@ pub fn parse_pattern(
                             } else {
                                 Value::Identifier(value_str.to_string())
                             };
-                            
+
                             options.insert(key, value);
                         }
                     }
-                    
+
                     // Check for "=" and pattern after the brace
                     let after_brace = joined[brace_end + 1..].trim();
                     if let Some(eq_pos) = after_brace.find('=') {
@@ -284,16 +284,21 @@ pub fn parse_call(
         let eq_parts: Vec<&str> = line.splitn(2, '=').collect();
         if eq_parts.len() == 2 {
             // Extract target (remove "call " prefix)
-            let target = eq_parts[0].trim().strip_prefix("call").unwrap_or(eq_parts[0]).trim().to_string();
+            let target = eq_parts[0]
+                .trim()
+                .strip_prefix("call")
+                .unwrap_or(eq_parts[0])
+                .trim()
+                .to_string();
             let pattern = eq_parts[1].trim().trim_matches('"').to_string();
-            
+
             // Create an inline pattern statement
             // Store pattern data in the Call's value field
             let mut map = HashMap::new();
             map.insert("inline_pattern".to_string(), Value::Boolean(true));
             map.insert("target".to_string(), Value::String(target.clone()));
             map.insert("pattern".to_string(), Value::String(pattern));
-            
+
             return Ok(Statement::new(
                 StatementKind::Call {
                     name: target,

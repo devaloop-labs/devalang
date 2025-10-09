@@ -24,19 +24,42 @@ pub fn parse_tempo(
 pub fn parse_print(line: &str, line_number: usize) -> Result<Statement> {
     let message = line
         .strip_prefix("print")
-        .ok_or_else(|| anyhow!("Invalid print statement: expected 'print' keyword at line {}", line_number))?
+        .ok_or_else(|| {
+            anyhow!(
+                "Invalid print statement: expected 'print' keyword at line {}",
+                line_number
+            )
+        })?
         .trim();
 
     // If message is a quoted string, keep it as String; if it's a number, parse as Number;
     // otherwise treat as an identifier (variable name) so it can be resolved at runtime.
     if message.starts_with('"') && message.ends_with('"') && message.len() >= 2 {
-        let cleaned = message[1..message.len()-1].to_string();
-        Ok(Statement::new(StatementKind::Print, Value::String(cleaned), 0, line_number, 1))
+        let cleaned = message[1..message.len() - 1].to_string();
+        Ok(Statement::new(
+            StatementKind::Print,
+            Value::String(cleaned),
+            0,
+            line_number,
+            1,
+        ))
     } else if let Ok(num) = message.parse::<f32>() {
-        Ok(Statement::new(StatementKind::Print, Value::Number(num), 0, line_number, 1))
+        Ok(Statement::new(
+            StatementKind::Print,
+            Value::Number(num),
+            0,
+            line_number,
+            1,
+        ))
     } else {
         // treat as identifier
-        Ok(Statement::new(StatementKind::Print, Value::Identifier(message.to_string()), 0, line_number, 1))
+        Ok(Statement::new(
+            StatementKind::Print,
+            Value::Identifier(message.to_string()),
+            0,
+            line_number,
+            1,
+        ))
     }
 }
 

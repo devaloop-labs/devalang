@@ -97,7 +97,7 @@ pub fn parse_single_arg(arg: &str) -> Result<Value> {
 
 /// Parse synth definition: synth waveform { params } OR synth plugin.<name> { params }
 /// Returns a Map with type="synth", waveform/plugin info, and parameters
-/// 
+///
 /// Supported syntaxes:
 /// - synth "sine" { attack: 0.1 }
 /// - synth plugin.acid.synth { waveform: "sine" }
@@ -116,21 +116,30 @@ pub fn parse_synth_definition(input: &str) -> Result<Value> {
         return Ok(Value::Map({
             let mut map = HashMap::new();
             map.insert("type".to_string(), Value::String("synth".to_string()));
-            
+
             // Check if it's a plugin reference (plugin.author.name)
             if input.starts_with("plugin.") {
                 let parts: Vec<&str> = input.split('.').collect();
                 if parts.len() >= 3 {
-                    map.insert("plugin_author".to_string(), Value::String(parts[1].to_string()));
-                    map.insert("plugin_name".to_string(), Value::String(parts[2].to_string()));
+                    map.insert(
+                        "plugin_author".to_string(),
+                        Value::String(parts[1].to_string()),
+                    );
+                    map.insert(
+                        "plugin_name".to_string(),
+                        Value::String(parts[2].to_string()),
+                    );
                     if parts.len() >= 4 {
-                        map.insert("plugin_export".to_string(), Value::String(parts[3].to_string()));
+                        map.insert(
+                            "plugin_export".to_string(),
+                            Value::String(parts[3].to_string()),
+                        );
                     }
                 }
             } else {
                 map.insert("waveform".to_string(), Value::String(input.to_string()));
             }
-            
+
             map
         }));
     };
@@ -147,22 +156,37 @@ pub fn parse_synth_definition(input: &str) -> Result<Value> {
         // Check if it's a plugin reference (contains '.' → variable.property or plugin.author.name)
         if waveform_or_plugin.contains('.') {
             // Store plugin reference in internal field (will be resolved in interpreter)
-            params_map.insert("_plugin_ref".to_string(), Value::String(waveform_or_plugin.to_string()));
-            
+            params_map.insert(
+                "_plugin_ref".to_string(),
+                Value::String(waveform_or_plugin.to_string()),
+            );
+
             // Also check for explicit plugin.author.name format
             if waveform_or_plugin.starts_with("plugin.") {
                 let parts: Vec<&str> = waveform_or_plugin.split('.').collect();
                 if parts.len() >= 3 {
-                    params_map.insert("plugin_author".to_string(), Value::String(parts[1].to_string()));
-                    params_map.insert("plugin_name".to_string(), Value::String(parts[2].to_string()));
+                    params_map.insert(
+                        "plugin_author".to_string(),
+                        Value::String(parts[1].to_string()),
+                    );
+                    params_map.insert(
+                        "plugin_name".to_string(),
+                        Value::String(parts[2].to_string()),
+                    );
                     if parts.len() >= 4 {
-                        params_map.insert("plugin_export".to_string(), Value::String(parts[3].to_string()));
+                        params_map.insert(
+                            "plugin_export".to_string(),
+                            Value::String(parts[3].to_string()),
+                        );
                     }
                 }
             }
         } else {
             // It's a waveform string
-            params_map.insert("waveform".to_string(), Value::String(waveform_or_plugin.to_string()));
+            params_map.insert(
+                "waveform".to_string(),
+                Value::String(waveform_or_plugin.to_string()),
+            );
         }
     }
 

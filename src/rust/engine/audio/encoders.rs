@@ -4,10 +4,10 @@
 //! Currently supported:
 //! - WAV (via hound) - 16/24/32-bit
 //! - MP3 (via mp3lame-encoder) - 128/192/256/320 kbps
-//! 
+//!
 //! Planned: OGG Vorbis, FLAC, Opus
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 
 /// Supported export formats
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -71,9 +71,9 @@ impl AudioFormat {
 pub struct EncoderOptions {
     pub format: AudioFormat,
     pub sample_rate: u32,
-    pub bit_depth: u8,      // For WAV/FLAC: 16, 24, 32
-    pub bitrate_kbps: u32,  // For MP3/OGG/Opus: 128, 192, 256, 320
-    pub quality: f32,       // For OGG/Opus: 0.0-10.0 (quality scale)
+    pub bit_depth: u8,     // For WAV/FLAC: 16, 24, 32
+    pub bitrate_kbps: u32, // For MP3/OGG/Opus: 128, 192, 256, 320
+    pub quality: f32,      // For OGG/Opus: 0.0-10.0 (quality scale)
 }
 
 impl Default for EncoderOptions {
@@ -137,7 +137,9 @@ pub fn encode_audio(pcm_samples: &[f32], options: &EncoderOptions) -> Result<Vec
             }
             #[cfg(not(feature = "cli"))]
             {
-                return Err(anyhow!("MP3 export not available in this build (disabled for WASM)."));
+                return Err(anyhow!(
+                    "MP3 export not available in this build (disabled for WASM)."
+                ));
             }
         }
         AudioFormat::Ogg => encode_ogg(pcm_samples, options),
@@ -149,7 +151,7 @@ pub fn encode_audio(pcm_samples: &[f32], options: &EncoderOptions) -> Result<Vec
 /// Encode to WAV format (using hound)
 #[cfg(any(feature = "cli", feature = "wasm"))]
 fn encode_wav(pcm_samples: &[f32], options: &EncoderOptions) -> Result<Vec<u8>> {
-    use hound::{WavSpec, WavWriter, SampleFormat};
+    use hound::{SampleFormat, WavSpec, WavWriter};
     use std::io::Cursor;
 
     let spec = WavSpec {
@@ -173,9 +175,11 @@ fn encode_wav(pcm_samples: &[f32], options: &EncoderOptions) -> Result<Vec<u8>> 
             for &sample in pcm_samples {
                 let clamped = sample.clamp(-1.0, 1.0);
                 let i16_sample = (clamped * 32767.0) as i16;
-                writer.write_sample(i16_sample)
+                writer
+                    .write_sample(i16_sample)
                     .map_err(|e| anyhow!("Failed to write sample: {}", e))?;
-                writer.write_sample(i16_sample)
+                writer
+                    .write_sample(i16_sample)
                     .map_err(|e| anyhow!("Failed to write sample: {}", e))?;
             }
         }
@@ -183,26 +187,34 @@ fn encode_wav(pcm_samples: &[f32], options: &EncoderOptions) -> Result<Vec<u8>> 
             for &sample in pcm_samples {
                 let clamped = sample.clamp(-1.0, 1.0);
                 let i24_sample = (clamped * 8388607.0) as i32;
-                writer.write_sample(i24_sample)
+                writer
+                    .write_sample(i24_sample)
                     .map_err(|e| anyhow!("Failed to write sample: {}", e))?;
-                writer.write_sample(i24_sample)
+                writer
+                    .write_sample(i24_sample)
                     .map_err(|e| anyhow!("Failed to write sample: {}", e))?;
             }
         }
         32 => {
             for &sample in pcm_samples {
-                writer.write_sample(sample)
+                writer
+                    .write_sample(sample)
                     .map_err(|e| anyhow!("Failed to write sample: {}", e))?;
-                writer.write_sample(sample)
+                writer
+                    .write_sample(sample)
                     .map_err(|e| anyhow!("Failed to write sample: {}", e))?;
             }
         }
         _ => {
-            return Err(anyhow!("Unsupported bit depth: {} (expected 16, 24, or 32)", options.bit_depth));
+            return Err(anyhow!(
+                "Unsupported bit depth: {} (expected 16, 24, or 32)",
+                options.bit_depth
+            ));
         }
     }
 
-    writer.finalize()
+    writer
+        .finalize()
         .map_err(|e| anyhow!("Failed to finalize WAV: {}", e))?;
 
     Ok(cursor.into_inner())
@@ -211,7 +223,9 @@ fn encode_wav(pcm_samples: &[f32], options: &EncoderOptions) -> Result<Vec<u8>> 
 /// Fallback stub when `hound` isn't enabled (e.g., plugin-only build without features)
 #[cfg(not(any(feature = "cli", feature = "wasm")))]
 fn encode_wav(_pcm_samples: &[f32], _options: &EncoderOptions) -> Result<Vec<u8>> {
-    Err(anyhow!("WAV export not available in this build: missing 'hound' dependency. Enable the 'cli' or 'wasm' feature to include WAV support."))
+    Err(anyhow!(
+        "WAV export not available in this build: missing 'hound' dependency. Enable the 'cli' or 'wasm' feature to include WAV support."
+    ))
 }
 
 /// Encode to MP3 format using LAME encoder
@@ -232,9 +246,11 @@ fn encode_mp3(pcm_samples: &[f32], options: &EncoderOptions) -> Result<Vec<u8>> 
     // Create MP3 encoder with specified settings
     let mut builder = Builder::new().ok_or_else(|| anyhow!("Failed to create MP3 encoder"))?;
 
-    builder.set_num_channels(2)
+    builder
+        .set_num_channels(2)
         .map_err(|_| anyhow!("Failed to set channels"))?;
-    builder.set_sample_rate(options.sample_rate)
+    builder
+        .set_sample_rate(options.sample_rate)
         .map_err(|_| anyhow!("Failed to set sample rate"))?;
 
     // Set bitrate - convert from kbps to the bitrate enum
@@ -245,13 +261,16 @@ fn encode_mp3(pcm_samples: &[f32], options: &EncoderOptions) -> Result<Vec<u8>> 
         320 => mp3lame_encoder::Bitrate::Kbps320,
         _ => mp3lame_encoder::Bitrate::Kbps192, // Default to 192 if not standard
     };
-    builder.set_brate(bitrate)
+    builder
+        .set_brate(bitrate)
         .map_err(|_| anyhow!("Failed to set bitrate"))?;
 
-    builder.set_quality(mp3lame_encoder::Quality::Best)
+    builder
+        .set_quality(mp3lame_encoder::Quality::Best)
         .map_err(|_| anyhow!("Failed to set quality"))?;
 
-    let mut encoder = builder.build()
+    let mut encoder = builder
+        .build()
         .map_err(|_| anyhow!("Failed to build MP3 encoder"))?;
 
     // Allocate output buffer for MP3 data
@@ -261,18 +280,24 @@ fn encode_mp3(pcm_samples: &[f32], options: &EncoderOptions) -> Result<Vec<u8>> 
 
     // Encode the audio data
     let input = InterleavedPcm(&stereo_samples);
-    let encoded_size = encoder.encode(input, &mut output_buffer)
+    let encoded_size = encoder
+        .encode(input, &mut output_buffer)
         .map_err(|_| anyhow!("Failed to encode MP3"))?;
 
     // Convert the written portion to initialized bytes
     let mut mp3_buffer = Vec::with_capacity(encoded_size + 7200);
     unsafe {
-        mp3_buffer.extend(output_buffer[..encoded_size].iter().map(|b| b.assume_init()));
+        mp3_buffer.extend(
+            output_buffer[..encoded_size]
+                .iter()
+                .map(|b| b.assume_init()),
+        );
     }
 
     // Flush the encoder to get remaining data
     let mut flush_buffer: Vec<MaybeUninit<u8>> = vec![MaybeUninit::uninit(); 7200];
-    let flushed_size = encoder.flush::<FlushNoGap>(&mut flush_buffer)
+    let flushed_size = encoder
+        .flush::<FlushNoGap>(&mut flush_buffer)
         .map_err(|_| anyhow!("Failed to flush MP3 encoder"))?;
 
     unsafe {
