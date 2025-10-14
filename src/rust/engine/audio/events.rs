@@ -128,7 +128,12 @@ impl AudioEventList {
         drive_color: Option<f32>,
     ) {
         // Capture synth definition snapshot at event creation time
-        let synth_def = self.get_synth(synth_id).cloned().unwrap_or_default();
+        let synth_def = self.get_synth(synth_id).cloned().unwrap_or_else(|| {
+            println!("⚠️  Warning: Synth '{}' not found when creating note event. Available synths: {:?}", 
+                     synth_id, self.synths.keys().collect::<Vec<_>>());
+            SynthDefinition::default()
+        });
+
         self.events.push(AudioEvent::Note {
             midi,
             start_time,
@@ -251,14 +256,40 @@ impl AudioEventList {
     /// Merge another AudioEventList into this one
     /// This is used for parallel spawn execution
     pub fn merge(&mut self, other: AudioEventList) {
-        // Merge events
-        self.events.extend(other.events);
-
-        // Merge synth definitions (prefer existing definitions on conflict)
+        // Merge synth definitions FIRST (prefer existing definitions on conflict)
         for (name, def) in other.synths {
             if !self.synths.contains_key(&name) {
                 self.synths.insert(name, def);
             }
+        }
+
+        // Merge events and update their synth_def snapshots if needed
+        for mut event in other.events {
+            // Update synth_def snapshot for Note and Chord events
+            match &mut event {
+                AudioEvent::Note {
+                    synth_id,
+                    synth_def,
+                    ..
+                } => {
+                    // If this event's synth now exists in merged synths, update the snapshot
+                    if let Some(updated_def) = self.synths.get(synth_id) {
+                        *synth_def = updated_def.clone();
+                    }
+                }
+                AudioEvent::Chord {
+                    synth_id,
+                    synth_def,
+                    ..
+                } => {
+                    // If this event's synth now exists in merged synths, update the snapshot
+                    if let Some(updated_def) = self.synths.get(synth_id) {
+                        *synth_def = updated_def.clone();
+                    }
+                }
+                _ => {}
+            }
+            self.events.push(event);
         }
     }
 }

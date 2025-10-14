@@ -19,39 +19,50 @@
 
 # 🦊 Devalang — Write music with code
 
-Devalang is a compact domain-specific language (DSL) for music makers, sound designers, and creative coders.
-Compose loops, control samples, synthesize audio, and render your ideas — all in clean, readable text.
+Devalang is a compact **domain-specific language** (DSL) for **music makers**, **sound designers**, and **creative coders**.
+Compose loops, control samples, synthesize audio, and render your ideas — all in clean, **readable text**.
 
-Whether you're prototyping a beat, building generative music, or performing live, Devalang gives you rhythmic precision with the elegance of code.
+Whether you're prototyping a beat, building **generative music**, or **performing live**, Devalang gives you rhythmic precision with the elegance of code.
 
-From studio sketches to live sets, Devalang puts musical ideas into motion.
+**From studio sketches to live sets, Devalang puts musical ideas into motion.**
 
-> **🚀 v0.1.0 - Complete Rewriting**
+
+> **🚀 v0.1.0+ - Complete Rewriting**
 >
 > **NEW**: [Devalang Playground V2.0 is now available](https://playground.devalang.com) — Try it in your browser!
 
----
 
 ## 📚 Quick Access
 
+### Websites & Resources
+- [🌐 Website](https://devalang.com) — Project homepage
 - [▶️ Playground](https://playground.devalang.com) — Try Devalang in your browser
 - [📖 Documentation](https://docs.devalang.com) — Complete language reference
-- [🧩 VSCode Extension](https://marketplace.visualstudio.com/items?itemName=devaloop.devalang-vscode) — Syntax highlighting & snippets
+
+### Important files
 - [📜 Changelog](./docs/CHANGELOG.md) — Version history
 - [💡 Examples](./examples/)
-- [🌐 Website](https://devalang.com) — Project homepage
-- [📦 npm Package](https://www.npmjs.com/package/@devaloop/devalang)
-- [📦 Rust Crate](https://crates.io/crates/devalang)
 
----
+### Common projects and tools
+- [📦 Devapack](https://github.com/devaloop-labs/devapack) — Community-driven addons
+- [🧩 VSCode Extension](https://marketplace.visualstudio.com/items?itemName=devaloop.devalang-vscode) — Syntax highlighting & snippets
+
+### Downloads
+- [🐙 Installers](https://devalang.com/download) — For Windows, macOS, and Linux
+- [📦 npm](https://www.npmjs.com/package/@devaloop/devalang) — Install via npm
+- [📦 cargo](https://crates.io/crates/devalang) — Install via Cargo
 
 ## ⚡ Quick Start
 
 ### Try in Your Browser
 
-> **[Launch the Playground](https://playground.devalang.com)** to try Devalang without installing anything.
+> **[Launch the Playground](https://playground.devalang.com) to try Devalang without installing anything.**
 
-### Install via npm (Recommended)
+### Download the Installers (Recommended)
+
+Visit the [Download page](https://devalang.com/download) to get the latest releases for Windows, macOS, and Linux.
+
+### Install via npm (Node.js)
 
 ```bash
 npm install -g @devaloop/devalang
@@ -86,7 +97,7 @@ devalang play --live --input examples/index.deva
 
 Devalang supports addons to extend functionalities. This allows you to easily add sound banks, effects, or other features.
 
-To create your own addon, please refer to the [Devaforge documentation](https://github.com/devaloop-labs/devaforge/tree/main/docs).
+> To create your own addon, please refer to the [Devapack documentation](https://github.com/devaloop-labs/devapack/tree/main/docs).
 
 ```bash
 # List available addons
@@ -96,15 +107,28 @@ devalang addon list
 devalang addon install devaloop.808
 ```
 
-This will install the `devaloop.808` sound bank in your current working directory inside `.deva` folder. 
+This will install the `devaloop.808` sound bank in your current working directory inside `.deva` folder.
 
 **You can then use it in your Devalang scripts !**
 
 ## 🎵 Your First Devalang File
 
-### Write the script
-
 Create a file `hello.deva` or `index.deva` (if you do not specify `--input` argument, it defaults to `index.deva`).
+
+#### Nomenclature for .deva files
+
+- Devalang files use the `.deva` extension.
+- Devalang engine is **indentation-sensitive** for blocks, similar to Python.
+- Files are plain text and can be edited with **any text editor** (VSCode recommended).
+- Ensure your text editor supports **UTF-8 encoding**.
+- Devalang is **case-sensitive**, so be consistent with capitalization.
+- Devalang reads files from **top to bottom**, so order matters.
+- Devalang files typically start with global settings (e.g., `bpm`, `bank`), followed by definitions (`synth`, `pattern`, `group`), and finally execution commands (`spawn`, `play`).
+- Devalang files can include comments using `#` or `//` for single-line comments.
+- You can name your files anything, but `index.deva` is a common convention for the main entry file.
+- You can organize your project with subfolders as needed. (use module system like `@import { var } from '<module_path>'` and `@export { var }`).
+
+Refer to the [documentation](https://docs.devalang.com) for a complete syntax reference.
 
 ```deva
 # Set the tempo
@@ -121,25 +145,29 @@ let mySynth = synth saw
 
 # Define a melody using a group to organize notes
 group myMelody:
-    mySynth -> note(C5)
-        -> duration(500)
 
-    mySynth -> note(E5)
-        -> duration(500)
+  mySynth -> note(C5)
+      -> duration(500)           # 500ms
 
-    mySynth -> note(G5)
-        -> duration(500)
+  mySynth -> note(E5)
+      -> duration(1/4)           # Quarter note
 
-# Play the melody
+  mySynth -> note(G5)
+      -> duration(1/16)           # Sixteenth note
+      -> velocity(0.8)            # Velocity (0.0 to 1.0) or 0-127
+      -> lpf(800)                 # Lowpass filter at 800Hz
+      -> reverb({ size: 0.3 })    # Reverb effect
+
+# Play the melody (in parallel)
 spawn myMelody
 
-# Play the kick pattern
+# Play the kick pattern (in parallel too)
 spawn kickPattern
 ```
 
 ### (optional) Configure project settings
 
-You can create a `devalang.json` (recommended) or `devalang.toml` file to customize check/build/play settings.
+You can create a `devalang.json` (recommended) or `devalang.toml` or even `.devalang` (legacy) file to customize check/build/play settings.
 
 This typically evitate to re-type common arguments like `--path`, `--formats`, etc.
 
@@ -234,8 +262,6 @@ devalang play --live --crossfade-ms 50 --input hello.deva
 - ✅ **Online Docs** — Complete language reference
 - ✅ **VSCode Extension** — Syntax highlighting
 
----
-
 ## 💡 Why Devalang?
 
 - 🎹 **Prototype audio ideas** without opening a DAW
@@ -246,19 +272,15 @@ devalang play --live --crossfade-ms 50 --input hello.deva
 - 🎨 **Live code** with fast iteration cycles
 - 📦 **Version control** your music with git
 
----
-
 ## 📖 Documentation
 
-**[Visit docs.devalang.com](https://docs.devalang.com)** for:
+Visit **[docs.devalang.com](https://docs.devalang.com)** for:
 - Complete syntax reference
 - API documentation
 - WASM integration guide
 - CLI command reference
 - Advanced tutorials
 - Best practices
-
----
 
 ## 🔧 Development
 
@@ -269,14 +291,16 @@ devalang play --live --crossfade-ms 50 --input hello.deva
 git clone https://github.com/devaloop-labs/devalang.git
 cd devalang
 
-# Build CLI (Rust)
-cargo build --release --features cli
+# NPM (TypeScript) and Cargo (Rust) are required
+npm install
 
-# Build WASM
-cargo build --release --features wasm --lib
+# Build CLI (Rust)
+cargo build
+
+# Build WASM (Web & Node.js)
+npm run rust:wasm:all
 
 # Build TypeScript
-npm install
 npm run ts:build
 
 # Run tests
@@ -296,8 +320,6 @@ We welcome contributions! See [CONTRIBUTING.md](./CONTRIBUTING.md) for guideline
 - 🎵 **Share examples** of your creations
 - 🧪 **Write tests** for new features
 
----
-
 ## 📜 License
 
 MIT License — See [LICENSE](./LICENSE) for details.
@@ -307,7 +329,7 @@ Copyright (c) 2025 Devaloop
 ---
 
 <div align="center">
-    <strong>Made with ❤️ by the Devaloop team</strong>
+    <strong>Made with ❤️ by <a href="https://labscend.studio">Labscend Studios</a></strong>
     <br />
-    <sub>Star ⭐ the repo if you like it!</sub>
+    <sub>Star ⭐ the repo if you like it !</sub>
 </div>

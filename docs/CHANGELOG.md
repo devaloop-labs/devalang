@@ -6,15 +6,48 @@
 
 All notable changes to Devalang will be documented in this file.
 
-## Version 0.1.4 - 2025-10-09
+## Version 0.1.4 - 2025-10-14
+
+### 🚀 What's New
+
+#### MIDI devices support I/O (beta) [(See mapping examples for more details)](../examples/routing/mapping.deva)
+
+Generate notes and patterns using your favorite MIDI controller !
+
+- Implemented MIDI devices `mapping` statement inside scripts for real-time control.
+  - Added `mapping` global object to access MIDI device information and states.
+  - Added `on` event handler to react to MIDI events in scripts. (e.g. `on mapping.out.<device_name>.noteOn:`).
+  - Possibility to bind `pattern` and `synth` from MIDI events. (e.g. `bind <pattern_name> -> mapping.out.<device_name> with { port: 1, channel: 10 }`).
+- Implemented MIDI devices `list` command in the CLI to list available MIDI devices.
+- Implemented MIDI devices `preview` command in the CLI to preview MIDI data from a device.
+  - Added `--port <port_number>` to preview MIDI data from a specific port.
+- Implemented MIDI devices `write` command in the CLI to write MIDI data inside scripts.
+  - Added `--out <file_path>` to specify the file to write in.
+  - Added `--mode <mode>` to specify the write mode ('synth' or 'pattern').
+  - Added `--port <port_number>` to specify the input port.
+  - Added `--step <step>` to specify the step duration as fraction. (e.g. `1/16` for sixteenth note).
+  - Added `--bpm <bpm>` to specify the BPM for the MIDI file (default: 120).
+  - Added `--live` flag to write MIDI data in real-time (default: false).
+  - Added `--rewrite` flag to overwrite existing file (default: false).
+  - Added `--velocity-zero-as-rest` flag to write notes with velocity 0 as `rest/sleep` (default: true).
+  - **Synth mode**: writes MIDI note events as `synth` calls.
+    - Added `--synth-name <synth_name>` to specify the synth name.
+    - Added `--waveform <waveform>` to specify the waveform for the generated synth (default: "saw").
+    - Added `--group <group_name>` to specify the group name for the generated synth.
+  - **Pattern mode**: writes MIDI note events as `pattern` definitions.
+    - Added `--pattern-name <pattern_name>` to specify the pattern name.
+    - Added `--trigger <trigger_name>` to specify the trigger name for the generated pattern.
 
 ### 🛠️ Improvements
 
-- Re-implemented `routing` capability
+- Added support for notes like "Bb4" [(see issue #3)](https://github.com/devaloop-labs/devalang/issues/3).
+- Removed temporary debug `println!` statements and replaced useful logs with structured `Logger` calls.
+- Fixed unused imports and variables warnings in MIDI native module.
 
 ### 🐛 Bug Fixes
 
 - Fixed issue with inline `pattern` not working as expected.
+- Fixed `synth` and `pattern` not working when called together with `spawn`.
 - Patched CLI dependencies to include mp3lame and exclude it from the WASM build.
 
 ## Version 0.1.3 - 2025-10-08

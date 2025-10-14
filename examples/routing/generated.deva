@@ -1,0 +1,21 @@
+# NOTE: These notes/patterns were generated with a midi controller using the --live flag
+
+bank devaloop.808 as myBank
+
+pattern myPattern with myBank.kick = "x--- xxx- xx-- x-xx --x-"
+
+let mySynth = synth saw
+
+group myLead:
+    mySynth -> note(C2) -> duration(1/4) -> velocity(64)
+    sleep 1/4
+    mySynth -> note(C2) -> duration(1/4) -> velocity(64)
+    mySynth -> note(C2) -> duration(1/4) -> velocity(64)
+    sleep 3/4
+    mySynth -> note(C2) -> duration(1/4) -> velocity(64)
+    mySynth -> note(C2) -> duration(1/4) -> velocity(64)
+    mySynth -> note(C2) -> duration(1/4) -> velocity(64)
+    mySynth -> note(C2) -> duration(1/4) -> velocity(64)
+
+spawn myLead
+spawn myPattern

@@ -6,7 +6,7 @@ use wasmtime::{Engine, Instance, Linker, Module, Store};
 #[cfg(feature = "cli")]
 pub struct WasmPluginRunner {
     engine: Engine,
-    // Cache instance par hash de WASM pour réutiliser le state
+    // Cache instances by WASM hash to reuse state
     cache: RefCell<HashMap<u64, (Store<()>, Instance)>>,
 }
 
@@ -53,10 +53,10 @@ impl WasmPluginRunner {
         instance_key.hash(&mut hasher); // Use instance_key (synth_id) for caching!
         let hash = hasher.finish();
 
-        // Borrow mutable du cache
+        // Mutably borrow the cache
         let mut cache = self.cache.borrow_mut();
 
-        // Créer l'instance si elle n'existe pas
+        // Create instance if it doesn't exist
         if !cache.contains_key(&hash) {
             // Creating new instance for synth_id
             let module = Module::new(&self.engine, wasm_bytes)
@@ -112,7 +112,7 @@ impl WasmPluginRunner {
             // Reusing cached instance for synth_id
         }
 
-        // Récupérer l'instance cachée
+        // Retrieve cached instance
         let entry = cache.get_mut(&hash).unwrap();
 
         let memory = entry

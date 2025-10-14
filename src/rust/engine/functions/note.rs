@@ -70,7 +70,7 @@ pub fn parse_note_to_midi(note: &str) -> Result<u8> {
                 offset = 1;
                 octave_start = 2;
             }
-            Some('b') => {
+            Some('b') | Some('B') => {
                 offset = -1;
                 octave_start = 2;
             }
@@ -105,5 +105,6 @@ mod tests {
         assert_eq!(parse_note_to_midi("D4").unwrap(), 62);
         assert_eq!(parse_note_to_midi("A4").unwrap(), 69);
         assert_eq!(parse_note_to_midi("C5").unwrap(), 72);
+        assert_eq!(parse_note_to_midi("Bb4").unwrap(), 70);
     }
 }

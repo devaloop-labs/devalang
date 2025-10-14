@@ -1,50 +1,40 @@
-# This file demonstrates advanced routing capabilities in Devaloop.
+# TODO: This will be available in futures releases
 
-bank devaloop.808 as my808
+# bank devaloop.808 as my808
 
-bpm 125
+# bpm 125
 
-group myKick:
-    .my808.kick
+# group myKick:
+#     .my808.kick
 
-group myLead:
-    let mySynth = synth sine
+# group myLead:
+#     let mySynth = synth sine
 
-    mySynth -> note(C4)
-            -> duration(500)
-    mySynth -> note(E4)
-            -> duration(500)
-    mySynth -> note(G4)
-            -> duration(500)
-    mySynth -> note(B4)
-            -> duration(500)
-    mySynth -> note(C5)
-            -> duration(1000)
-    mySynth -> note(B4)
-            -> duration(500)
+#     mySynth -> note(C4)
+#             -> duration(5000)
 
-routing:
-    node $master
-    node myLead
-    node myKick
+# routing:
+#     node $master
+#     node myLead
+#     node myKick
 
-    fx myLead
-        -> reverb({ size: 0.9 })
-        -> drive({ gain: 2.0, color: 0.5 })
-        -> delay({ time: 300, feedback: 0.3 })
-    fx myKick
-        -> drive({ gain: 3.0 })
+#     fx myLead
+#         -> reverb({ size: 0.9 })
+#         -> drive({ gain: 2.0, color: 0.5 })
+#         -> delay({ time: 300, feedback: 0.3 })
+#     fx myKick
+#         -> drive({ gain: 3.0 })
 
-    sidechain myKick 
-        -> compressor({
-            threshold: -20.0,
-            ratio: 3.0,
-            attack: 5.0,
-            release: 100.0
-        })
-        -> myLead
+#     sidechain myKick 
+#         -> compressor({
+#             threshold: -20.0,
+#             ratio: 3.0,
+#             attack: 5.0,
+#             release: 100.0
+#         })
+#         -> myLead
 
-on beat:
-    spawn myKick
+# on beat:
+#     spawn myKick
 
-spawn myLead
+# spawn myLead

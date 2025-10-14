@@ -170,6 +170,14 @@ pub fn handle_let(interpreter: &mut AudioInterpreter, name: &str, value: &Value)
 }
 
 pub fn handle_call(interpreter: &mut AudioInterpreter, name: &str) -> Result<()> {
+    // ============================================================================
+    // CALL EXECUTION (Sequential)
+    // ============================================================================
+    // Call accepts:
+    // - Patterns (defined with `pattern name with trigger = "x---"`)
+    // - Groups (defined with `group name:`)
+    // ============================================================================
+
     // Check inline pattern or pattern variable or group call
     // Clone the variable value first to avoid holding an immutable borrow across a mutable call
     if let Some(pattern_value) = interpreter.variables.get(name).cloned() {
@@ -444,6 +452,140 @@ pub fn handle_bind(
     target: &str,
     options: &Value,
 ) -> Result<()> {
+    use std::collections::HashMap as StdHashMap;
+
+    // Support bindings that reference runtime MIDI device mappings like:
+    //   bind myKickPattern -> mapping.out.myDeviceA with { port: 1, channel: 10 }
+    //   bind mapping.in.myDeviceB with { port: 2, channel: 10 } -> mySynth
+    // When a 'mapping.*' path is used, register a lightweight mapping entry in the
+    // interpreter variables and expose convenience variables:
+    //   mapping.<in|out>.<device>.<noteOn|noteOff|rest>
+    if source.starts_with("mapping.") || target.starts_with("mapping.") {
+        // extract options if present
+        let opts_map: StdHashMap<String, Value> = if let Value::Map(m) = options {
+            m.clone()
+        } else {
+            StdHashMap::new()
+        };
+
+        // Helper function to create mapping variables and bookkeeping
+        fn create_and_insert(
+            path: &str,
+            opts_map: &StdHashMap<String, Value>,
+            interpreter: &mut AudioInterpreter,
+        ) -> Option<(String, String)> {
+            let parts: Vec<&str> = path.split('.').collect();
+            if parts.len() >= 3 {
+                let direction = parts[1]; // "in" or "out"
+                let device = parts[2];
+
+                let mut map = StdHashMap::new();
+                map.insert(
+                    "_type".to_string(),
+                    Value::String("midi_mapping".to_string()),
+                );
+                map.insert(
+                    "direction".to_string(),
+                    Value::String(direction.to_string()),
+                );
+                map.insert("device".to_string(), Value::String(device.to_string()));
+
+                // merge provided options
+                for (k, v) in opts_map.iter() {
+                    map.insert(k.clone(), v.clone());
+                }
+
+                interpreter
+                    .variables
+                    .insert(path.to_string(), Value::Map(map.clone()));
+
+                // Expose event variables for convenience
+                let note_on = format!("mapping.{}.{}.noteOn", direction, device);
+                let note_off = format!("mapping.{}.{}.noteOff", direction, device);
+                let rest = format!("mapping.{}.{}.rest", direction, device);
+                interpreter
+                    .variables
+                    .insert(note_on.clone(), Value::String(note_on.clone()));
+                interpreter
+                    .variables
+                    .insert(note_off.clone(), Value::String(note_off.clone()));
+                interpreter
+                    .variables
+                    .insert(rest.clone(), Value::String(rest.clone()));
+
+                return Some((direction.to_string(), device.to_string()));
+            }
+            None
+        }
+
+        // If source is mapping.* (incoming mapping binds to target instrument)
+        if source.starts_with("mapping.") {
+            if let Some((direction, device)) = create_and_insert(source, &opts_map, interpreter) {
+                // Record association when target is not also mapping.*
+                if !target.starts_with("mapping.") {
+                    let mut bmap = StdHashMap::new();
+                    bmap.insert("instrument".to_string(), Value::String(target.to_string()));
+                    bmap.insert("direction".to_string(), Value::String(direction.clone()));
+                    bmap.insert("device".to_string(), Value::String(device.clone()));
+                    for (k, v) in opts_map.iter() {
+                        bmap.insert(k.clone(), v.clone());
+                    }
+                    interpreter
+                        .variables
+                        .insert(format!("__mapping_bind::{}", source), Value::Map(bmap));
+
+                    // If we have a midi_manager, try to open the input port (for incoming mappings)
+                    #[cfg(feature = "cli")]
+                    if let Some(manager) = &mut interpreter.midi_manager {
+                        if let Some(Value::Number(port_num)) = opts_map.get("port") {
+                            let idx = *port_num as usize;
+                            if let Ok(mut mgr) = manager.lock() {
+                                // use device as name for identification
+                                let _ = mgr.open_input_by_index(idx, &device);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // If target is mapping.* (binding a sequence/instrument to an external device)
+        if target.starts_with("mapping.") {
+            if let Some((direction, device)) = create_and_insert(target, &opts_map, interpreter) {
+                if !source.starts_with("mapping.") {
+                    let mut bmap = StdHashMap::new();
+                    bmap.insert("source".to_string(), Value::String(source.to_string()));
+                    bmap.insert("direction".to_string(), Value::String(direction.clone()));
+                    bmap.insert("device".to_string(), Value::String(device.clone()));
+                    for (k, v) in opts_map.iter() {
+                        bmap.insert(k.clone(), v.clone());
+                    }
+                    interpreter
+                        .variables
+                        .insert(format!("__mapping_bind::{}", target), Value::Map(bmap));
+
+                    // If we have a midi_manager, try to open the output port (for outgoing mappings)
+                    #[cfg(feature = "cli")]
+                    if let Some(manager) = &mut interpreter.midi_manager {
+                        if let Some(Value::Number(port_num)) = opts_map.get("port") {
+                            let idx = *port_num as usize;
+                            if let Ok(mut mgr) = manager.lock() {
+                                let _ = mgr.open_output_by_name(&device, idx);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Nothing more to schedule here at audio event level; actual MIDI I/O handlers
+        // will be responsible for reacting to incoming messages and emitting events into
+        // the interpreter event registry, and for flushing outgoing bound sequences to
+        // MIDI device ports when appropriate.
+        return Ok(());
+    }
+
+    // Fallback: existing behaviour (binding MIDI file data to a synth)
     let midi_data = interpreter
         .variables
         .get(source)
@@ -852,7 +994,7 @@ pub fn execute_pattern(
             let event = AudioEvent::Sample {
                 uri: resolved_uri.clone(),
                 start_time: time,
-                velocity: 100.0 * velocity_mult,
+                velocity: velocity_mult, // Already in 0-1 range, not MIDI 0-127
             };
             interpreter.events.events.push(event);
         }

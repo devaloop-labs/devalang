@@ -23,7 +23,11 @@ pub fn parse_arrow_call(line: &str, line_number: usize) -> Result<Statement> {
     for method_call in &parts[1..] {
         // Parse method(args) or just method
         if let Some(paren_idx) = method_call.find('(') {
-            let method_name = method_call[..paren_idx].trim();
+            let mut method_name = method_call[..paren_idx].trim().to_string();
+            // Accept both vel(...) and velocity(...)
+            if method_name == "vel" {
+                method_name = "velocity".to_string();
+            }
             let args_str = &method_call[paren_idx + 1..];
 
             // Find matching closing paren
@@ -130,40 +134,76 @@ pub fn parse_assign(line: &str, line_number: usize) -> Result<Statement> {
 
 /// Parse bind statement: bind source -> target { options }
 pub fn parse_bind(line: &str, line_number: usize) -> Result<Statement> {
-    // Parse: bind source -> target { options }
-    let arrow_parts: Vec<&str> = line.splitn(2, "->").collect();
+    // Supported forms:
+    //   bind <left> -> <right>
+    //   bind <left> -> <right> with { ... }
+    //   bind <left> with { ... } -> <right>
+    // We'll normalize to source/target and put the options (if any) into the statement value.
+
+    // Remove leading 'bind' and split on '->'
+    let after_bind = line
+        .trim()
+        .strip_prefix("bind")
+        .ok_or_else(|| anyhow!("bind parsing error"))?
+        .trim();
+
+    let arrow_parts: Vec<&str> = after_bind.splitn(2, "->").collect();
     if arrow_parts.len() != 2 {
         return Err(anyhow!("bind requires source -> target syntax"));
     }
 
-    let source = arrow_parts[0]
-        .trim()
-        .strip_prefix("bind")
-        .ok_or_else(|| anyhow!("bind parsing error"))?
-        .trim()
-        .to_string();
+    // Left side may contain 'with { ... }'
+    let left_raw = arrow_parts[0].trim();
+    let right_raw = arrow_parts[1].trim();
 
-    let target_part = arrow_parts[1].trim();
-
-    // Check if there are options { ... }
-    let (target, options) = if let Some(brace_pos) = target_part.find('{') {
-        let target = target_part[..brace_pos].trim().to_string();
-
-        // Find closing brace
-        if let Some(close_brace) = target_part.rfind('}') {
-            let options_str = &target_part[brace_pos..close_brace + 1];
-            let options = parse_map_value(options_str)?;
-            (target, Some(options))
-        } else {
-            return Err(anyhow!("unclosed brace in bind options"));
+    // Helper to extract optional 'with { ... }' from a side
+    fn extract_with(side: &str) -> Result<(String, Option<Value>)> {
+        let s = side.trim();
+        // Look for 'with {' pattern
+        if let Some(with_pos) = s.find("with") {
+            let before = s[..with_pos].trim().to_string();
+            let after = s[with_pos + "with".len()..].trim();
+            if after.starts_with('{') {
+                if let Some(close_brace) = after.rfind('}') {
+                    let options_str = &after[..close_brace + 1];
+                    let options = parse_map_value(options_str)?;
+                    return Ok((before, Some(options)));
+                } else {
+                    return Err(anyhow!("unclosed brace in bind options"));
+                }
+            }
         }
-    } else {
-        (target_part.to_string(), None)
+        // No 'with' found
+        Ok((s.to_string(), None))
+    }
+
+    let (source_candidate, left_opts) = extract_with(left_raw)?;
+    let (target_candidate, right_opts) = extract_with(right_raw)?;
+
+    // Merge options, favouring explicit right-side options (target) over left-side
+    let merged_options = match (left_opts, right_opts) {
+        (Some(mut l), Some(r)) => {
+            // merge maps: r overrides l
+            if let (Value::Map(lm), Value::Map(rm)) = (&mut l, &r) {
+                for (k, v) in rm.iter() {
+                    lm.insert(k.clone(), v.clone());
+                }
+                Some(l)
+            } else {
+                Some(r)
+            }
+        }
+        (Some(l), None) => Some(l),
+        (None, Some(r)) => Some(r),
+        (None, None) => None,
     };
+
+    let source = source_candidate;
+    let target = target_candidate;
 
     Ok(Statement::new(
         StatementKind::Bind { source, target },
-        options.unwrap_or(Value::Null),
+        merged_options.unwrap_or(Value::Null),
         0,
         line_number,
         1,

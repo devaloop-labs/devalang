@@ -38,18 +38,62 @@ impl FunctionExecutor for DurationFunction {
 
     fn execute(&self, context: &mut FunctionContext, args: &[Value]) -> Result<()> {
         if args.is_empty() {
-            return Err(anyhow!("duration() requires 1 argument (duration in ms)"));
+            return Err(anyhow!(
+                "duration() requires 1 argument (duration in ms or beats fraction like 1/4)"
+            ));
         }
 
-        let duration_ms = match &args[0] {
-            Value::Number(d) => *d,
-            _ => return Err(anyhow!("duration() argument must be a number")),
+        let duration_seconds = match &args[0] {
+            // Number: interpret as milliseconds
+            Value::Number(d) => *d / 1000.0,
+
+            // String or Identifier: parse as fraction (e.g., "1/4" or 1/4) and convert to seconds using tempo
+            Value::String(s) | Value::Identifier(s) => {
+                let frac_str = s.trim().trim_matches('"').trim_matches('\'');
+
+                // Try parsing as fraction (e.g., "1/4")
+                if let Some(beats) = parse_fraction_beats(frac_str) {
+                    // Convert beats to seconds using tempo from context
+                    beats * (60.0 / context.tempo)
+                } else {
+                    // Try parsing as number with optional "ms" suffix
+                    let num_str = frac_str.trim_end_matches("ms");
+                    match num_str.parse::<f32>() {
+                        Ok(ms) => ms / 1000.0,
+                        Err(_) => {
+                            return Err(anyhow!(
+                                "duration() argument must be a number (ms) or fraction (e.g., 1/4): got '{}'",
+                                s
+                            ));
+                        }
+                    }
+                }
+            }
+
+            _ => {
+                return Err(anyhow!(
+                    "duration() argument must be a number, string, or identifier"
+                ));
+            }
         };
 
+        // Store duration in ms for consistency with other code
+        let duration_ms = duration_seconds * 1000.0;
         context.set("duration", Value::Number(duration_ms));
-        context.duration = duration_ms / 1000.0; // Convert to seconds
+        context.duration = duration_seconds;
         Ok(())
     }
+}
+
+/// Parse fraction string like "1/4" to beats as f32
+fn parse_fraction_beats(s: &str) -> Option<f32> {
+    let mut parts = s.split('/');
+    let numerator: f32 = parts.next()?.trim().parse().ok()?;
+    let denominator: f32 = parts.next()?.trim().parse().ok()?;
+    if denominator.abs() < f32::EPSILON {
+        return None;
+    }
+    Some(numerator / denominator)
 }
 
 /// Pan function: stereo positioning (-1.0 = left, 0.0 = center, 1.0 = right)

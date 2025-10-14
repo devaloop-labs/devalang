@@ -1,0 +1,2 @@
+- [ ] Improve init command like V1
+- [ ] Replace logger calls by macro calls

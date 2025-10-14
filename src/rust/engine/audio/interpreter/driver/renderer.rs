@@ -7,6 +7,49 @@ use crate::engine::audio::generator::{
 };
 use anyhow::Result;
 
+// Conditional logging macros for CLI feature
+#[cfg(feature = "cli")]
+macro_rules! log_info {
+    ($logger:expr, $($arg:tt)*) => {
+        $logger.info(format!($($arg)*))
+    };
+}
+
+#[cfg(not(feature = "cli"))]
+macro_rules! log_info {
+    ($_logger:expr, $($arg:tt)*) => {
+        let _ = ($($arg)*);
+    };
+}
+
+#[cfg(feature = "cli")]
+macro_rules! log_warn {
+    ($logger:expr, $($arg:tt)*) => {
+        $logger.warn(format!($($arg)*))
+    };
+}
+
+#[cfg(not(feature = "cli"))]
+macro_rules! log_warn {
+    ($_logger:expr, $($arg:tt)*) => {
+        let _ = ($($arg)*);
+    };
+}
+
+#[cfg(feature = "cli")]
+macro_rules! log_error {
+    ($logger:expr, $($arg:tt)*) => {
+        $logger.error(format!($($arg)*))
+    };
+}
+
+#[cfg(not(feature = "cli"))]
+macro_rules! log_error {
+    ($_logger:expr, $($arg:tt)*) => {
+        let _ = ($($arg)*);
+    };
+}
+
 pub fn render_audio(interpreter: &AudioInterpreter) -> Result<Vec<f32>> {
     let total_duration = interpreter.events.total_duration();
     if total_duration <= 0.0 {
@@ -16,6 +59,18 @@ pub fn render_audio(interpreter: &AudioInterpreter) -> Result<Vec<f32>> {
     let total_samples = (total_duration * interpreter.sample_rate as f32).ceil() as usize;
     let mut buffer = vec![0.0f32; total_samples * 2]; // stereo
 
+    #[cfg(feature = "cli")]
+    let logger = crate::tools::logger::Logger::new();
+    #[cfg(not(feature = "cli"))]
+    let _logger = ();
+    log_info!(
+        logger,
+        "Starting audio rendering: {} events, {} synths, duration {:.2}s",
+        interpreter.events.events.len(),
+        interpreter.events.synths.len(),
+        total_duration
+    );
+
     for event in &interpreter.events.events {
         match event {
             crate::engine::audio::events::AudioEvent::Note { .. } => {}
@@ -24,6 +79,8 @@ pub fn render_audio(interpreter: &AudioInterpreter) -> Result<Vec<f32>> {
     }
 
     // Render each event (copied logic from driver)
+    let mut note_count = 0;
+    let mut sample_count = 0;
     for event in &interpreter.events.events {
         match event {
             crate::engine::audio::events::AudioEvent::Note {
@@ -31,7 +88,6 @@ pub fn render_audio(interpreter: &AudioInterpreter) -> Result<Vec<f32>> {
                 start_time,
                 duration,
                 velocity,
-                synth_id: _,
                 synth_def,
                 pan,
                 detune,
@@ -44,7 +100,11 @@ pub fn render_audio(interpreter: &AudioInterpreter) -> Result<Vec<f32>> {
                 reverb_amount,
                 drive_amount,
                 drive_color,
+                ..
             } => {
+                note_count += 1;
+                // Log note rendering only if needed (debug mode)
+
                 let mut params = SynthParams {
                     waveform: synth_def.waveform.clone(),
                     attack: synth_def.attack,
@@ -190,6 +250,9 @@ pub fn render_audio(interpreter: &AudioInterpreter) -> Result<Vec<f32>> {
                 start_time,
                 velocity,
             } => {
+                sample_count += 1;
+                // Log sample rendering only if needed (debug mode)
+
                 // WASM path: samples are provided by the web registry as i16 PCM
                 #[cfg(feature = "wasm")]
                 {
@@ -210,7 +273,7 @@ pub fn render_audio(interpreter: &AudioInterpreter) -> Result<Vec<f32>> {
                             }
                         }
                     } else {
-                        println!("⚠️  Sample not found in registry: {}", uri);
+                        log_warn!(logger, "Sample not found in registry: {}", uri);
                     }
                 }
 
@@ -240,14 +303,26 @@ pub fn render_audio(interpreter: &AudioInterpreter) -> Result<Vec<f32>> {
                             }
                         }
                     } else {
-                        eprintln!("❌ Error: Bank sample not found: {}", uri);
+                        log_error!(logger, "Bank sample not found: {}", uri);
                     }
                 }
             }
         }
     }
 
+    log_info!(
+        logger,
+        "Rendered {} notes + {} samples",
+        note_count,
+        sample_count
+    );
     let max_amplitude = buffer.iter().map(|&s| s.abs()).fold(0.0f32, f32::max);
+    log_info!(
+        logger,
+        "Max amplitude before normalization: {:.4}",
+        max_amplitude
+    );
+
     if max_amplitude > 1.0 {
         for sample in buffer.iter_mut() {
             *sample /= max_amplitude;

@@ -11,7 +11,54 @@ use crate::language::syntax::ast::{Statement, StatementKind, Value};
 
 use super::AudioInterpreter;
 
+// Conditional logging macros for CLI feature
+#[cfg(feature = "cli")]
+macro_rules! log_info {
+    ($logger:expr, $($arg:tt)*) => {
+        $logger.info(format!($($arg)*))
+    };
+}
+
+#[cfg(not(feature = "cli"))]
+macro_rules! log_info {
+    ($_logger:expr, $($arg:tt)*) => {
+        let _ = ($($arg)*);
+    };
+}
+
+#[cfg(feature = "cli")]
+macro_rules! log_warn {
+    ($logger:expr, $($arg:tt)*) => {
+        $logger.warn(format!($($arg)*))
+    };
+}
+
+#[cfg(not(feature = "cli"))]
+macro_rules! log_warn {
+    ($_logger:expr, $($arg:tt)*) => {
+        let _ = ($($arg)*);
+    };
+}
+
+#[cfg(feature = "cli")]
+macro_rules! log_error {
+    ($logger:expr, $($arg:tt)*) => {
+        $logger.error(format!($($arg)*))
+    };
+}
+
+#[cfg(not(feature = "cli"))]
+macro_rules! log_error {
+    ($_logger:expr, $($arg:tt)*) => {
+        let _ = ($($arg)*);
+    };
+}
+
 pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statement]) -> Result<()> {
+    #[cfg(feature = "cli")]
+    let logger = crate::tools::logger::Logger::new();
+    #[cfg(not(feature = "cli"))]
+    let _logger = ();
     // (content copied from top-level collector.rs)
     let (spawns, others): (Vec<_>, Vec<_>) = statements
         .iter()
@@ -81,8 +128,55 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
                 }
             }
             StatementKind::Sleep => {
-                if let Value::Number(duration) = &stmt.value {
-                    interpreter.cursor_time += duration / 1000.0;
+                // Accept either a raw number (ms) or a Duration value (beats/fraction)
+                match &stmt.value {
+                    Value::Number(n) => {
+                        interpreter.cursor_time += n / 1000.0;
+                    }
+                    Value::Duration(dv) => {
+                        // convert duration value to seconds
+                        let secs = match dv {
+                            crate::language::syntax::ast::DurationValue::Milliseconds(ms) => {
+                                Some(ms / 1000.0)
+                            }
+                            crate::language::syntax::ast::DurationValue::Beats(b) => {
+                                Some(b * (60.0 / interpreter.bpm))
+                            }
+                            crate::language::syntax::ast::DurationValue::Beat(s) => {
+                                // parse a fraction like "3/4" into beats
+                                if let Some((num, den)) = {
+                                    let mut sp = s.split('/');
+                                    if let (Some(a), Some(b)) = (sp.next(), sp.next()) {
+                                        if let (Ok(an), Ok(bn)) =
+                                            (a.trim().parse::<f32>(), b.trim().parse::<f32>())
+                                        {
+                                            Some((an, bn))
+                                        } else {
+                                            None
+                                        }
+                                    } else {
+                                        None
+                                    }
+                                } {
+                                    if den.abs() > f32::EPSILON {
+                                        Some((num / den) * (60.0 / interpreter.bpm))
+                                    } else {
+                                        None
+                                    }
+                                } else {
+                                    None
+                                }
+                            }
+                            crate::language::syntax::ast::DurationValue::Number(n) => {
+                                Some(n / 1000.0)
+                            }
+                            _ => None,
+                        };
+                        if let Some(s) = secs {
+                            interpreter.cursor_time += s;
+                        }
+                    }
+                    _ => {}
                 }
             }
             StatementKind::Group { name, body } => {
@@ -237,16 +331,16 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
                                         Value::Statement(Box::new(pattern_stmt.clone())),
                                     );
                                 } else {
-                                    println!("Import: '{}' not found in {}", name, source);
+                                    log_warn!(logger, "Import: '{}' not found in {}", name, source);
                                 }
                             }
                         }
                         Err(e) => {
-                            println!("Failed to load module {}: {}", source, e);
+                            log_warn!(logger, "Failed to load module {}: {}", source, e);
                         }
                     }
                 } else {
-                    println!("Import path not found: {}", source);
+                    log_warn!(logger, "Import path not found: {}", source);
                 }
             }
             StatementKind::Trigger {
@@ -261,6 +355,16 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
     }
 
     if !spawns.is_empty() {
+        // ============================================================================
+        // SPAWN EXECUTION (Parallel)
+        // ============================================================================
+        // Spawn accepts:
+        // - Groups (defined with `group name:`)
+        // - Patterns (defined with `pattern name with trigger = "x---"`)
+        // - Samples (variables containing sample URIs)
+        // - Bank properties (e.g., `spawn myBank.kick`)
+        // ============================================================================
+
         // Executing spawns in parallel
         let current_time = interpreter.cursor_time;
         let current_bpm = interpreter.bpm;
@@ -319,6 +423,8 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
                         cursor_time: current_time,
                         special_vars: special_vars_snapshot.clone(),
                         event_registry: EventRegistry::new(),
+                        #[cfg(feature = "cli")]
+                        midi_manager: interpreter.midi_manager.clone(),
                         current_statement_location: None,
                         suppress_beat_emit: interpreter.suppress_beat_emit,
                     };
@@ -326,13 +432,67 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
                     // Inherit synth definitions from parent so spawned groups can snapshot synths/plugins
                     local_interpreter.events.synths = interpreter.events.synths.clone();
 
+                    // Try to spawn a group first
                     if let Some(body) = groups_snapshot.get(resolved_name) {
                         // Spawn group (parallel)
+                        log_info!(
+                            logger,
+                            "Spawning group '{}' with {} synths inherited",
+                            resolved_name,
+                            local_interpreter.events.synths.len()
+                        );
                         collect_events(&mut local_interpreter, body)?;
+                        log_info!(
+                            logger,
+                            "Group '{}' produced {} events, {} synths",
+                            resolved_name,
+                            local_interpreter.events.events.len(),
+                            local_interpreter.events.synths.len()
+                        );
                         Ok(local_interpreter.events)
+                    }
+                    // Try to spawn a pattern
+                    else if let Some(pattern_value) = variables_snapshot.get(resolved_name) {
+                        if let Value::Statement(stmt_box) = pattern_value {
+                            if let StatementKind::Pattern { target, .. } = &stmt_box.kind {
+                                if let Some(tgt) = target.as_ref() {
+                                    let (pattern_str, options) =
+                                        local_interpreter.extract_pattern_data(&stmt_box.value);
+                                    if let Some(pat) = pattern_str {
+                                        // Execute pattern in spawned context
+                                        log_info!(
+                                            logger,
+                                            "Spawning pattern '{}' on target '{}'",
+                                            resolved_name,
+                                            tgt
+                                        );
+                                        local_interpreter.execute_pattern(
+                                            tgt.as_str(),
+                                            &pat,
+                                            options,
+                                        )?;
+                                        log_info!(
+                                            logger,
+                                            "Pattern '{}' produced {} events",
+                                            resolved_name,
+                                            local_interpreter.events.events.len()
+                                        );
+                                        return Ok(local_interpreter.events);
+                                    }
+                                }
+                            }
+                        }
+                        // If not a pattern, warn
+                        log_warn!(
+                            logger,
+                            "Spawn target '{}' is not a group or pattern",
+                            resolved_name
+                        );
+                        Ok(AudioEventList::new())
                     } else {
-                        println!(
-                            "Warning: Spawn target '{}' not found (neither sample nor group)",
+                        log_warn!(
+                            logger,
+                            "Spawn target '{}' not found (neither sample, group, nor pattern)",
                             resolved_name
                         );
                         Ok(AudioEventList::new())
@@ -346,10 +506,22 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
         for result in spawn_results {
             match result {
                 Ok(spawn_events) => {
+                    log_info!(
+                        logger,
+                        "Merging spawn result: {} events, {} synths",
+                        spawn_events.events.len(),
+                        spawn_events.synths.len()
+                    );
                     interpreter.events.merge(spawn_events);
+                    log_info!(
+                        logger,
+                        "Total after merge: {} events, {} synths",
+                        interpreter.events.events.len(),
+                        interpreter.events.synths.len()
+                    );
                 }
                 Err(e) => {
-                    println!("Error in spawn execution: {}", e);
+                    log_error!(logger, "Error in spawn execution: {}", e);
                 }
             }
         }

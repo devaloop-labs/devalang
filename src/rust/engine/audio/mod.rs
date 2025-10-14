@@ -9,6 +9,8 @@ pub mod graph;
 pub mod interpreter;
 pub mod lfo;
 pub mod midi;
+#[cfg(feature = "cli")]
+pub mod midi_native;
 pub mod mixer;
 pub mod nodes;
 pub mod playback;

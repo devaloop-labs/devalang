@@ -1,5 +1,7 @@
 use crate::engine::audio::events::AudioEventList;
 use crate::engine::audio::events::SynthDefinition;
+#[cfg(feature = "cli")]
+use crate::engine::audio::midi_native::MidiManager;
 use crate::engine::events::EventRegistry;
 use crate::engine::functions::FunctionRegistry;
 use crate::engine::special_vars::{SpecialVarContext, is_special_var, resolve_special_var};
@@ -66,6 +68,8 @@ pub struct AudioInterpreter {
     pub cursor_time: f32,
     pub special_vars: SpecialVarContext,
     pub event_registry: EventRegistry,
+    #[cfg(feature = "cli")]
+    pub midi_manager: Option<std::sync::Arc<std::sync::Mutex<MidiManager>>>,
     /// Track current statement location for better error reporting
     current_statement_location: Option<(usize, usize)>, // (line, column)
     /// Internal guard to avoid re-entrant beat emission during handler execution
@@ -85,6 +89,8 @@ impl AudioInterpreter {
             cursor_time: 0.0,
             special_vars: SpecialVarContext::new(120.0, sample_rate),
             event_registry: EventRegistry::new(),
+            #[cfg(feature = "cli")]
+            midi_manager: None,
             current_statement_location: None,
             suppress_beat_emit: false,
         }

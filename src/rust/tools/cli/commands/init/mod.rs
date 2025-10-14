@@ -81,9 +81,16 @@ impl InitCommand {
         fs::create_dir_all(deva_dir.join("presets"))?;
         fs::create_dir_all(deva_dir.join("templates"))?;
 
-        // Create .devalang config
-        let config_content = self.get_config_template(template);
-        fs::write(path.join(".devalang"), config_content)?;
+        // Get project name
+        let project_name = path
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string();
+
+        // Create devalang.json config (recommended format)
+        let config_content = self.get_config_template(template, &project_name);
+        fs::write(path.join("devalang.json"), config_content)?;
 
         // Create .gitignore
         let gitignore_content = self.get_gitignore_template();
@@ -96,11 +103,11 @@ impl InitCommand {
         Ok(())
     }
 
-    fn get_config_template(&self, _template: &str) -> String {
+    fn get_config_template(&self, _template: &str, project_name: &str) -> String {
         format!(
             r#"{{
   "project": {{
-    "name": "Devalang Project"
+    "name": "{}"
   }},
   "paths": {{
     "entry": "examples/index.deva",
@@ -112,13 +119,14 @@ impl InitCommand {
     "channels": 2,
     "sample_rate": 44100,
     "resample_quality": "sinc24",
-    "bpm": 120.0
+    "bpm": 120
   }},
   "live": {{
     "crossfade_ms": 500
   }}
 }}
-"#
+"#,
+            project_name
         )
     }
 

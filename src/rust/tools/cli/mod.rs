@@ -7,6 +7,7 @@ pub mod state;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+use commands::devices::DevicesListCommand;
 use commands::play::PlayCommand;
 use state::CliContext;
 
@@ -47,6 +48,21 @@ pub enum Commands {
         #[command(subcommand)]
         action: TelemetryAction,
     },
+    /// Manage MIDI devices
+    Devices {
+        #[command(subcommand)]
+        action: DevicesCommands,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum DevicesCommands {
+    /// List MIDI devices
+    List(DevicesListCommand),
+    /// Preview incoming/outgoing notes (non-writing)
+    Preview(commands::devices::DevicesLiveCommand),
+    /// Record incoming notes and write to a file
+    Write(commands::devices::DevicesWriteCommand),
 }
 
 #[derive(Subcommand, Debug)]
@@ -92,6 +108,17 @@ pub fn run() -> Result<()> {
                     }
                 }
             }
+            Commands::Devices { action } => match action {
+                DevicesCommands::List(cmd) => {
+                    commands::devices::execute_list(cmd, &ctx)?;
+                }
+                DevicesCommands::Preview(cmd) => {
+                    commands::devices::execute_preview(cmd, &ctx).await?;
+                }
+                DevicesCommands::Write(cmd) => {
+                    commands::devices::execute_write(cmd, &ctx).await?;
+                }
+            },
         }
         Ok(())
     })
