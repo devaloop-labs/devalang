@@ -1,6 +1,6 @@
+use crate::engine::audio::events::AudioEvent;
 use crate::language::syntax::ast::Value;
 use anyhow::Result;
-use crate::engine::audio::events::AudioEvent;
 
 use super::AudioInterpreter;
 
@@ -18,9 +18,10 @@ fn apply_automation_param(
 
     // 1. Try global automation first
     for name in param_names {
-        if let Some(v) = interpreter
-            .automation_registry
-            .get_value(target, name, interpreter.cursor_time)
+        if let Some(v) =
+            interpreter
+                .automation_registry
+                .get_value(target, name, interpreter.cursor_time)
         {
             result = v;
             break; // Use first matching param name
@@ -31,12 +32,13 @@ fn apply_automation_param(
     if let Some(ctx) = interpreter.note_automation_templates.get(target) {
         // Calculate progress based on note's position in the automation block
         let note_progress = ctx.progress_at_time(note_start_time);
-        
+
         for tpl in ctx.templates.iter() {
             for name in param_names {
                 if tpl.param_name == *name {
                     // Evaluate template at the note's progress position
-                    result = crate::engine::audio::automation::evaluate_template_at(tpl, note_progress);
+                    result =
+                        crate::engine::audio::automation::evaluate_template_at(tpl, note_progress);
                     return result; // Use first matching template
                 }
             }
@@ -84,15 +86,21 @@ pub fn extract_audio_event(
         } else {
             0.0
         };
-        
+
         // Check if this note should use per-note automation
         let use_per_note_automation = interpreter.note_automation_templates.contains_key(target);
-        
+
         // If using per-note automation, don't apply templates here - apply at render time
         let pan = if use_per_note_automation {
             base_pan
         } else {
-            apply_automation_param(interpreter, target, &["pan"], base_pan, interpreter.cursor_time)
+            apply_automation_param(
+                interpreter,
+                target,
+                &["pan"],
+                base_pan,
+                interpreter.cursor_time,
+            )
         };
 
         // Detune/Pitch: automation may come from either "pitch" or "detune" param name
@@ -104,7 +112,13 @@ pub fn extract_audio_event(
         let detune = if use_per_note_automation {
             base_detune
         } else {
-            apply_automation_param(interpreter, target, &["pitch", "detune"], base_detune, interpreter.cursor_time)
+            apply_automation_param(
+                interpreter,
+                target,
+                &["pitch", "detune"],
+                base_detune,
+                interpreter.cursor_time,
+            )
         };
 
         // Gain/Volume: automation may come from either "volume" or "gain" param name
@@ -116,7 +130,13 @@ pub fn extract_audio_event(
         let gain = if use_per_note_automation {
             base_gain
         } else {
-            apply_automation_param(interpreter, target, &["volume", "gain"], base_gain, interpreter.cursor_time)
+            apply_automation_param(
+                interpreter,
+                target,
+                &["volume", "gain"],
+                base_gain,
+                interpreter.cursor_time,
+            )
         };
 
         // Use the provided target as synth id so the synth definition (including plugin info)
@@ -136,14 +156,26 @@ pub fn extract_audio_event(
         for filter in &mut synth_def.filters {
             // Apply cutoff automation
             let current_cutoff = filter.cutoff;
-            let automated_cutoff = apply_automation_param(interpreter, synth_id, &["cutoff"], current_cutoff, interpreter.cursor_time);
+            let automated_cutoff = apply_automation_param(
+                interpreter,
+                synth_id,
+                &["cutoff"],
+                current_cutoff,
+                interpreter.cursor_time,
+            );
             if (automated_cutoff - current_cutoff).abs() > 0.0001 {
                 filter.cutoff = automated_cutoff;
             }
-            
+
             // Apply resonance automation
             let current_resonance = filter.resonance;
-            let automated_resonance = apply_automation_param(interpreter, synth_id, &["resonance"], current_resonance, interpreter.cursor_time);
+            let automated_resonance = apply_automation_param(
+                interpreter,
+                synth_id,
+                &["resonance"],
+                current_resonance,
+                interpreter.cursor_time,
+            );
             if (automated_resonance - current_resonance).abs() > 0.0001 {
                 filter.resonance = automated_resonance;
             }
@@ -153,7 +185,13 @@ pub fn extract_audio_event(
         let synth_params = ["filter_type", "drive", "tone", "decay"];
         for param in &synth_params {
             let current_val = synth_def.options.get(*param).copied().unwrap_or(0.0);
-            let automated_val = apply_automation_param(interpreter, synth_id, &[param], current_val, interpreter.cursor_time);
+            let automated_val = apply_automation_param(
+                interpreter,
+                synth_id,
+                &[param],
+                current_val,
+                interpreter.cursor_time,
+            );
             if (automated_val - current_val).abs() > 0.0001 {
                 synth_def.options.insert(param.to_string(), automated_val);
             }
@@ -164,12 +202,7 @@ pub fn extract_audio_event(
         {
             crate::tools::logger::Logger::new().info(format!(
                 "Scheduling Note: synth='{}' time={} dur={} pan={} detune={} gain={}",
-                synth_id,
-                interpreter.cursor_time,
-                duration,
-                pan,
-                detune,
-                gain
+                synth_id, interpreter.cursor_time, duration, pan, detune, gain
             ));
         }
 
@@ -235,10 +268,11 @@ pub fn extract_audio_event(
             } else {
                 0.0
             };
-            
+
             // Check if this chord should use per-note automation
-            let use_per_note_automation = interpreter.note_automation_templates.contains_key(target);
-            
+            let use_per_note_automation =
+                interpreter.note_automation_templates.contains_key(target);
+
             let pan = if use_per_note_automation {
                 pan
             } else {
@@ -253,7 +287,13 @@ pub fn extract_audio_event(
             let detune = if use_per_note_automation {
                 detune
             } else {
-                apply_automation_param(interpreter, target, &["pitch", "detune"], detune, interpreter.cursor_time)
+                apply_automation_param(
+                    interpreter,
+                    target,
+                    &["pitch", "detune"],
+                    detune,
+                    interpreter.cursor_time,
+                )
             };
 
             let spread = if let Some(Value::Number(s)) = context.get("spread") {
@@ -270,7 +310,13 @@ pub fn extract_audio_event(
             let gain = if use_per_note_automation {
                 gain
             } else {
-                apply_automation_param(interpreter, target, &["volume", "gain"], gain, interpreter.cursor_time)
+                apply_automation_param(
+                    interpreter,
+                    target,
+                    &["volume", "gain"],
+                    gain,
+                    interpreter.cursor_time,
+                )
             };
 
             // optional envelope overrides
@@ -336,7 +382,11 @@ pub fn extract_audio_event(
             let synth_id = if target.is_empty() { "default" } else { target };
 
             // Create chord event directly with per-note automation flag
-            let synth_def = interpreter.events.get_synth(synth_id).cloned().unwrap_or_default();
+            let synth_def = interpreter
+                .events
+                .get_synth(synth_id)
+                .cloned()
+                .unwrap_or_default();
             interpreter.events.events.push(AudioEvent::Chord {
                 midis,
                 start_time: interpreter.cursor_time,
@@ -360,20 +410,33 @@ pub fn extract_audio_event(
             });
             // Apply note-mode/global automation to synth-specific options (cutoff, resonance, etc.)
             // Collect automated values first to avoid borrowing conflicts
-            let synth_params = ["cutoff", "resonance", "filter_type", "drive", "tone", "decay"];
+            let synth_params = [
+                "cutoff",
+                "resonance",
+                "filter_type",
+                "drive",
+                "tone",
+                "decay",
+            ];
             let mut param_updates = Vec::new();
-            
+
             // Snapshot current values and compute automations
             if let Some(synth_def) = interpreter.events.synths.get(synth_id) {
                 for param in &synth_params {
                     let current_val = synth_def.options.get(*param).copied().unwrap_or(0.0);
-                    let automated_val = apply_automation_param(interpreter, synth_id, &[param], current_val, interpreter.cursor_time);
+                    let automated_val = apply_automation_param(
+                        interpreter,
+                        synth_id,
+                        &[param],
+                        current_val,
+                        interpreter.cursor_time,
+                    );
                     if (automated_val - current_val).abs() > 0.0001 {
                         param_updates.push((param.to_string(), automated_val));
                     }
                 }
             }
-            
+
             // Now apply the updates
             if let Some(synth_def) = interpreter.events.synths.get_mut(synth_id) {
                 for (param, val) in param_updates {

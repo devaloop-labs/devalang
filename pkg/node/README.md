@@ -324,7 +324,7 @@ We welcome contributions! See [CONTRIBUTING.md](./CONTRIBUTING.md) for guideline
 
 MIT License — See [LICENSE](./LICENSE) for details.
 
-Copyright (c) 2025 Devaloop
+Copyright (c) 2025 Labscend Studios
 
 ---
 

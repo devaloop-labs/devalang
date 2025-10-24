@@ -11,17 +11,17 @@ pub enum CurveType {
     EaseIn,
     EaseOut,
     EaseInOut,
-    
+
     // Advanced easing
-    Swing(f32),        // Swing with optional intensity (0.0-1.0)
-    Bounce(f32),       // Bounce with optional height (0.0-1.0)
-    Elastic(f32),      // Elastic with optional intensity
+    Swing(f32),                 // Swing with optional intensity (0.0-1.0)
+    Bounce(f32),                // Bounce with optional height (0.0-1.0)
+    Elastic(f32),               // Elastic with optional intensity
     Bezier(f32, f32, f32, f32), // Custom bezier with control points
-    
+
     // Noise-based
     Random,
-    Perlin,            // Perlin noise-based curve
-    
+    Perlin, // Perlin noise-based curve
+
     // Special
     StepFunction(f32), // Number of steps
 }
@@ -29,10 +29,10 @@ pub enum CurveType {
 /// Evaluate a curve at progress (0.0 to 1.0)
 pub fn evaluate_curve(curve: CurveType, progress: f32) -> f32 {
     let p = progress.clamp(0.0, 1.0);
-    
+
     match curve {
         CurveType::Linear => p,
-        
+
         CurveType::EaseIn => p * p,
         CurveType::EaseOut => 1.0 - (1.0 - p) * (1.0 - p),
         CurveType::EaseInOut => {
@@ -42,7 +42,7 @@ pub fn evaluate_curve(curve: CurveType, progress: f32) -> f32 {
                 1.0 - (-2.0 * p + 2.0).powi(2) / 2.0
             }
         }
-        
+
         CurveType::Swing(intensity) => {
             let i = intensity.clamp(0.0, 1.0);
             let swing_amount = 0.5 * i;
@@ -51,14 +51,15 @@ pub fn evaluate_curve(curve: CurveType, progress: f32) -> f32 {
                 (1.0 + swing_amount) * local_p - swing_amount * local_p * local_p
             } else {
                 let local_p = (p - 0.5) * 2.0;
-                1.0 - ((1.0 + swing_amount) * (1.0 - local_p) - swing_amount * (1.0 - local_p) * (1.0 - local_p))
+                1.0 - ((1.0 + swing_amount) * (1.0 - local_p)
+                    - swing_amount * (1.0 - local_p) * (1.0 - local_p))
             }
         }
-        
+
         CurveType::Bounce(height) => {
             let h = height.clamp(0.0, 1.0);
             let bounce_height = 0.5 * h;
-            
+
             // Simplified bounce curve
             if p < 0.5 {
                 let local_p = p * 2.0;
@@ -68,37 +69,37 @@ pub fn evaluate_curve(curve: CurveType, progress: f32) -> f32 {
                 0.5 + local_p / 2.0 + bounce_height * (PI * (1.0 - local_p)).sin()
             }
         }
-        
+
         CurveType::Elastic(intensity) => {
             let i = intensity.clamp(0.0, 1.0);
             let n = 5.0 * i; // Number of bounces
             p * ((n * PI * p).sin() * 0.5 + 1.0)
         }
-        
+
         CurveType::Bezier(x1, y1, x2, y2) => {
             // Simplified cubic bezier evaluation
             bezier(p, x1, y1, x2, y2)
         }
-        
+
         CurveType::Random => {
             // Deterministic "random" based on input (using sine for pseudo-randomness)
             ((p * 12.9898).sin() * 43758.5453_f32).fract()
         }
-        
+
         CurveType::Perlin => {
             // Simplified Perlin-like noise
             let t = p * 3.0;
             let i = t.floor();
             let f = t - i;
             let u = f * f * (3.0 - 2.0 * f); // Smooth step
-            
+
             // Pseudo-random gradients
             let g0 = ((i * 12.9898).sin() * 43758.5453_f32).fract();
             let g1 = (((i + 1.0) * 12.9898).sin() * 43758.5453_f32).fract();
-            
+
             g0.lerp(g1, u)
         }
-        
+
         CurveType::StepFunction(steps) => {
             let n = steps.max(1.0);
             (p * n).floor() / n
@@ -111,17 +112,22 @@ fn bezier(t: f32, x1: f32, y1: f32, x2: f32, y2: f32) -> f32 {
     // Find X value for given t
     let mut u = t;
     for _ in 0..4 {
-        let cu = (1.0 - u).powi(3) + 3.0 * (1.0 - u).powi(2) * u * x1
-            + 3.0 * (1.0 - u) * u.powi(2) * x2 + u.powi(3);
-        let der = 3.0 * (1.0 - u).powi(2) * (x1 - 1.0) 
-            + 6.0 * (1.0 - u) * u * (x2 - x1) + 3.0 * u.powi(2) * (1.0 - x2);
-        
+        let cu = (1.0 - u).powi(3)
+            + 3.0 * (1.0 - u).powi(2) * u * x1
+            + 3.0 * (1.0 - u) * u.powi(2) * x2
+            + u.powi(3);
+        let der = 3.0 * (1.0 - u).powi(2) * (x1 - 1.0)
+            + 6.0 * (1.0 - u) * u * (x2 - x1)
+            + 3.0 * u.powi(2) * (1.0 - x2);
+
         u -= (cu - t) / der;
     }
-    
+
     // Calculate Y from U
-    (1.0 - u).powi(3) + 3.0 * (1.0 - u).powi(2) * u * y1
-        + 3.0 * (1.0 - u) * u.powi(2) * y2 + u.powi(3)
+    (1.0 - u).powi(3)
+        + 3.0 * (1.0 - u).powi(2) * u * y1
+        + 3.0 * (1.0 - u) * u.powi(2) * y2
+        + u.powi(3)
 }
 
 /// Parse a curve definition from special variable syntax
@@ -150,7 +156,7 @@ fn parse_curve_name(name: &str) -> Option<CurveType> {
         "inOut" => Some(CurveType::EaseInOut),
         "random" => Some(CurveType::Random),
         "perlin" => Some(CurveType::Perlin),
-        
+
         // Parameterized curves
         _ if name.starts_with("swing(") => {
             let intensity = extract_param(name, "swing")?;
@@ -168,7 +174,7 @@ fn parse_curve_name(name: &str) -> Option<CurveType> {
             let steps = extract_param(name, "step")?;
             Some(CurveType::StepFunction(steps))
         }
-        
+
         _ => None,
     }
 }
@@ -179,12 +185,10 @@ fn parse_ease_name(name: &str) -> Option<CurveType> {
         "in" => Some(CurveType::EaseIn),
         "out" => Some(CurveType::EaseOut),
         "inOut" => Some(CurveType::EaseInOut),
-        
+
         // Bezier curve: bezier(x1, y1, x2, y2)
-        _ if name.starts_with("bezier(") => {
-            extract_bezier_params(name)
-        }
-        
+        _ if name.starts_with("bezier(") => extract_bezier_params(name),
+
         _ => None,
     }
 }
@@ -204,12 +208,12 @@ fn extract_bezier_params(name: &str) -> Option<CurveType> {
     let start_idx = name.find('(')? + 1;
     let end_idx = name.rfind(')')?;
     let content = &name[start_idx..end_idx];
-    
+
     let parts: Vec<f32> = content
         .split(',')
         .filter_map(|s| s.trim().parse::<f32>().ok())
         .collect();
-    
+
     if parts.len() == 4 {
         Some(CurveType::Bezier(parts[0], parts[1], parts[2], parts[3]))
     } else {
@@ -247,7 +251,7 @@ pub fn curve_to_value(curve: CurveType) -> Value {
         }
         CurveType::StepFunction(s) => format!("$curve.step({})", s),
     };
-    
+
     Value::String(repr)
 }
 

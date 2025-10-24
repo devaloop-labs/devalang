@@ -6,13 +6,11 @@
 
 All notable changes to Devalang will be documented in this file.
 
-## Version 0.1.5 - 2025-10-25
+## Version 0.1.5 - 2025-10-24
 
 ### 🚀 What's New
 
-#### Routing
-
-#### Automation (global & notes) [(See automation examples for more details)](../examples/automation)
+#### Automation [(See automation examples for more details)](../examples/automation)
 
 Get more expressive with parameter automation using curves !
 
@@ -147,5 +145,7 @@ Complete rewrite of the codebase with improved architecture, performance, and de
 ---
 
 <div align="center">
-    <strong>Made with ❤️ by the Devaloop team</strong>
+    <strong>Made with ❤️ by <a href="https://labscend.studio">Labscend Studios</a></strong>
+    <br />
+    <sub>Star ⭐ the repo if you like it !</sub>
 </div>

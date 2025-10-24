@@ -430,7 +430,7 @@ pub fn export_midi_file(events: &[AudioEvent], output_path: &Path, bpm: f32) -> 
     // Write to file directly (midly 0.5 API)
     smf.save(output_path)
         .map_err(|e| anyhow!("Failed to write MIDI file {}: {}", output_path.display(), e))?;
-    
+
     println!(
         "✅ MIDI exported: {} ({} events in, {} notes written)",
         output_path.display(),

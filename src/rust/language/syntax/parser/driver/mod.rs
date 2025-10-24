@@ -322,7 +322,12 @@ impl SimpleParser {
             "if" => parse_if(parts, line_number),
             "else" => parse_else(line, line_number),
             "group" => parse_group(parts, line_number),
-            "automate" => crate::language::syntax::parser::driver::statements::structure::parse_automate(parts, line_number),
+            "automate" => {
+                crate::language::syntax::parser::driver::statements::structure::parse_automate(
+                    parts,
+                    line_number,
+                )
+            }
             "call" => parse_call(line, parts, line_number),
             "spawn" => parse_spawn(parts, line_number),
             "on" => parse_on(parts, line_number),

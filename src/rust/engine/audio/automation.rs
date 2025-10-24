@@ -159,7 +159,9 @@ pub fn parse_param_templates_from_raw(raw: &str) -> Vec<AutomationParamTemplate>
     let mut templates = Vec::new();
 
     // Find param blocks: param <name> [curve <curveName>] { ... }
-    let re_block = Regex::new(r"param\s+([A-Za-z_][A-Za-z0-9_]*)\s*(?:curve\s+([^\s{]+)\s*)?\{([^}]*)\}").unwrap();
+    let re_block =
+        Regex::new(r"param\s+([A-Za-z_][A-Za-z0-9_]*)\s*(?:curve\s+([^\s{]+)\s*)?\{([^}]*)\}")
+            .unwrap();
     let re_point = Regex::new(r"([0-9]+(?:\.[0-9]+)?)%?\s*=\s*([\-0-9\.eE]+)").unwrap();
 
     for cap in re_block.captures_iter(raw) {
@@ -170,7 +172,9 @@ pub fn parse_param_templates_from_raw(raw: &str) -> Vec<AutomationParamTemplate>
         let mut points: Vec<(f32, f32)> = Vec::new();
         for pcap in re_point.captures_iter(body) {
             if let (Some(p_str), Some(v_str)) = (pcap.get(1), pcap.get(2)) {
-                if let (Ok(pv), Ok(vv)) = (p_str.as_str().parse::<f32>(), v_str.as_str().parse::<f32>()) {
+                if let (Ok(pv), Ok(vv)) =
+                    (p_str.as_str().parse::<f32>(), v_str.as_str().parse::<f32>())
+                {
                     let frac = (pv / 100.0).clamp(0.0, 1.0);
                     points.push((frac, vv));
                 }
@@ -183,7 +187,7 @@ pub fn parse_param_templates_from_raw(raw: &str) -> Vec<AutomationParamTemplate>
         if !points.is_empty() {
             // Parse advanced curve if specified
             let advanced_curve = curve_str.and_then(|s| crate::engine::curves::parse_curve(s));
-            
+
             templates.push(AutomationParamTemplate {
                 param_name: name,
                 points,
@@ -216,15 +220,19 @@ pub fn evaluate_template_at(tpl: &AutomationParamTemplate, progress: f32) -> f32
         let (p0, v0) = w[0];
         let (p1, v1) = w[1];
         if p >= p0 && p <= p1 {
-            let local = if (p1 - p0).abs() < f32::EPSILON { 0.0 } else { (p - p0) / (p1 - p0) };
-            
+            let local = if (p1 - p0).abs() < f32::EPSILON {
+                0.0
+            } else {
+                (p - p0) / (p1 - p0)
+            };
+
             // Apply advanced curve if specified
             let eased_local = if let Some(curve) = &tpl.advanced_curve {
                 crate::engine::curves::evaluate_curve(*curve, local)
             } else {
                 local // Standard linear interpolation
             };
-            
+
             return v0 + (v1 - v0) * eased_local;
         }
     }

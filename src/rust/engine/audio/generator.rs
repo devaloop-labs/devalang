@@ -1,6 +1,6 @@
+use super::lfo::{LfoParams, apply_lfo_modulation, generate_lfo_value};
 use super::synth::types::{SynthType, get_synth_type};
 use super::synth::{adsr_envelope, midi_to_frequency, oscillator_sample, time_to_samples};
-use super::lfo::{LfoParams, generate_lfo_value, apply_lfo_modulation};
 /// Note generator - creates audio samples for synthesized notes
 use anyhow::Result;
 use std::collections::HashMap;
@@ -162,7 +162,7 @@ pub fn generate_note_with_options(
 
         // Generate oscillator sample
         let mut osc_frequency = frequency;
-        
+
         // Apply pitch LFO if configured
         if let Some(ref lfo) = modified_params.lfo {
             use crate::engine::audio::lfo::LfoTarget;
@@ -171,7 +171,7 @@ pub fn generate_note_with_options(
                 osc_frequency = frequency * 2.0_f32.powf(lfo_cents / 1200.0);
             }
         }
-        
+
         let osc_sample = oscillator_sample(&modified_params.waveform, osc_frequency, time);
 
         // Apply ADSR envelope
@@ -204,7 +204,7 @@ pub fn generate_note_with_options(
     // Apply filters if any (with LFO cutoff modulation)
     for filter in &modified_params.filters {
         let mut modulated_filter = filter.clone();
-        
+
         // Apply cutoff LFO if configured
         if let Some(ref lfo) = modified_params.lfo {
             use crate::engine::audio::lfo::LfoTarget;
@@ -213,14 +213,14 @@ pub fn generate_note_with_options(
                 let cutoff_range = filter.cutoff * 0.5; // ±50% of cutoff
                 modulated_filter.cutoff = apply_lfo_modulation(
                     lfo,
-                    0.0,  // Use average LFO value for filter
+                    0.0, // Use average LFO value for filter
                     bpm,
                     filter.cutoff,
                     cutoff_range,
                 );
             }
         }
-        
+
         apply_filter(&mut samples, &modulated_filter, sample_rate)?;
     }
 

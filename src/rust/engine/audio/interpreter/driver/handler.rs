@@ -85,7 +85,7 @@ pub fn handle_let(interpreter: &mut AudioInterpreter, name: &str, value: &Value)
 
             // Extract LFO configuration if present
             let lfo = if let Some(Value::Map(lfo_map)) = map.get("lfo") {
-                use crate::engine::audio::lfo::{LfoParams, LfoWaveform, LfoRate, LfoTarget};
+                use crate::engine::audio::lfo::{LfoParams, LfoRate, LfoTarget, LfoWaveform};
 
                 // Parse rate (Hz or tempo-synced like "1/4")
                 let rate_str = if let Some(Value::Number(n)) = lfo_map.get("rate") {
@@ -370,7 +370,7 @@ pub fn extract_synth_def_from_map(
     map: &HashMap<String, Value>,
 ) -> Result<crate::engine::audio::events::SynthDefinition> {
     use crate::engine::audio::events::extract_filters;
-    use crate::engine::audio::lfo::{LfoParams, LfoWaveform, LfoRate, LfoTarget};
+    use crate::engine::audio::lfo::{LfoParams, LfoRate, LfoTarget, LfoWaveform};
 
     let waveform = crate::engine::audio::events::extract_string(map, "waveform", "sine");
     let attack = crate::engine::audio::events::extract_number(map, "attack", 0.01);
