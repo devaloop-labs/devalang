@@ -83,6 +83,62 @@ pub fn handle_let(interpreter: &mut AudioInterpreter, name: &str, value: &Value)
                 Vec::new()
             };
 
+            // Extract LFO configuration if present
+            let lfo = if let Some(Value::Map(lfo_map)) = map.get("lfo") {
+                use crate::engine::audio::lfo::{LfoParams, LfoWaveform, LfoRate, LfoTarget};
+
+                // Parse rate (Hz or tempo-synced like "1/4")
+                let rate_str = if let Some(Value::Number(n)) = lfo_map.get("rate") {
+                    n.to_string()
+                } else if let Some(Value::String(s)) = lfo_map.get("rate") {
+                    s.clone()
+                } else {
+                    "5.0".to_string() // Default rate
+                };
+                let rate = LfoRate::from_value(&rate_str);
+
+                // Parse depth (0-1)
+                let depth = if let Some(Value::Number(n)) = lfo_map.get("depth") {
+                    (*n).clamp(0.0, 1.0)
+                } else {
+                    0.5 // Default depth
+                };
+
+                // Parse waveform (sine, triangle, square, saw)
+                let waveform_str = if let Some(Value::String(s)) = lfo_map.get("shape") {
+                    s.clone()
+                } else if let Some(Value::String(s)) = lfo_map.get("waveform") {
+                    s.clone()
+                } else {
+                    "sine".to_string() // Default waveform
+                };
+                let waveform = LfoWaveform::from_str(&waveform_str);
+
+                // Parse target (volume, pitch, filter, pan)
+                let target = if let Some(Value::String(s)) = lfo_map.get("target") {
+                    LfoTarget::from_str(s).unwrap_or(LfoTarget::Volume)
+                } else {
+                    LfoTarget::Volume // Default target
+                };
+
+                // Parse initial phase (0-1)
+                let phase = if let Some(Value::Number(n)) = lfo_map.get("phase") {
+                    (*n).fract().abs() // Ensure 0-1 range
+                } else {
+                    0.0 // Default phase
+                };
+
+                Some(LfoParams {
+                    rate,
+                    depth,
+                    waveform,
+                    target,
+                    phase,
+                })
+            } else {
+                None
+            };
+
             let mut options = std::collections::HashMap::new();
             let reserved_keys = if is_plugin {
                 vec![
@@ -93,6 +149,7 @@ pub fn handle_let(interpreter: &mut AudioInterpreter, name: &str, value: &Value)
                     "type",
                     "filters",
                     "_plugin_ref",
+                    "lfo",
                 ]
             } else {
                 vec![
@@ -104,6 +161,7 @@ pub fn handle_let(interpreter: &mut AudioInterpreter, name: &str, value: &Value)
                     "type",
                     "filters",
                     "_plugin_ref",
+                    "lfo",
                 ]
             };
 
@@ -157,6 +215,7 @@ pub fn handle_let(interpreter: &mut AudioInterpreter, name: &str, value: &Value)
                 plugin_author,
                 plugin_name,
                 plugin_export,
+                lfo,
             };
 
             interpreter.events.add_synth(name.to_string(), synth_def);
@@ -311,6 +370,7 @@ pub fn extract_synth_def_from_map(
     map: &HashMap<String, Value>,
 ) -> Result<crate::engine::audio::events::SynthDefinition> {
     use crate::engine::audio::events::extract_filters;
+    use crate::engine::audio::lfo::{LfoParams, LfoWaveform, LfoRate, LfoTarget};
 
     let waveform = crate::engine::audio::events::extract_string(map, "waveform", "sine");
     let attack = crate::engine::audio::events::extract_number(map, "attack", 0.01);
@@ -351,6 +411,60 @@ pub fn extract_synth_def_from_map(
         None
     };
 
+    // Extract LFO configuration if present
+    let lfo = if let Some(Value::Map(lfo_map)) = map.get("lfo") {
+        // Parse rate (Hz or tempo-synced like "1/4")
+        let rate_str = if let Some(Value::Number(n)) = lfo_map.get("rate") {
+            n.to_string()
+        } else if let Some(Value::String(s)) = lfo_map.get("rate") {
+            s.clone()
+        } else {
+            "5.0".to_string() // Default rate
+        };
+        let rate = LfoRate::from_value(&rate_str);
+
+        // Parse depth (0-1)
+        let depth = if let Some(Value::Number(n)) = lfo_map.get("depth") {
+            (*n).clamp(0.0, 1.0)
+        } else {
+            0.5 // Default depth
+        };
+
+        // Parse waveform (sine, triangle, square, saw)
+        let waveform_str = if let Some(Value::String(s)) = lfo_map.get("shape") {
+            s.clone()
+        } else if let Some(Value::String(s)) = lfo_map.get("waveform") {
+            s.clone()
+        } else {
+            "sine".to_string() // Default waveform
+        };
+        let waveform = LfoWaveform::from_str(&waveform_str);
+
+        // Parse target (volume, pitch, filter, pan)
+        let target = if let Some(Value::String(s)) = lfo_map.get("target") {
+            LfoTarget::from_str(s).unwrap_or(LfoTarget::Volume)
+        } else {
+            LfoTarget::Volume // Default target
+        };
+
+        // Parse initial phase (0-1)
+        let phase = if let Some(Value::Number(n)) = lfo_map.get("phase") {
+            (*n).fract().abs() // Ensure 0-1 range
+        } else {
+            0.0 // Default phase
+        };
+
+        Some(LfoParams {
+            rate,
+            depth,
+            waveform,
+            target,
+            phase,
+        })
+    } else {
+        None
+    };
+
     let mut options = HashMap::new();
     for (key, val) in map.iter() {
         if ![
@@ -364,6 +478,7 @@ pub fn extract_synth_def_from_map(
             "plugin_author",
             "plugin_name",
             "plugin_export",
+            "lfo",
         ]
         .contains(&key.as_str())
         {
@@ -392,6 +507,7 @@ pub fn extract_synth_def_from_map(
         plugin_author,
         plugin_name,
         plugin_export,
+        lfo,
     })
 }
 
@@ -669,6 +785,7 @@ pub fn handle_bind(
                         reverb_amount: None,
                         drive_amount: None,
                         drive_color: None,
+                        use_per_note_automation: false,
                     };
 
                     // Diagnostic: log each scheduled note from bind (midi, time ms, start_time sec)

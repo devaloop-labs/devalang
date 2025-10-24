@@ -6,6 +6,39 @@
 
 All notable changes to Devalang will be documented in this file.
 
+## Version 0.1.5 - 2025-10-25
+
+### 🚀 What's New
+
+#### Routing
+
+#### Automation (global & notes) [(See automation examples for more details)](../examples/automation)
+
+Get more expressive with parameter automation using curves !
+
+- Implemented `automate <instrument_name> mode <global|note>:` statement to automate parameters using curves.
+  - **Global mode**: automates all notes played by the instrument.
+  - **Notes mode**: automates each of the notes defined inside the block.
+- Implemented built-in curves:
+  - `$curve.linear` : default linear curve.
+  - `$curve.easeIn` : quadratic ease-in curve.
+  - `$curve.easeOut` : quadratic ease-out curve.
+  - `$curve.easeInOut` : quadratic ease-in-out curve.
+- Implemented advanced curves:
+  - `$curve.swing(<intensity>)` : sinusoidal swing curve with optional intensity (0.0 to 1.0).
+  - `$curve.bounce(<height>)` : bouncing curve with optional height (0.0 to 1.0).
+  - `$curve.elastic(<intensity>)` : elastic curve with optional intensity (0.0 to 2.0+).
+  - `$curve.bezier(<x1>, <y1>, <x2>, <y2>)` : cubic Bezier curve with 4 control points.
+  - `$curve.step(<steps>)` : stepped curve with specified number of steps.
+  - `$curve.random` : random curve generating random values between 0.0 and 1.0.
+  - `$curve.perlin` : Perlin noise curve for organic variations.
+- Implemented LFO support in synths for modulation effects.
+  - Added `lfo` parameter in synth definitions with `rate`, `depth`, `shape`, and `target` options.
+
+### 🐛 Bug Fixes
+
+- Fixed MIDI rendering issue that was rendering empty MIDI files.
+
 ## Version 0.1.4 - 2025-10-14
 
 ### 🚀 What's New

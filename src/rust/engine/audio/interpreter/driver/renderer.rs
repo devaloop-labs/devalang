@@ -88,6 +88,7 @@ pub fn render_audio(interpreter: &AudioInterpreter) -> Result<Vec<f32>> {
                 start_time,
                 duration,
                 velocity,
+                synth_id,
                 synth_def,
                 pan,
                 detune,
@@ -100,7 +101,7 @@ pub fn render_audio(interpreter: &AudioInterpreter) -> Result<Vec<f32>> {
                 reverb_amount,
                 drive_amount,
                 drive_color,
-                ..
+                use_per_note_automation,
             } => {
                 note_count += 1;
                 // Log note rendering only if needed (debug mode)
@@ -114,6 +115,7 @@ pub fn render_audio(interpreter: &AudioInterpreter) -> Result<Vec<f32>> {
                     synth_type: synth_def.synth_type.clone(),
                     filters: synth_def.filters.clone(),
                     options: synth_def.options.clone(),
+                    lfo: synth_def.lfo.clone(),
                     plugin_author: synth_def.plugin_author.clone(),
                     plugin_name: synth_def.plugin_name.clone(),
                     plugin_export: synth_def.plugin_export.clone(),
@@ -126,15 +128,92 @@ pub fn render_audio(interpreter: &AudioInterpreter) -> Result<Vec<f32>> {
                     params.release = r / 1000.0;
                 }
 
-                let mut samples = generate_note_with_options(
-                    *midi,
-                    duration * 1000.0,
-                    velocity * gain,
-                    &params,
-                    interpreter.sample_rate,
-                    *pan,
-                    *detune,
-                )?;
+                let mut samples = if *use_per_note_automation {
+                    // Generate per-note automation with segments
+                    if let Some(automation_ctx) = interpreter.note_automation_templates.get(synth_id.as_str()) {
+                        use crate::engine::audio::automation::evaluate_template_at;
+                        
+                        let mut all_samples = Vec::new();
+                        let num_segments = 8; // Generate 8 segments per note for smooth automation
+                        let segment_duration = duration / num_segments as f32;
+                        
+                        for segment_idx in 0..num_segments {
+                            // Calculate progress for this segment (0.0 to 1.0)
+                            let segment_progress = (segment_idx as f32 + 0.5) / num_segments as f32;
+                            
+                            // Evaluate templates for this progress point
+                            let segment_pan = automation_ctx.templates.iter()
+                                .find(|t| t.param_name == "pan")
+                                .map(|t| evaluate_template_at(t, segment_progress))
+                                .unwrap_or(*pan);
+                            
+                            let segment_detune = automation_ctx.templates.iter()
+                                .find(|t| t.param_name == "pitch" || t.param_name == "detune")
+                                .map(|t| evaluate_template_at(t, segment_progress))
+                                .unwrap_or(*detune);
+                            
+                            let segment_gain = automation_ctx.templates.iter()
+                                .find(|t| t.param_name == "volume" || t.param_name == "gain")
+                                .map(|t| evaluate_template_at(t, segment_progress))
+                                .unwrap_or(*gain);
+                            
+                            // Clone and modify params for this segment
+                            let mut segment_params = params.clone();
+                            
+                            // Apply cutoff automation
+                            for filter in &mut segment_params.filters {
+                                let segment_cutoff = automation_ctx.templates.iter()
+                                    .find(|t| t.param_name == "cutoff")
+                                    .map(|t| evaluate_template_at(t, segment_progress))
+                                    .unwrap_or(filter.cutoff);
+                                filter.cutoff = segment_cutoff;
+                                
+                                let segment_resonance = automation_ctx.templates.iter()
+                                    .find(|t| t.param_name == "resonance")
+                                    .map(|t| evaluate_template_at(t, segment_progress))
+                                    .unwrap_or(filter.resonance);
+                                filter.resonance = segment_resonance;
+                            }
+                            
+                            // Generate this segment with updated params
+                            let segment_samples = generate_note_with_options(
+                                *midi,
+                                segment_duration * 1000.0,
+                                (velocity * segment_gain).clamp(0.0, 1.0),
+                                &segment_params,
+                                interpreter.sample_rate,
+                                segment_pan,
+                                segment_detune,
+                            )?;
+                            
+                            all_samples.extend(segment_samples);
+                        }
+                        
+                        all_samples
+                    } else {
+                        // No templates found, generate normally
+                        generate_note_with_options(
+                            *midi,
+                            duration * 1000.0,
+                            velocity * gain,
+                            &params,
+                            interpreter.sample_rate,
+                            *pan,
+                            *detune,
+                        )?
+                    }
+                } else {
+                    // Generate note normally (global mode or no automation)
+                    generate_note_with_options(
+                        *midi,
+                        duration * 1000.0,
+                        velocity * gain,
+                        &params,
+                        interpreter.sample_rate,
+                        *pan,
+                        *detune,
+                    )?
+                };
 
                 if let Some(amount) = drive_amount {
                     let color = drive_color.unwrap_or(0.5);
@@ -184,6 +263,7 @@ pub fn render_audio(interpreter: &AudioInterpreter) -> Result<Vec<f32>> {
                 reverb_amount,
                 drive_amount,
                 drive_color,
+                use_per_note_automation: _,
             } => {
                 let mut params = SynthParams {
                     waveform: synth_def.waveform.clone(),
@@ -194,6 +274,7 @@ pub fn render_audio(interpreter: &AudioInterpreter) -> Result<Vec<f32>> {
                     synth_type: synth_def.synth_type.clone(),
                     filters: synth_def.filters.clone(),
                     options: synth_def.options.clone(),
+                    lfo: synth_def.lfo.clone(),
                     plugin_author: synth_def.plugin_author.clone(),
                     plugin_name: synth_def.plugin_name.clone(),
                     plugin_export: synth_def.plugin_export.clone(),

@@ -25,6 +25,8 @@ pub enum AudioEvent {
         reverb_amount: Option<f32>,  // 0.0-1.0
         drive_amount: Option<f32>,   // 0.0-1.0
         drive_color: Option<f32>,    // 0.0-1.0
+        // Per-note automation flag
+        use_per_note_automation: bool, // Whether to apply per-note automation at render time
     },
     Chord {
         midis: Vec<u8>,
@@ -47,6 +49,8 @@ pub enum AudioEvent {
         reverb_amount: Option<f32>,  // 0.0-1.0
         drive_amount: Option<f32>,   // 0.0-1.0
         drive_color: Option<f32>,    // 0.0-1.0
+        // Per-note automation flag
+        use_per_note_automation: bool, // Whether to apply per-note automation at render time
     },
     Sample {
         uri: String,
@@ -72,6 +76,7 @@ pub struct SynthDefinition {
     pub synth_type: Option<String>,
     pub filters: Vec<FilterDef>,
     pub options: HashMap<String, f32>, // Configurable synth type options
+    pub lfo: Option<crate::engine::audio::lfo::LfoParams>, // Low-Frequency Oscillator
     // Plugin support
     pub plugin_author: Option<String>,
     pub plugin_name: Option<String>,
@@ -89,6 +94,7 @@ impl Default for SynthDefinition {
             synth_type: None,
             filters: Vec::new(),
             options: HashMap::new(),
+            lfo: None,
             plugin_author: None,
             plugin_name: None,
             plugin_export: None,
@@ -152,6 +158,7 @@ impl AudioEventList {
             reverb_amount,
             drive_amount,
             drive_color,
+            use_per_note_automation: false,
         });
     }
 
@@ -197,6 +204,7 @@ impl AudioEventList {
             reverb_amount,
             drive_amount,
             drive_color,
+            use_per_note_automation: false,
         });
     }
 

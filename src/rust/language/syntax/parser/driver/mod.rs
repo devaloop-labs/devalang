@@ -106,7 +106,7 @@ impl SimpleParser {
                 }
             };
 
-            // If this is a statement needing body parsing (group, for, loop, if, on)
+            // If this is a statement needing body parsing (group, for, loop, if, on, automate)
             let needs_body_parsing = matches!(
                 &statement.kind,
                 StatementKind::Group { .. }
@@ -114,6 +114,7 @@ impl SimpleParser {
                     | StatementKind::Loop { .. }
                     | StatementKind::If { .. }
                     | StatementKind::On { .. }
+                    | StatementKind::Automate { .. }
             );
 
             if needs_body_parsing {
@@ -221,6 +222,38 @@ impl SimpleParser {
                             else_body,
                         };
                     }
+                    StatementKind::Automate { target } => {
+                        // Preserve any provided mode from the original statement value
+                        let mode = if let Value::Map(map) = &statement.value {
+                            map.get("mode").and_then(|v| {
+                                if let Value::String(s) = v {
+                                    Some(s.clone())
+                                } else {
+                                    None
+                                }
+                            })
+                        } else {
+                            None
+                        };
+
+                        // Reconstruct raw body text from the original source lines
+                        let raw_lines: Vec<String> = lines[body_start..body_end]
+                            .iter()
+                            .map(|s| s.to_string())
+                            .collect();
+                        let raw_body = raw_lines.join("\n");
+
+                        let mut map = std::collections::HashMap::new();
+                        if let Some(m) = mode {
+                            map.insert("mode".to_string(), Value::String(m));
+                        }
+                        map.insert("body".to_string(), Value::String(raw_body));
+
+                        statement.kind = StatementKind::Automate {
+                            target: target.clone(),
+                        };
+                        statement.value = Value::Map(map);
+                    }
                     _ => {}
                 }
 
@@ -289,6 +322,7 @@ impl SimpleParser {
             "if" => parse_if(parts, line_number),
             "else" => parse_else(line, line_number),
             "group" => parse_group(parts, line_number),
+            "automate" => crate::language::syntax::parser::driver::statements::structure::parse_automate(parts, line_number),
             "call" => parse_call(line, parts, line_number),
             "spawn" => parse_spawn(parts, line_number),
             "on" => parse_on(parts, line_number),

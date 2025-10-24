@@ -1,5 +1,6 @@
 use super::synth::types::{SynthType, get_synth_type};
 use super::synth::{adsr_envelope, midi_to_frequency, oscillator_sample, time_to_samples};
+use super::lfo::{LfoParams, generate_lfo_value, apply_lfo_modulation};
 /// Note generator - creates audio samples for synthesized notes
 use anyhow::Result;
 use std::collections::HashMap;
@@ -26,6 +27,7 @@ pub struct SynthParams {
     pub synth_type: Option<String>,    // pluck, arp, pad, bass, lead, keys
     pub filters: Vec<FilterDef>,       // Chain of filters
     pub options: HashMap<String, f32>, // Configurable options for synth types
+    pub lfo: Option<LfoParams>,        // Low-Frequency Oscillator modulation
     // Plugin support
     pub plugin_author: Option<String>,
     pub plugin_name: Option<String>,
@@ -43,6 +45,7 @@ impl Default for SynthParams {
             synth_type: None,
             filters: Vec::new(),
             options: HashMap::new(),
+            lfo: None,
             plugin_author: None,
             plugin_name: None,
             plugin_export: None,
@@ -151,11 +154,25 @@ pub fn generate_note_with_options(
     let left_gain = pan_angle.cos();
     let right_gain = pan_angle.sin();
 
+    // Prepare LFO parameters if any
+    let bpm = 120.0; // TODO: get from context
+
     for i in 0..total_samples {
         let time = i as f32 / sample_rate as f32;
 
         // Generate oscillator sample
-        let osc_sample = oscillator_sample(&modified_params.waveform, frequency, time);
+        let mut osc_frequency = frequency;
+        
+        // Apply pitch LFO if configured
+        if let Some(ref lfo) = modified_params.lfo {
+            use crate::engine::audio::lfo::LfoTarget;
+            if lfo.target == LfoTarget::Pitch {
+                let lfo_cents = generate_lfo_value(lfo, time, bpm) * 100.0; // ±100 cents
+                osc_frequency = frequency * 2.0_f32.powf(lfo_cents / 1200.0);
+            }
+        }
+        
+        let osc_sample = oscillator_sample(&modified_params.waveform, osc_frequency, time);
 
         // Apply ADSR envelope
         let envelope = adsr_envelope(
@@ -168,16 +185,43 @@ pub fn generate_note_with_options(
         );
 
         // Apply velocity and envelope
-        let amplitude = osc_sample * envelope * velocity * 0.3; // 0.3 for headroom
+        let mut amplitude = osc_sample * envelope * velocity * 0.3; // 0.3 for headroom
+
+        // Apply volume LFO if configured
+        if let Some(ref lfo) = modified_params.lfo {
+            use crate::engine::audio::lfo::LfoTarget;
+            if lfo.target == LfoTarget::Volume {
+                let lfo_value = generate_lfo_value(lfo, time, bpm);
+                amplitude *= (1.0 + lfo_value); // Range: 0.0 to 2.0 with default depth
+            }
+        }
 
         // Stereo output with panning
         samples.push(amplitude * left_gain);
         samples.push(amplitude * right_gain);
     }
 
-    // Apply filters if any
+    // Apply filters if any (with LFO cutoff modulation)
     for filter in &modified_params.filters {
-        apply_filter(&mut samples, filter, sample_rate)?;
+        let mut modulated_filter = filter.clone();
+        
+        // Apply cutoff LFO if configured
+        if let Some(ref lfo) = modified_params.lfo {
+            use crate::engine::audio::lfo::LfoTarget;
+            if lfo.target == LfoTarget::FilterCutoff {
+                // Modulate cutoff around its center value
+                let cutoff_range = filter.cutoff * 0.5; // ±50% of cutoff
+                modulated_filter.cutoff = apply_lfo_modulation(
+                    lfo,
+                    0.0,  // Use average LFO value for filter
+                    bpm,
+                    filter.cutoff,
+                    cutoff_range,
+                );
+            }
+        }
+        
+        apply_filter(&mut samples, &modulated_filter, sample_rate)?;
     }
 
     // Apply synth type post-processing
@@ -387,11 +431,6 @@ fn generate_note_with_plugin(
     use once_cell::sync::Lazy;
     use std::sync::Mutex;
 
-    println!(
-        "🎸 [PLUGIN_GEN] Generating note with plugin: {}.{} (export: {:?})",
-        plugin_author, plugin_name, plugin_export
-    );
-
     // Global plugin runner (cached)
     static PLUGIN_RUNNER: Lazy<Mutex<WasmPluginRunner>> =
         Lazy::new(|| Mutex::new(WasmPluginRunner::new()));
@@ -405,20 +444,12 @@ fn generate_note_with_plugin(
     let mut cache = PLUGIN_CACHE.lock().unwrap();
 
     let wasm_bytes = if let Some(bytes) = cache.get(&plugin_key) {
-        println!("   Using cached plugin ({}  bytes)", bytes.len());
+        // Using cached plugin
         bytes.clone()
     } else {
-        println!("   Loading plugin from disk...");
         // Load plugin
-        let (info, bytes) = load_plugin(plugin_author, plugin_name)
+        let (_info, bytes) = load_plugin(plugin_author, plugin_name)
             .map_err(|e| anyhow::anyhow!("Failed to load plugin: {}", e))?;
-
-        eprintln!(
-            "✅ Loaded plugin: {}.{} (v{})",
-            info.author,
-            info.name,
-            info.version.as_deref().unwrap_or("unknown")
-        );
 
         cache.insert(plugin_key.clone(), bytes.clone());
         bytes
@@ -457,11 +488,6 @@ fn generate_note_with_plugin(
     let runner = PLUGIN_RUNNER.lock().unwrap();
     let synth_id = format!("{}_{}", plugin_key, plugin_export.unwrap_or("default"));
 
-    println!(
-        "   📋 Buffer before plugin: first 10 samples: {:?}",
-        &buffer[0..10.min(buffer.len())]
-    );
-
     runner
         .render_note_in_place(
             &wasm_bytes,
@@ -476,17 +502,6 @@ fn generate_note_with_plugin(
             Some(&plugin_options),
         )
         .map_err(|e| anyhow::anyhow!("Plugin render error: {}", e))?;
-
-    println!(
-        "   📋 Buffer after plugin: first 10 samples: {:?}",
-        &buffer[0..10.min(buffer.len())]
-    );
-    println!(
-        "   📋 Buffer stats: len={}, max={:.4}, rms={:.4}",
-        buffer.len(),
-        buffer.iter().map(|s| s.abs()).fold(0.0f32, f32::max),
-        (buffer.iter().map(|s| s * s).sum::<f32>() / buffer.len() as f32).sqrt()
-    );
 
     // Apply panning if needed
     if pan.abs() > 0.01 {

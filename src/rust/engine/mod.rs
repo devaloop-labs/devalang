@@ -1,5 +1,6 @@
 pub mod audio;
 pub mod bridges;
+pub mod curves;
 pub mod events;
 pub mod functions;
 pub mod plugin;

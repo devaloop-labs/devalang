@@ -64,7 +64,9 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
         .iter()
         .partition(|stmt| matches!(stmt.kind, StatementKind::Spawn { .. }));
 
-    for stmt in &others {
+    // Iterate with index so we can inspect the remaining statements for global-automation span
+    for idx in 0..others.len() {
+        let stmt = &others[idx];
         interpreter.current_statement_location = Some((stmt.line, stmt.column));
         interpreter
             .special_vars
@@ -216,6 +218,166 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
                 }
 
                 super::handler::handle_call(interpreter, name)?;
+            }
+
+            StatementKind::Automate { target } => {
+                // Expect stmt.value to be a Map with keys: "mode" (optional) and "body" (raw string)
+                if let Value::Map(map) = &stmt.value {
+                    let mode = map
+                        .get("mode")
+                        .and_then(|v| if let Value::String(s) = v { Some(s.clone()) } else { None })
+                        .unwrap_or_else(|| "global".to_string());
+
+                    if let Some(Value::String(raw_body)) = map.get("body") {
+                        // Parse templates
+                        let templates = crate::engine::audio::automation::parse_param_templates_from_raw(raw_body);
+
+                        if mode == "note" {
+                            // For note mode, we need to estimate the duration of the block
+                            // so that per-note automations can calculate their progress properly
+                            let remaining: Vec<crate::language::syntax::ast::Statement> = others[idx+1..]
+                                .iter()
+                                .map(|s| (*s).clone())
+                                .collect();
+
+                            // Create a local interpreter snapshot to measure duration
+                            let current_bpm = interpreter.bpm;
+                            let groups_snapshot = interpreter.groups.clone();
+                            let variables_snapshot = interpreter.variables.clone();
+                            let special_vars_snapshot = interpreter.special_vars.clone();
+
+                            let mut local_interpreter = AudioInterpreter {
+                                sample_rate: interpreter.sample_rate,
+                                bpm: current_bpm,
+                                function_registry: FunctionRegistry::new(),
+                                events: AudioEventList::new(),
+                                variables: variables_snapshot.clone(),
+                                groups: groups_snapshot.clone(),
+                                banks: interpreter.banks.clone(),
+                                automation_registry: interpreter.automation_registry.clone(),
+                                note_automation_templates: interpreter.note_automation_templates.clone(),
+                                cursor_time: 0.0,
+                                special_vars: special_vars_snapshot.clone(),
+                                event_registry: EventRegistry::new(),
+                                #[cfg(feature = "cli")]
+                                midi_manager: interpreter.midi_manager.clone(),
+                                current_statement_location: None,
+                                suppress_beat_emit: true,
+                            };
+
+                            // Inherit synth definitions
+                            local_interpreter.events.synths = interpreter.events.synths.clone();
+
+                            // Simulate to measure duration
+                            if !remaining.is_empty() {
+                                let _ = collect_events(&mut local_interpreter, &remaining);
+                            }
+
+                            let end_time = interpreter.cursor_time + local_interpreter.events.total_duration();
+
+                            // Create context with timing information
+                            let context = super::NoteAutomationContext {
+                                templates,
+                                start_time: interpreter.cursor_time,
+                                end_time,
+                            };
+
+                            // Store context under target for per-note application
+                            interpreter
+                                .note_automation_templates
+                                .insert(target.clone(), context);
+                        } else {
+                            // Global mode: determine a sensible total duration for the envelope.
+                            // We'll estimate it by simulating the remaining statements in this block
+                            // (i.e., the statements after this automate statement in the current list).
+                            let remaining: Vec<crate::language::syntax::ast::Statement> = others[idx+1..]
+                                .iter()
+                                .map(|s| (*s).clone())
+                                .collect();
+
+                            // Create a local interpreter snapshot to measure the total duration
+                            let current_bpm = interpreter.bpm;
+                            let groups_snapshot = interpreter.groups.clone();
+                            let variables_snapshot = interpreter.variables.clone();
+                            let special_vars_snapshot = interpreter.special_vars.clone();
+
+                            let mut local_interpreter = AudioInterpreter {
+                                sample_rate: interpreter.sample_rate,
+                                bpm: current_bpm,
+                                function_registry: FunctionRegistry::new(),
+                                events: AudioEventList::new(),
+                                variables: variables_snapshot.clone(),
+                                groups: groups_snapshot.clone(),
+                                banks: interpreter.banks.clone(),
+                                automation_registry: interpreter.automation_registry.clone(),
+                                note_automation_templates: interpreter.note_automation_templates.clone(),
+                                cursor_time: 0.0,
+                                special_vars: special_vars_snapshot.clone(),
+                                event_registry: EventRegistry::new(),
+                                #[cfg(feature = "cli")]
+                                midi_manager: interpreter.midi_manager.clone(),
+                                current_statement_location: None,
+                                suppress_beat_emit: true,
+                            };
+
+                            // Inherit synth definitions so durations reflect real events
+                            local_interpreter.events.synths = interpreter.events.synths.clone();
+
+                            // Simulate collecting events for the remaining statements to estimate duration
+                            if !remaining.is_empty() {
+                                let _ = collect_events(&mut local_interpreter, &remaining);
+                            }
+
+                            let total_dur = local_interpreter.events.total_duration();
+                            let start_time = interpreter.cursor_time;
+
+                            let mut envelope = crate::engine::audio::automation::AutomationEnvelope::new(target.clone());
+
+                            // For each template, create AutomationParam segments between adjacent points
+                            for tpl in templates.iter() {
+                                if tpl.points.len() >= 2 {
+                                    for w in tpl.points.windows(2) {
+                                        let (p0, v0) = w[0];
+                                        let (p1, v1) = w[1];
+                                        let seg_start = start_time + p0 * total_dur;
+                                        let seg_dur = (p1 - p0) * total_dur;
+                                        if seg_dur <= 0.0 {
+                                            continue;
+                                        }
+                                        envelope.add_param(crate::engine::audio::automation::AutomationParam {
+                                            param_name: tpl.param_name.clone(),
+                                            from_value: v0,
+                                            to_value: v1,
+                                            start_time: seg_start,
+                                            duration: seg_dur,
+                                            curve: tpl.curve,
+                                        });
+                                    }
+                                } else if tpl.points.len() == 1 {
+                                    // Single point - treat as immediate set at that fraction
+                                    let (p, v) = tpl.points[0];
+                                    let seg_start = start_time + p * total_dur;
+                                    envelope.add_param(crate::engine::audio::automation::AutomationParam {
+                                        param_name: tpl.param_name.clone(),
+                                        from_value: v,
+                                        to_value: v,
+                                        start_time: seg_start,
+                                        duration: 0.0,
+                                        curve: tpl.curve,
+                                    });
+                                }
+                            }
+
+                            let count = envelope.params.len();
+                            log_info!(logger, "Registering automation envelope for '{}' with {} params (span={}s)", target, count, total_dur);
+                            for p in envelope.params.iter() {
+                                log_info!(logger, "  param '{}' from {} to {} start={} dur={}",
+                                    p.param_name, p.from_value, p.to_value, p.start_time, p.duration);
+                            }
+                            interpreter.automation_registry.register(envelope);
+                        }
+                    }
+                }
             }
 
             StatementKind::Spawn { .. } => {
@@ -420,6 +582,8 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
                         variables: variables_snapshot.clone(),
                         groups: groups_snapshot.clone(),
                         banks: interpreter.banks.clone(),
+                        automation_registry: interpreter.automation_registry.clone(),
+                        note_automation_templates: interpreter.note_automation_templates.clone(),
                         cursor_time: current_time,
                         special_vars: special_vars_snapshot.clone(),
                         event_registry: EventRegistry::new(),

@@ -1,0 +1,12 @@
+let mySynth = synth saw {
+    lfo: {
+        rate: 5.0,
+        depth: 0.5,
+        shape: "sine",
+        target: "pitch"
+    }
+}
+
+mySynth -> note(C4) -> duration(1500)
+mySynth -> note(C5) -> duration(1500)
+mySynth -> note(C6) -> duration(1500)

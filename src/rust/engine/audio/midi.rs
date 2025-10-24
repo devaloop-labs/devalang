@@ -251,7 +251,7 @@ pub fn events_to_midi_bytes(events: &[AudioEvent], bpm: f32) -> Result<Vec<u8>> 
             ticks: start_ticks,
             message: MidiMessage::NoteOn {
                 key: note.note.into(),
-                vel: (note.velocity as u8).into(),
+                vel: ((note.velocity * 127.0) as u8).into(),
             },
         });
 
@@ -382,7 +382,7 @@ pub fn export_midi_file(events: &[AudioEvent], output_path: &Path, bpm: f32) -> 
             ticks: start_ticks,
             message: MidiMessage::NoteOn {
                 key: note.note.into(),
-                vel: (note.velocity as u8).into(),
+                vel: ((note.velocity * 127.0) as u8).into(),
             },
         });
 
@@ -430,11 +430,12 @@ pub fn export_midi_file(events: &[AudioEvent], output_path: &Path, bpm: f32) -> 
     // Write to file directly (midly 0.5 API)
     smf.save(output_path)
         .map_err(|e| anyhow!("Failed to write MIDI file {}: {}", output_path.display(), e))?;
-
+    
     println!(
-        "✅ MIDI exported: {} ({} events)",
+        "✅ MIDI exported: {} ({} events in, {} notes written)",
         output_path.display(),
-        events.len()
+        events.len(),
+        midi_notes.len()
     );
     Ok(())
 }

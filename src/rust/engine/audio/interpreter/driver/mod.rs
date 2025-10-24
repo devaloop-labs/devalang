@@ -48,6 +48,27 @@ impl StubBank {
         Vec::new()
     }
 }
+
+/// Context for note-mode automations: contains templates and their temporal bounds
+#[derive(Clone, Debug)]
+pub struct NoteAutomationContext {
+    pub templates: Vec<crate::engine::audio::automation::AutomationParamTemplate>,
+    pub start_time: f32,
+    pub end_time: f32,
+}
+
+impl NoteAutomationContext {
+    /// Calculate the total duration of this automation block
+    pub fn duration(&self) -> f32 {
+        (self.end_time - self.start_time).max(0.001) // Avoid division by zero
+    }
+
+    /// Calculate global progress (0.0 to 1.0) for a given time point within this block
+    pub fn progress_at_time(&self, time: f32) -> f32 {
+        ((time - self.start_time) / self.duration()).clamp(0.0, 1.0)
+    }
+}
+
 /// Audio interpreter driver - main execution loop
 use anyhow::Result;
 use std::collections::HashMap;
@@ -65,6 +86,10 @@ pub struct AudioInterpreter {
     pub variables: HashMap<String, Value>,
     pub groups: HashMap<String, Vec<Statement>>,
     pub banks: BankRegistry,
+    /// Registered global automations
+    pub automation_registry: crate::engine::audio::automation::AutomationRegistry,
+    /// Per-target note-mode automation contexts (including templates and timing info)
+    pub note_automation_templates: std::collections::HashMap<String, NoteAutomationContext>,
     pub cursor_time: f32,
     pub special_vars: SpecialVarContext,
     pub event_registry: EventRegistry,
@@ -86,6 +111,8 @@ impl AudioInterpreter {
             variables: HashMap::new(),
             groups: HashMap::new(),
             banks: BankRegistry::new(),
+            automation_registry: crate::engine::audio::automation::AutomationRegistry::new(),
+            note_automation_templates: std::collections::HashMap::new(),
             cursor_time: 0.0,
             special_vars: SpecialVarContext::new(120.0, sample_rate),
             event_registry: EventRegistry::new(),

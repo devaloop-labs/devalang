@@ -126,6 +126,43 @@ pub fn parse_group(
     ))
 }
 
+/// Parse automate statement: automate <target> [mode <note|global>]:
+pub fn parse_automate(
+    mut parts: impl Iterator<Item = impl AsRef<str>>,
+    line_number: usize,
+) -> Result<Statement> {
+    // First part is the target
+    let target = parts
+        .next()
+        .ok_or_else(|| anyhow!("automate requires a target"))?
+        .as_ref()
+        .trim_end_matches(':')
+        .to_string();
+
+    // Optional mode: 'mode note' or 'mode global'
+    let mut mode: Option<String> = None;
+    if let Some(word) = parts.next() {
+        if word.as_ref() == "mode" {
+            if let Some(m) = parts.next() {
+                mode = Some(m.as_ref().trim_end_matches(':').to_string());
+            }
+        }
+    }
+
+    let mut map = HashMap::new();
+    if let Some(m) = mode {
+        map.insert("mode".to_string(), Value::String(m));
+    }
+
+    Ok(Statement::new(
+        StatementKind::Automate { target },
+        Value::Map(map),
+        0,
+        line_number,
+        1,
+    ))
+}
+
 /// Parse loop statement
 pub fn parse_loop(
     mut parts: impl Iterator<Item = impl AsRef<str>>,

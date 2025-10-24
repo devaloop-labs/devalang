@@ -22,13 +22,8 @@ impl AudioInterpreter {
             }
         };
 
-        println!("🔁 Loop: {} iterations", loop_count);
-
         // Execute body N times
-        for iteration in 0..loop_count {
-            if iteration > 0 && iteration % 10 == 0 {
-                println!("  └─ Iteration {}/{}", iteration, loop_count);
-            }
+        for _iteration in 0..loop_count {
             self.collect_events(body)?;
         }
 
@@ -77,19 +72,10 @@ impl AudioInterpreter {
             }
         };
 
-        println!("🔄 For: {} in {} items", variable, items.len());
-
         // Execute body for each item
-        for (idx, item) in items.iter().enumerate() {
+        for (_idx, item) in items.iter().enumerate() {
             // Set loop variable
             let old_value = self.variables.insert(variable.to_string(), item.clone());
-
-            if idx < 5 || (idx + 1) == items.len() {
-                // Show first 5 and last iteration
-                println!("  └─ {} = {:?}", variable, item);
-            } else if idx == 5 {
-                println!("  └─ ... ({} more items)", items.len() - 6);
-            }
 
             // Execute body
             self.collect_events(body)?;
