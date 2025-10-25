@@ -1,0 +1,22 @@
+# =================
+# Events
+# =================
+# You can use or create events using the event directive.
+# Events can be used to trigger specific actions when they are emitted.
+#
+# Listener Syntax:
+# `on <event_name>:`
+#
+# Emitter Syntax:
+# `emit <event_name>`
+
+# Listen events
+on beat:
+    print "A beat has occurred!" # Will print on every beat
+on bar:
+    print "A bar has completed!" # Will print on every bar
+on myCustomEvent:
+    print "My custom event was emitted!" # Will print when the custom event is emitted
+
+# Create and emit custom event
+emit myCustomEvent

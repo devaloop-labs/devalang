@@ -1,0 +1,16 @@
+# =================
+# Bind
+# =================
+# You can bind MIDI patterns to synths or patterns to triggers using the bind directive.
+# This allows you to play MIDI files or patterns with specific sounds.
+#
+# Syntax:
+# bind <source> -> <target>
+
+# Bind MIDI pattern (previously loaded) to a synth
+# (Will play the MIDI notes using the specified synth)
+bind myMidi -> firstSynth
+
+# Bind pattern to a trigger
+# (Will play the pattern using the specified trigger sound)
+bind kickPattern -> myBank.kick

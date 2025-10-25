@@ -1,0 +1,19 @@
+# =================
+# Synths
+# =================
+# You can create synth sounds using the synth directive.
+# Synth directive supports different waveforms and settings.
+# Available waveforms: sine, square, saw, triangle.
+# Available types: pluck, pad, bass, lead.
+#
+# Syntax:
+# `synth <waveform> [options]`
+
+# Creating a simple sine wave synth
+let firstSynth = synth sine {
+    type: "bass",
+    attack: 0.1,
+    decay: 0.2,
+    sustain: 0.8,
+    release: 0.3,
+}

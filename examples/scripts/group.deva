@@ -1,0 +1,13 @@
+# =================
+# Groups
+# =================
+# You can group multiple audio events using the group directive.
+# This allows you to apply effects to the entire group and reuse it easily.
+#
+# Syntax:
+# `group <group_name>:`
+
+group myGroup:
+    .myBank.hihat
+    .myBank.openhat
+    .myBank.ride

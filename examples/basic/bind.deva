@@ -1,9 +1,0 @@
-@load "./samples/lead.mid" as myMidi
-
-group myMidiGroup:
-    let myBassline = synth saw
-    
-    # This will play the midi pattern with the synth
-    bind myMidi -> myBassline
-
-call myMidiGroup

@@ -1,0 +1,11 @@
+# =================
+# Variables
+# =================
+# You can define variables using const, let or var keywords.
+#
+# Syntax:
+# <const|let|var> <variable_name> = <value>
+
+const greeting = "Hello, World !"
+let counter = 0
+var isActive = true

@@ -1,9 +1,0 @@
-# Inline pattern assignment example
-bpm 140
-
-bank devaloop.808 as drums
-
-# Direct inline pattern assignment (no declaration)
-call drums.kick = "x--- x--- x--- x---"
-call drums.snare = "---- x--- ---- x---"
-call drums.clap = "x-x- x-x- x-x- x-x-"

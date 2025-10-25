@@ -1,0 +1,37 @@
+# =================
+# Notes
+# =================
+# Create a melody using the synth inside a group to call it easily
+#
+# Syntax:
+# `<synth_name> -> note(<note_name>)`
+
+# Creates a group of notes to play a melody
+group myFirstLead:
+        firstSynth -> note(C4)
+                -> duration(1/4)
+                -> velocity(100)
+                -> pan(-0.3)
+        firstSynth -> note(E4)
+                -> duration(1/4)
+                -> velocity(100)
+                -> pan(0.3)
+        firstSynth -> note(G4)
+                -> duration(1/4)
+                -> velocity(100)
+                -> pan(-0.3)
+
+# Creates a group of chords to play harmony
+group myFirstChords:
+        firstSynth -> chord(Cmaj7)
+                -> duration(1/2)
+                -> velocity(80)
+                -> pan(0.0)
+        firstSynth -> chord(Fmaj7)
+                -> duration(1/2)
+                -> velocity(80)
+                -> pan(0.0)
+        firstSynth -> chord(Gmaj7)
+                -> duration(1/2)
+                -> velocity(80)
+                -> pan(0.0)

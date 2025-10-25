@@ -1,0 +1,16 @@
+
+
+mySynth -> note(C4)
+        -> velocity(75)
+        -> duration(1000)
+        -> delay({
+            time: 250,
+            feedback: 0.3
+        })
+        -> reverb({
+            size: 0.4,
+            mix: 0.5
+        })
+        -> drive({
+            gain: 2.5
+        })

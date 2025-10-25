@@ -1,0 +1,11 @@
+# =================
+# Printing
+# =================
+# You can print text and variables using the print command.
+#
+# Syntax:
+# `print <text_or_variable>`
+
+print greeting
+print "Counter value: " + counter
+print "Is active: " + isActive

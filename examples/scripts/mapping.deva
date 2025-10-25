@@ -1,0 +1,38 @@
+# =================
+# Mapping MIDI Devices
+# =================
+# You can map MIDI devices to specific ports and channels using the mapping directive.
+# This allows you to route MIDI input and output to different devices.
+#
+# Syntax:
+# `mapping:`
+
+# Mapping between devices and ports with aliases
+mapping:
+    out("MyDeviceA")
+        -> port(1)
+        -> alias("myDeviceA")
+
+    in("MyDeviceB")
+        -> port(2)
+        -> alias("myDeviceB")
+
+# Then, you can bind patterns or synths to the mapped devices
+# For example we tell to send the kickPattern to Device A on port 1 and channel 10
+bind myKickPattern -> mapping.out.myDeviceA with {
+    port: 1,
+    channel: 10
+}
+
+# And we tell to receive MIDI events from Device B on port 2 and channel 10 to play mySynth
+bind mapping.in.myDeviceB with {
+    port: 2,
+    channel: 10
+} -> mySynth
+
+# You can also listen for MIDI events from the mapped devices
+on mapping.out.myDeviceA.noteOn:
+    print "Device A Note On"
+
+on mapping.in.myDeviceB.noteOn:
+    print "Device B Note On"

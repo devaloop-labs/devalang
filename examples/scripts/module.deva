@@ -1,0 +1,14 @@
+# =================
+# Module System
+# =================
+# You can import modules using the @import directive.
+# You can export variables from a module using the @export directive.
+#
+# Import Syntax:
+# `@import { <variableName> } from "<path/to/module>"`
+#
+# Export Syntax:
+# `@export { <variableName> }`
+
+@import { myImportedVar } from "./my_module.deva"
+@export { myExportedVar }

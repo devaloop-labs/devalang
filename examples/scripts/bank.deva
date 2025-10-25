@@ -1,0 +1,10 @@
+# =================
+# Banks
+# =================
+# You can load sound banks using the bank directive.
+# To install a sound bank, use the command: "devalang addon install devaloop.808"
+#
+# Syntax:
+# `bank <sound_bank_name> as <alias_name>`
+
+bank devaloop.808 as myBank

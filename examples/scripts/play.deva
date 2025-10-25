@@ -1,0 +1,17 @@
+# =================
+# Playing Audio
+# =================
+# You can play audio using the "call" and "spawn" directives.
+# Call and Spawn can both be used to play groups or patterns.
+#
+# Call Syntax:
+# `call <group_name | pattern_name>`
+# 
+# Spawn Syntax:
+# `spawn <group_name | pattern_name>`
+
+# This will play the instructions **sequentially** (one after another)
+call myAwesomeGroup
+
+# This will play the instructions **concurrently** (in parallel)
+spawn myAwesomeGroup

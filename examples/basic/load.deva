@@ -1,5 +1,0 @@
-@load "./samples/kick.wav" as kick
-
-# This will play the kick sample each beat
-on beat:
-    .kick

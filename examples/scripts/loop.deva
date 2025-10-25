@@ -1,0 +1,18 @@
+# =================
+# Loops
+# =================
+# You can create loops using the loop and for directives.
+#
+# Loop syntax:
+# `loop <number | iterable_object>:`
+# 
+# For syntax:
+# `for <variable> in <number | iterable_object>:`
+
+loop 4:
+    .myBank.kick
+    .myBank.snare
+    .myBank.clap
+
+for i in [1, 2, 3]:
+    print "Loop iteration: " + i

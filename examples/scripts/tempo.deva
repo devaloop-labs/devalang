@@ -1,0 +1,10 @@
+# =================
+# BPM
+# =================
+# Define the tempo of your program in beats per minute (bpm).
+# Tempo is set to 120 bpm by default if not specified.
+#
+# Syntax:
+# `bpm <number>`
+
+bpm 120

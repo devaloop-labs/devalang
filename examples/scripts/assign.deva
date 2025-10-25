@@ -1,0 +1,12 @@
+# =================
+# Assignations
+# =================
+# You can assign values to instruments or variables using the '=' operator.
+#
+# Syntax:
+# <instrument_or_variable>.<property> = <new_value>
+
+mySynth.attack = 0.5
+mySynth.waveform = "saw"
+mySynth.release = 1.0
+mySynth.type = "pad"

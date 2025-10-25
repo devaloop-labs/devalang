@@ -1,0 +1,13 @@
+# =================
+# Sleep
+# =================
+# You can make the audio engine wait for a specified duration using the sleep directive.
+# 
+# Syntax:
+# `sleep <duration_ms | duration_beats>`
+
+# Sleeps for 1000 milliseconds (1 second)
+sleep 1000
+
+# Sleeps for a quarter note based on the current BPM
+sleep 1/4

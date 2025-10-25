@@ -1,0 +1,10 @@
+# =================
+# Plugins
+# =================
+# You can import plugins using the @use directive.
+# To install a plugin, use the command: "devalang addon install devaloop.acid"
+#
+# Syntax:
+# `@use <plugin_name> as <alias_name>`
+
+@use devaloop.acid as acidPlugin

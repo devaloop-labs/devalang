@@ -1,0 +1,19 @@
+# =================
+# Patterns
+# =================
+# You can create patterns using the pattern directive.
+# Patterns allow you to sequence audio events in a specific order.
+# 
+# Syntax:
+# `pattern <pattern_name> with <instrument> [options] = "<pattern_string>"`
+
+# Fast pattern without options
+pattern kickPattern with myBank.kick = "x--- x--- x--- x---"
+
+# Pattern with options
+pattern snarePattern with myBank.snare {
+    swing: 0.1,
+    humanize: 0.02,
+    velocity: 0.8,
+    tempo: 250,
+} = "x--- x--- x--- x---"
