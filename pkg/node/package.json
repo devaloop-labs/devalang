@@ -1,11 +1,11 @@
 {
   "name": "devalang",
   "collaborators": [
-    "Devaloop <contact@devaloop.com>"
+    "Labscend Studios <hello@labscend.studio>"
   ],
-  "description": "Write music like code. Devalang is a domain-specific language (DSL) for sound designers and music hackers. Compose, automate, and control sound — in plain text.",
-  "version": "0.1.5",
-  "license": "SEE LICENSE IN LICENSE",
+  "description": "Write music with code. Devalang is a domain-specific language (DSL) for sound designers and music hackers. Compose, automate, and control sound — in plain text.",
+  "version": "0.1.6",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/devaloop-labs/devalang"

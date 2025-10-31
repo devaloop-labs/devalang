@@ -8,7 +8,63 @@ use super::AudioInterpreter;
 
 pub fn handle_let(interpreter: &mut AudioInterpreter, name: &str, value: &Value) -> Result<()> {
     // Check if this is a synth definition (has waveform parameter OR _plugin_ref)
-    if let Value::Map(map) = value {
+    if let Value::Map(orig_map) = value {
+        // Clone la map pour modification
+        let mut map = orig_map.clone();
+
+        // Normalize older key `synth_type` into `type` so downstream logic reads the same key.
+        // Prefer chained synth_type over default "synth" placeholder when present.
+        if let Some(synth_val) = map.get("synth_type").cloned() {
+            let should_replace = match map.get("type") {
+                Some(Value::String(s)) => {
+                    let clean = s.trim_matches('"').trim_matches('\'');
+                    clean == "synth" || clean.is_empty()
+                }
+                Some(Value::Identifier(id)) => {
+                    let clean = id.trim_matches('"').trim_matches('\'');
+                    clean == "synth" || clean.is_empty()
+                }
+                None => true,
+                _ => false,
+            };
+            if should_replace {
+                map.insert("type".to_string(), synth_val.clone());
+                map.remove("synth_type");
+            } else {
+                // If we didn't replace, still keep synth_type (back-compat) but don't remove it
+            }
+        }
+
+        // Fusionne les sous-maps de paramètres chaînés (ex: "params", "adsr", "envelope")
+        let chain_keys = ["params", "adsr", "envelope"];
+        for key in &chain_keys {
+            if let Some(Value::Map(submap)) = map.get(*key) {
+                // Buffer temporaire pour éviter le prêt mutable/immuable
+                let to_insert: Vec<(String, Value)> =
+                    submap.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
+                for (k, v) in to_insert {
+                    map.insert(k, v);
+                }
+                map.remove(*key);
+            }
+        }
+
+        // Ensure default properties are present on instantiated objects (synths/plugins)
+        // so that dotted access like `mySynth.volume` resolves to a concrete Value.
+        // These defaults are safe no-ops for objects that don't use them.
+        map.entry("volume".to_string())
+            .or_insert(Value::Number(1.0));
+        map.entry("gain".to_string()).or_insert(Value::Number(1.0));
+        map.entry("pan".to_string()).or_insert(Value::Number(0.0));
+        map.entry("detune".to_string())
+            .or_insert(Value::Number(0.0));
+        // Ensure a visible type key exists for prints; prefer existing value if present
+        map.entry("type".to_string())
+            .or_insert(Value::String("synth".to_string()));
+
+        // Ensure defaults for synth-like objects
+        crate::utils::props::ensure_default_properties(&mut map, Some("synth"));
+
         if map.contains_key("waveform") || map.contains_key("_plugin_ref") {
             // plugin handling simplified: reuse existing logic
             let mut is_plugin = false;
@@ -60,18 +116,32 @@ pub fn handle_let(interpreter: &mut AudioInterpreter, name: &str, value: &Value)
                 }
             }
 
-            let waveform = crate::engine::audio::events::extract_string(map, "waveform", "sine");
-            let attack = crate::engine::audio::events::extract_number(map, "attack", 0.01);
-            let decay = crate::engine::audio::events::extract_number(map, "decay", 0.1);
-            let sustain = crate::engine::audio::events::extract_number(map, "sustain", 0.7);
-            let release = crate::engine::audio::events::extract_number(map, "release", 0.2);
+            let waveform = crate::engine::audio::events::extract_string(&map, "waveform", "sine");
+            let attack = crate::engine::audio::events::extract_number(&map, "attack", 0.01);
+            let decay = crate::engine::audio::events::extract_number(&map, "decay", 0.1);
+            let sustain = crate::engine::audio::events::extract_number(&map, "sustain", 0.7);
+            let release = crate::engine::audio::events::extract_number(&map, "release", 0.2);
 
-            let synth_type = if let Some(Value::String(t)) = map.get("type") {
-                let clean = t.trim_matches('"').trim_matches('\'');
-                if clean.is_empty() || clean == "synth" {
-                    None
-                } else {
-                    Some(clean.to_string())
+            // Accept both String and Identifier for type (parser may emit Identifier for bare words)
+            let synth_type = if let Some(v) = map.get("type") {
+                match v {
+                    Value::String(t) => {
+                        let clean = t.trim_matches('"').trim_matches('\'');
+                        if clean.is_empty() || clean == "synth" {
+                            None
+                        } else {
+                            Some(clean.to_string())
+                        }
+                    }
+                    Value::Identifier(id) => {
+                        let clean = id.trim_matches('"').trim_matches('\'');
+                        if clean.is_empty() || clean == "synth" {
+                            None
+                        } else {
+                            Some(clean.to_string())
+                        }
+                    }
+                    _ => None,
                 }
             } else {
                 None
@@ -220,6 +290,42 @@ pub fn handle_let(interpreter: &mut AudioInterpreter, name: &str, value: &Value)
 
             interpreter.events.add_synth(name.to_string(), synth_def);
         }
+
+        // Insert the normalized/augmented map into variables so dotted-property reads
+        // (e.g., `mySynth.volume`) return concrete values instead of Identifier("...").
+        interpreter
+            .variables
+            .insert(name.to_string(), Value::Map(map.clone()));
+        return Ok(());
+    }
+
+    // Non-map values: fall back to storing the original value
+    // If the value is a stored Trigger statement, normalize it into a Map so dotted
+    // property access like `myTrigger.effects.reverb.size` works and `print myTrigger`
+    // displays a clean map rather than a Statement debug dump.
+    if let Value::Statement(stmt_box) = value {
+        if let StatementKind::Trigger {
+            entity,
+            duration,
+            effects,
+        } = &stmt_box.kind
+        {
+            let mut map = HashMap::new();
+            map.insert("kind".to_string(), Value::String("Trigger".to_string()));
+            map.insert("entity".to_string(), Value::String(entity.clone()));
+            map.insert("duration".to_string(), Value::Duration(duration.clone()));
+            if let Some(eff) = effects {
+                map.insert("effects".to_string(), eff.clone());
+            }
+
+            // Ensure defaults for trigger objects
+            crate::utils::props::ensure_default_properties(&mut map, Some("trigger"));
+
+            interpreter
+                .variables
+                .insert(name.to_string(), Value::Map(map));
+            return Ok(());
+        }
     }
 
     interpreter
@@ -228,7 +334,7 @@ pub fn handle_let(interpreter: &mut AudioInterpreter, name: &str, value: &Value)
     Ok(())
 }
 
-pub fn handle_call(interpreter: &mut AudioInterpreter, name: &str) -> Result<()> {
+pub fn handle_call(interpreter: &mut AudioInterpreter, name: &str, args: &[Value]) -> Result<()> {
     // ============================================================================
     // CALL EXECUTION (Sequential)
     // ============================================================================
@@ -237,10 +343,62 @@ pub fn handle_call(interpreter: &mut AudioInterpreter, name: &str) -> Result<()>
     // - Groups (defined with `group name:`)
     // ============================================================================
 
-    // Check inline pattern or pattern variable or group call
-    // Clone the variable value first to avoid holding an immutable borrow across a mutable call
-    if let Some(pattern_value) = interpreter.variables.get(name).cloned() {
-        if let Value::Statement(stmt_box) = pattern_value {
+    // Check for user-defined function stored as a variable
+    if let Some(var_val) = interpreter.variables.get(name).cloned() {
+        if let Value::Statement(stmt_box) = var_val {
+            if let StatementKind::Function {
+                name: _fname,
+                parameters,
+                body,
+            } = &stmt_box.kind
+            {
+                // Create a local variable scope for function execution
+                let vars_snapshot = interpreter.variables.clone();
+
+                // Bind parameters: resolve passed args into actual values
+                for (i, param) in parameters.iter().enumerate() {
+                    let bound = args.get(i).cloned().unwrap_or(Value::Null);
+                    // If the bound value is an Identifier, resolve it to its actual value
+                    let bound_val = match bound {
+                        Value::Identifier(ref id) => {
+                            interpreter.resolve_value(&Value::Identifier(id.clone()))?
+                        }
+                        other => other,
+                    };
+                    interpreter.variables.insert(param.clone(), bound_val);
+                }
+
+                // Execute the function body. Track function call depth so 'return'
+                // statements are only valid within a function context.
+                interpreter.function_call_depth += 1;
+                let exec_result = super::collector::collect_events(interpreter, body);
+                // decrement depth regardless of success or error
+                interpreter.function_call_depth = interpreter.function_call_depth.saturating_sub(1);
+                exec_result?;
+
+                // Capture return value if the function executed a `return` statement.
+                let mut captured_return: Option<Value> = None;
+                if interpreter.returning_flag {
+                    captured_return = interpreter.return_value.clone();
+                    // clear the interpreter return state now that we've captured it
+                    interpreter.returning_flag = false;
+                    interpreter.return_value = None;
+                }
+
+                // Restore variables (local scope ends). We deliberately do not touch interpreter.events
+                // so synth definitions or other global registrations performed by the function persist.
+                interpreter.variables = vars_snapshot;
+
+                // If there was a returned value, expose it to the caller scope via a special variable
+                // named "__return" so callers can inspect the result. This is a simple mechanism
+                // for now; higher-level expression support can be added later.
+                if let Some(rv) = captured_return {
+                    interpreter.variables.insert("__return".to_string(), rv);
+                }
+
+                return Ok(());
+            }
+            // If it's a stored pattern (inline pattern stored as Statement), handle below
             if let StatementKind::Pattern { target, .. } = &stmt_box.kind {
                 if let Some(tgt) = target.as_ref() {
                     let (pattern_str, options) = interpreter.extract_pattern_data(&stmt_box.value);
@@ -253,17 +411,110 @@ pub fn handle_call(interpreter: &mut AudioInterpreter, name: &str) -> Result<()>
         }
     }
 
+    // If it's a group call, execute the group body
     if let Some(body) = interpreter.groups.get(name).cloned() {
         super::collector::collect_events(interpreter, &body)?;
-    } else {
-        println!("⚠️  Warning: Group or pattern '{}' not found", name);
+        return Ok(());
     }
 
+    println!(
+        "⚠️  Warning: Group, pattern or function '{}' not found",
+        name
+    );
     Ok(())
 }
 
-pub fn execute_print(interpreter: &AudioInterpreter, value: &Value) -> Result<()> {
+/// Execute a call as an expression and return its resulting Value.
+/// This is similar to `handle_call` but returns the captured `return` value
+/// from a function when present. Groups and patterns return `Value::Null`.
+pub fn call_function(
+    interpreter: &mut AudioInterpreter,
+    name: &str,
+    args: &[Value],
+) -> Result<Value> {
+    // If it's a stored variable that is a function statement, execute and capture return
+    if let Some(var_val) = interpreter.variables.get(name).cloned() {
+        if let Value::Statement(stmt_box) = var_val {
+            if let StatementKind::Function {
+                name: _fname,
+                parameters,
+                body,
+            } = &stmt_box.kind
+            {
+                // create local variable snapshot
+                let vars_snapshot = interpreter.variables.clone();
+
+                // Bind parameters: use provided args (they are already resolved by caller)
+                for (i, param) in parameters.iter().enumerate() {
+                    let bound = args.get(i).cloned().unwrap_or(Value::Null);
+                    // If the bound value is an Identifier, resolve it to its actual value
+                    let bound_val = match bound {
+                        Value::Identifier(ref id) => {
+                            interpreter.resolve_value(&Value::Identifier(id.clone()))?
+                        }
+                        other => other,
+                    };
+                    interpreter.variables.insert(param.clone(), bound_val);
+                }
+
+                // Execute body in function context
+                interpreter.function_call_depth += 1;
+
+                let exec_result = super::collector::collect_events(interpreter, body);
+                interpreter.function_call_depth = interpreter.function_call_depth.saturating_sub(1);
+                exec_result?;
+
+                // Capture return value if present
+                let mut captured_return: Option<Value> = None;
+                if interpreter.returning_flag {
+                    captured_return = interpreter.return_value.clone();
+                    interpreter.returning_flag = false;
+                    interpreter.return_value = None;
+                }
+
+                // Restore variables (local scope ends)
+                interpreter.variables = vars_snapshot;
+
+                if let Some(rv) = captured_return {
+                    return Ok(rv);
+                }
+
+                return Ok(Value::Null);
+            }
+            // Patterns fallthrough to below handling
+            if let StatementKind::Pattern { target, .. } = &stmt_box.kind {
+                if let Some(tgt) = target.as_ref() {
+                    let (pattern_str, options) = interpreter.extract_pattern_data(&stmt_box.value);
+                    if let Some(pat) = pattern_str {
+                        interpreter.execute_pattern(tgt.as_str(), &pat, options)?;
+                        return Ok(Value::Null);
+                    }
+                }
+            }
+        }
+    }
+
+    // If it's a group call, execute and return null
+    if let Some(body) = interpreter.groups.get(name).cloned() {
+        super::collector::collect_events(interpreter, &body)?;
+        return Ok(Value::Null);
+    }
+
+    println!(
+        "⚠️  Warning: Group, pattern or function '{}' not found",
+        name
+    );
+    Ok(Value::Null)
+}
+
+pub fn execute_print(interpreter: &mut AudioInterpreter, value: &Value) -> Result<()> {
     let message = match value {
+        Value::Call { name: _, args: _ } => {
+            // Evaluate the call expression and convert the returned value to string
+            let resolved = interpreter.resolve_value(value)?;
+            interpreter.value_to_string(&resolved)
+        }
+
         Value::String(s) => {
             if s.contains('{') && s.contains('}') {
                 interpreter.interpolate_string(s)
@@ -272,28 +523,102 @@ pub fn execute_print(interpreter: &AudioInterpreter, value: &Value) -> Result<()
             }
         }
         Value::Identifier(id) => {
-            // Resolve variable from interpreter.variables
-            if let Some(v) = interpreter.variables.get(id) {
-                match v {
+            // Resolve identifier values (supports post-increment shorthand)
+            // Support post-increment shorthand in prints: `i++` should mutate the variable.
+            if id.ends_with("++") {
+                let varname = id[..id.len() - 2].trim();
+                // read current
+                let cur = match interpreter.variables.get(varname) {
+                    Some(Value::Number(n)) => *n as isize,
+                    _ => 0,
+                };
+                // set new value
+                interpreter
+                    .variables
+                    .insert(varname.to_string(), Value::Number((cur + 1) as f32));
+                cur.to_string()
+            } else {
+                // Resolve the identifier using the interpreter resolver so dotted paths
+                // (e.g., mySynth.volume) are properly traversed.
+                let resolved = interpreter.resolve_value(&Value::Identifier(id.clone()))?;
+                match resolved {
                     Value::String(s) => s.clone(),
                     Value::Number(n) => n.to_string(),
                     Value::Boolean(b) => b.to_string(),
                     Value::Array(arr) => format!("{:?}", arr),
                     Value::Map(map) => format!("{:?}", map),
-                    _ => format!("{:?}", v),
+                    Value::Null => format!("Identifier(\"{}\")", id),
+                    other => format!("{:?}", other),
                 }
-            } else {
-                format!("Identifier(\"{}\")", id)
             }
         }
         Value::Number(n) => n.to_string(),
         Value::Boolean(b) => b.to_string(),
-        Value::Array(arr) => format!("{:?}", arr),
+        Value::Array(arr) => {
+            // Treat arrays used in print as concatenation parts: resolve each part and join
+            let mut parts = Vec::new();
+            for v in arr.iter() {
+                // If identifier with ++, handle mutation here
+                if let Value::Identifier(idtok) = v {
+                    if idtok.ends_with("++") {
+                        let varname = idtok[..idtok.len() - 2].trim();
+                        let cur = match interpreter.variables.get(varname) {
+                            Some(Value::Number(n)) => *n as isize,
+                            _ => 0,
+                        };
+                        interpreter
+                            .variables
+                            .insert(varname.to_string(), Value::Number((cur + 1) as f32));
+                        parts.push(cur.to_string());
+                        continue;
+                    }
+                }
+                let resolved = interpreter.resolve_value(v)?;
+                parts.push(interpreter.value_to_string(&resolved));
+            }
+            parts.join("")
+        }
         Value::Map(map) => format!("{:?}", map),
         _ => format!("{:?}", value),
     };
+    // Always record prints as scheduled log events so they can be replayed at playback time.
+    // Record the scheduled log message (no debug-origin annotation in production)
+    let log_message = message.clone();
+    // Use the interpreter cursor_time as the event time.
+    interpreter
+        .events
+        .add_log_event(log_message.clone(), interpreter.cursor_time);
+    // If the interpreter is explicitly allowed to print (runtime interpreter), print immediately.
+    // For offline renders (`suppress_print == true`) we do NOT print now; prints are scheduled
+    // into `interpreter.events.logs` and written to a `.printlog` sidecar during the build.
+    // The live playback engine replays that sidecar so prints appear in real time during playback.
+    if !interpreter.suppress_print {
+        // Use the global CLI logger formatting for prints so they appear as [PRINT]
+        // Guard CLI-only logger behind the `cli` feature so WASM builds don't
+        // reference the `crate::tools` module (which is only available for native builds).
+        #[cfg(feature = "cli")]
+        {
+            crate::tools::logger::Logger::new().print(message.clone());
+        }
 
-    println!("💬 {}", message);
+        // For non-CLI builds (wasm/plugins) try forwarding to the realtime print
+        // channel if provided so prints are surfaced in UIs that consume them.
+        #[cfg(not(feature = "cli"))]
+        {
+            if let Some(tx) = &interpreter.realtime_print_tx {
+                let _ = tx.send((interpreter.cursor_time, log_message.clone()));
+            }
+        }
+    } else {
+        // If printing is suppressed (offline render) but a realtime replay channel was provided,
+        // forward the scheduled print to the replay thread so it can be displayed in real-time
+        // while the offline render proceeds. This is a best-effort path used by some callers
+        // that pipe scheduled prints directly into a playback session (when set).
+        if let Some(tx) = &interpreter.realtime_print_tx {
+            // forward the scheduled log message to realtime replayers (best-effort)
+            let _ = tx.send((interpreter.cursor_time, log_message.clone()));
+        }
+    }
     Ok(())
 }
 
@@ -318,6 +643,26 @@ pub fn execute_event_handlers(interpreter: &mut AudioInterpreter, event_name: &s
     let handlers = interpreter.event_registry.get_handlers_matching(event_name);
 
     for (index, handler) in handlers.iter().enumerate() {
+        // If handler has args, allow numeric interval to gate execution for 'beat'/'bar'
+        if let Some(args) = &handler.args {
+            if let Some(num_val) = args.iter().find(|v| matches!(v, Value::Number(_))) {
+                if let Value::Number(n) = num_val {
+                    let interval = (*n as usize).max(1);
+                    if event_name == "beat" {
+                        let cur = interpreter.special_vars.current_beat.floor() as usize;
+                        if cur % interval != 0 {
+                            continue;
+                        }
+                    } else if event_name == "bar" {
+                        let cur = interpreter.special_vars.current_bar.floor() as usize;
+                        if cur % interval != 0 {
+                            continue;
+                        }
+                    }
+                }
+            }
+        }
+
         if handler.once
             && !interpreter
                 .event_registry
@@ -339,27 +684,81 @@ pub fn handle_assign(
     property: &str,
     value: &Value,
 ) -> Result<()> {
-    if let Some(var) = interpreter.variables.get_mut(target) {
-        if let Value::Map(map) = var {
-            map.insert(property.to_string(), value.clone());
+    // Support dotted targets like "myTrigger.effects.reverb" as the target string.
+    // The parser may pass the full path as `target` and the last path segment as `property`.
+    if target.contains('.') {
+        let parts: Vec<&str> = target.split('.').collect();
+        let root = parts[0];
+        if let Some(root_val) = interpreter.variables.get_mut(root) {
+            // Traverse into nested maps to reach the parent map where to insert `property`.
+            let mut current = root_val;
+            for seg in parts.iter().skip(1) {
+                match current {
+                    Value::Map(map) => {
+                        if !map.contains_key(*seg) {
+                            // create nested map if missing
+                            map.insert((*seg).to_string(), Value::Map(HashMap::new()));
+                        }
+                        current = map.get_mut(*seg).unwrap();
+                    }
+                    _ => {
+                        return Err(anyhow::anyhow!(
+                            "Cannot traverse into non-map segment '{}' when assigning to '{}'",
+                            seg,
+                            target
+                        ));
+                    }
+                }
+            }
 
-            if interpreter.events.synths.contains_key(target) {
-                let map_clone = map.clone();
-                let updated_def = interpreter.extract_synth_def_from_map(&map_clone)?;
-                interpreter
-                    .events
-                    .synths
-                    .insert(target.to_string(), updated_def);
+            // Now `current` should be a Value::Map where we insert `property`.
+            if let Value::Map(map) = current {
+                map.insert(property.to_string(), value.clone());
+
+                // If the root object is a synth, update its synth definition
+                if interpreter.events.synths.contains_key(root) {
+                    if let Some(Value::Map(root_map)) = interpreter.variables.get(root) {
+                        let map_clone = root_map.clone();
+                        let updated_def = interpreter.extract_synth_def_from_map(&map_clone)?;
+                        interpreter
+                            .events
+                            .synths
+                            .insert(root.to_string(), updated_def);
+                    }
+                }
+            } else {
+                return Err(anyhow::anyhow!(
+                    "Cannot assign property '{}' to non-map target '{}'",
+                    property,
+                    target
+                ));
             }
         } else {
-            return Err(anyhow::anyhow!(
-                "Cannot assign property '{}' to non-map variable '{}'",
-                property,
-                target
-            ));
+            return Err(anyhow::anyhow!("Variable '{}' not found", root));
         }
     } else {
-        return Err(anyhow::anyhow!("Variable '{}' not found", target));
+        if let Some(var) = interpreter.variables.get_mut(target) {
+            if let Value::Map(map) = var {
+                map.insert(property.to_string(), value.clone());
+
+                if interpreter.events.synths.contains_key(target) {
+                    let map_clone = map.clone();
+                    let updated_def = interpreter.extract_synth_def_from_map(&map_clone)?;
+                    interpreter
+                        .events
+                        .synths
+                        .insert(target.to_string(), updated_def);
+                }
+            } else {
+                return Err(anyhow::anyhow!(
+                    "Cannot assign property '{}' to non-map variable '{}'",
+                    property,
+                    target
+                ));
+            }
+        } else {
+            return Err(anyhow::anyhow!("Variable '{}' not found", target));
+        }
     }
 
     Ok(())
@@ -378,12 +777,46 @@ pub fn extract_synth_def_from_map(
     let sustain = crate::engine::audio::events::extract_number(map, "sustain", 0.7);
     let release = crate::engine::audio::events::extract_number(map, "release", 0.2);
 
-    let synth_type = if let Some(Value::String(t)) = map.get("type") {
-        let clean = t.trim_matches('"').trim_matches('\'');
-        if clean.is_empty() || clean == "synth" {
-            None
-        } else {
-            Some(clean.to_string())
+    // Accept both String and Identifier for type (and synth_type alias)
+    let synth_type = if let Some(v) = map.get("type") {
+        match v {
+            Value::String(t) => {
+                let clean = t.trim_matches('"').trim_matches('\'');
+                if clean.is_empty() || clean == "synth" {
+                    None
+                } else {
+                    Some(clean.to_string())
+                }
+            }
+            Value::Identifier(id) => {
+                let clean = id.trim_matches('"').trim_matches('\'');
+                if clean.is_empty() || clean == "synth" {
+                    None
+                } else {
+                    Some(clean.to_string())
+                }
+            }
+            _ => None,
+        }
+    } else if let Some(v2) = map.get("synth_type") {
+        match v2 {
+            Value::String(t2) => {
+                let clean = t2.trim_matches('"').trim_matches('\'');
+                if clean.is_empty() || clean == "synth" {
+                    None
+                } else {
+                    Some(clean.to_string())
+                }
+            }
+            Value::Identifier(id2) => {
+                let clean = id2.trim_matches('"').trim_matches('\'');
+                if clean.is_empty() || clean == "synth" {
+                    None
+                } else {
+                    Some(clean.to_string())
+                }
+            }
+            _ => None,
         }
     } else {
         None
@@ -611,6 +1044,9 @@ pub fn handle_bind(
                     map.insert(k.clone(), v.clone());
                 }
 
+                // Ensure mapping defaults
+                crate::utils::props::ensure_default_properties(&mut map, Some("mapping"));
+
                 interpreter
                     .variables
                     .insert(path.to_string(), Value::Map(map.clone()));
@@ -785,10 +1221,10 @@ pub fn handle_bind(
                         reverb_amount: None,
                         drive_amount: None,
                         drive_color: None,
+                        effects: None,
                         use_per_note_automation: false,
                     };
 
-                    // Diagnostic: log each scheduled note from bind (midi, time ms, start_time sec)
                     // bound note scheduled
                     interpreter.events.events.push(event);
                 }
@@ -839,6 +1275,8 @@ pub fn handle_use_plugin(
 
                 plugin_map.insert(export.name.clone(), Value::Map(export_map));
             }
+            // Ensure plugin map has default properties available for dotted access
+            crate::utils::props::ensure_default_properties(&mut plugin_map, Some("plugin"));
 
             interpreter
                 .variables
@@ -868,6 +1306,9 @@ pub fn handle_use_plugin(
     );
     plugin_map.insert("_author".to_string(), Value::String(author.to_string()));
     plugin_map.insert("_name".to_string(), Value::String(name.to_string()));
+    // Ensure stubs also expose defaults for dotted access
+    crate::utils::props::ensure_default_properties(&mut plugin_map, Some("plugin"));
+
     interpreter
         .variables
         .insert(alias.to_string(), Value::Map(plugin_map));
@@ -949,12 +1390,38 @@ pub fn handle_bank(
     Ok(())
 }
 
-pub fn handle_trigger(interpreter: &mut AudioInterpreter, entity: &str) -> Result<()> {
+pub fn handle_trigger(
+    interpreter: &mut AudioInterpreter,
+    entity: &str,
+    effects: Option<&crate::language::syntax::ast::Value>,
+) -> Result<()> {
     let resolved_entity = if entity.starts_with('.') {
         &entity[1..]
     } else {
         entity
     };
+
+    // If this resolved entity refers to a variable that contains a Trigger statement,
+    // execute that stored trigger instead (supports: let t = .bank.kick -> reverse(true); .t )
+    if let Some(var_val) = interpreter.variables.get(resolved_entity).cloned() {
+        if let crate::language::syntax::ast::Value::Statement(stmt_box) = var_val {
+            if let crate::language::syntax::ast::StatementKind::Trigger {
+                entity: inner_entity,
+                duration: _,
+                effects: stored_effects,
+            } = &stmt_box.kind
+            {
+                // Avoid direct recursion if someone stored a trigger that points to itself
+                if inner_entity != resolved_entity {
+                    // Prefer stored effects when present, otherwise fall back to effects passed in
+                    let chosen_effects = stored_effects.as_ref().or(effects);
+                    return handle_trigger(interpreter, inner_entity, chosen_effects);
+                } else {
+                    return Ok(());
+                }
+            }
+        }
+    }
 
     if resolved_entity.contains('.') {
         let parts: Vec<&str> = resolved_entity.split('.').collect();
@@ -964,9 +1431,13 @@ pub fn handle_trigger(interpreter: &mut AudioInterpreter, entity: &str) -> Resul
             if let Some(Value::Map(map)) = interpreter.variables.get(var_name) {
                 if let Some(Value::String(sample_uri)) = map.get(property) {
                     let uri = sample_uri.trim_matches('"').trim_matches('\'');
-                    interpreter
-                        .events
-                        .add_sample_event(uri, interpreter.cursor_time, 1.0);
+                    // scheduling sample at current cursor_time
+                    interpreter.events.add_sample_event_with_effects(
+                        uri,
+                        interpreter.cursor_time,
+                        1.0,
+                        effects.cloned(),
+                    );
                     let beat_duration = interpreter.beat_duration();
                     interpreter.cursor_time += beat_duration;
                 } else {
@@ -975,10 +1446,12 @@ pub fn handle_trigger(interpreter: &mut AudioInterpreter, entity: &str) -> Resul
                         // First try to produce an internal devalang://bank URI (preferred, supports lazy loading)
                         let resolved_uri = interpreter.resolve_sample_uri(resolved_entity);
                         if resolved_uri != resolved_entity {
-                            interpreter.events.add_sample_event(
+                            // scheduling resolved sample
+                            interpreter.events.add_sample_event_with_effects(
                                 &resolved_uri,
                                 interpreter.cursor_time,
                                 1.0,
+                                effects.cloned(),
                             );
                             let beat_duration = interpreter.beat_duration();
                             interpreter.cursor_time += beat_duration;
@@ -986,10 +1459,12 @@ pub fn handle_trigger(interpreter: &mut AudioInterpreter, entity: &str) -> Resul
                             interpreter.banks.resolve_trigger(var_name, property)
                         {
                             if let Some(path_str) = pathbuf.to_str() {
-                                interpreter.events.add_sample_event(
+                                // scheduling sample via bank path
+                                interpreter.events.add_sample_event_with_effects(
                                     path_str,
                                     interpreter.cursor_time,
                                     1.0,
+                                    effects.cloned(),
                                 );
                                 let beat_duration = interpreter.beat_duration();
                                 interpreter.cursor_time += beat_duration;
@@ -1000,7 +1475,7 @@ pub fn handle_trigger(interpreter: &mut AudioInterpreter, entity: &str) -> Resul
                                 );
                             }
                         } else {
-                            println!("⚠️ No path found for {} via BankRegistry", resolved_entity);
+                            // no path found in BankRegistry
                         }
                     }
                 }
@@ -1009,9 +1484,12 @@ pub fn handle_trigger(interpreter: &mut AudioInterpreter, entity: &str) -> Resul
     } else {
         if let Some(Value::String(sample_uri)) = interpreter.variables.get(resolved_entity) {
             let uri = sample_uri.trim_matches('"').trim_matches('\'');
-            interpreter
-                .events
-                .add_sample_event(uri, interpreter.cursor_time, 1.0);
+            interpreter.events.add_sample_event_with_effects(
+                uri,
+                interpreter.cursor_time,
+                1.0,
+                effects.cloned(),
+            );
             let beat_duration = interpreter.beat_duration();
             interpreter.cursor_time += beat_duration;
         }
@@ -1112,6 +1590,7 @@ pub fn execute_pattern(
                 uri: resolved_uri.clone(),
                 start_time: time,
                 velocity: velocity_mult, // Already in 0-1 range, not MIDI 0-127
+                effects: None,
             };
             interpreter.events.events.push(event);
         }

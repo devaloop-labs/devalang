@@ -1,23 +1,28 @@
 #!/usr/bin/env node
 
-/**
- * Devalang CLI entry point
- * 
- * This is a placeholder that forwards to the Rust CLI binary.
- * The actual CLI is built with Cargo and should be run with:
- * 
- *   cargo run --features cli -- [args]
- * 
- * For the npm package, users should install the Rust toolchain
- * or we should provide pre-built binaries.
- */
+import { spawn } from "child_process";
+import * as path from "path";
 
-console.log('Devalang CLI');
-console.log('============\n');
-console.log('The Devalang CLI is built with Rust.');
-console.log('Please run it using Cargo:\n');
-console.log('  cargo run --features cli -- build --path examples/test.deva\n');
-console.log('Or install the standalone binary from:');
-console.log('  https://github.com/devaloop-labs/devalang/releases\n');
+let binaryName: string;
 
-process.exit(0);
+switch (process.platform) {
+  case "win32":
+    binaryName = "devalang-x86_64-pc-windows-msvc.exe";
+    break;
+  case "darwin":
+    binaryName = "devalang-x86_64-apple-darwin";
+    break;
+  case "linux":
+    binaryName = "devalang-x86_64-unknown-linux-gnu";
+    break;
+  default:
+    console.error(`Unsupported platform: ${process.platform}`);
+    process.exit(1);
+}
+
+const binaryPath = path.join(__dirname, binaryName);
+
+const args = process.argv.slice(2);
+const child = spawn(binaryPath, args, { stdio: "inherit" });
+
+child.on("exit", (code) => process.exit(code ?? 1));

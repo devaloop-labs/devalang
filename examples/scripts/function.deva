@@ -1,0 +1,18 @@
+# =================
+# Functions
+# =================
+# You can create custom functions to simplify and modularize your scripts
+#
+# Function syntax
+# `function <function_name>(<arg1>, <arg2>, ...):`
+
+const mySynth = synth sine
+const myZero = 0
+
+function myFunction(synthVar, zeroVar):
+    if mySynth.volume > zeroVar:
+        return "mySynth volume OK"
+    else:
+        return "mySynth volume is equal to zero !"
+
+print myFunction(mySynth, myZero)

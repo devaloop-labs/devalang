@@ -1,4 +1,3 @@
-// moved to driver/ as child module
 use anyhow::Result;
 use rayon::prelude::*;
 use std::collections::HashMap;
@@ -60,6 +59,52 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
     #[cfg(not(feature = "cli"))]
     let _logger = ();
     // (content copied from top-level collector.rs)
+    // Drain any background worker events first so they are available during collection
+    if let Some(rx) = interpreter.background_event_rx.as_mut() {
+        // Drain all pending lists
+        loop {
+            match rx.try_recv() {
+                Ok(events) => {
+                    // Debug info: show how many events are being merged from background workers
+                    let _cnt = events.events.len();
+                    // Consider both audio events and logged print messages when computing earliest time
+                    let mut times: Vec<f32> = Vec::new();
+                    for e in &events.events {
+                        if let crate::engine::audio::events::AudioEvent::Note {
+                            start_time, ..
+                        } = e
+                        {
+                            times.push(*start_time);
+                        } else if let crate::engine::audio::events::AudioEvent::Chord {
+                            start_time,
+                            ..
+                        } = e
+                        {
+                            times.push(*start_time);
+                        } else if let crate::engine::audio::events::AudioEvent::Sample {
+                            start_time,
+                            ..
+                        } = e
+                        {
+                            times.push(*start_time);
+                        }
+                    }
+                    for (t, _m) in &events.logs {
+                        times.push(*t);
+                    }
+                    let earliest = times
+                        .into_iter()
+                        .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+                    let _ = earliest;
+                    interpreter.events.merge(events);
+                }
+                Err(std::sync::mpsc::TryRecvError::Empty) => break,
+                Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                    break;
+                }
+            }
+        }
+    }
     let (spawns, others): (Vec<_>, Vec<_>) = statements
         .iter()
         .partition(|stmt| matches!(stmt.kind, StatementKind::Spawn { .. }));
@@ -73,7 +118,35 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
             .update_time(interpreter.cursor_time);
 
         match &stmt.kind {
+            StatementKind::Function {
+                name,
+                parameters,
+                body,
+            } => {
+                // Register function definition in variables so it can be called later
+                let func_stmt = Statement {
+                    kind: StatementKind::Function {
+                        name: name.clone(),
+                        parameters: parameters.clone(),
+                        body: body.clone(),
+                    },
+                    value: stmt.value.clone(),
+                    indent: stmt.indent,
+                    line: stmt.line,
+                    column: stmt.column,
+                };
+                interpreter
+                    .variables
+                    .insert(name.clone(), Value::Statement(Box::new(func_stmt)));
+            }
             StatementKind::Let { name, value } => {
+                if let Some(val) = value {
+                    super::handler::handle_let(interpreter, name, val)?;
+                }
+            }
+            StatementKind::Const { name, value } => {
+                // Treat const like let at runtime: register the value in the interpreter variables.
+                // Immutability is enforced at higher language layers; runtime simply stores the value.
                 if let Some(val) = value {
                     super::handler::handle_let(interpreter, name, val)?;
                 }
@@ -97,7 +170,7 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
 
                 let context =
                     crate::engine::audio::interpreter::statements::arrow_call::execute_arrow_call(
-                        &interpreter.function_registry,
+                        interpreter,
                         target,
                         method,
                         args,
@@ -110,6 +183,7 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
                         {
                             use crate::web::registry::debug;
                             if debug::is_debug_errors_enabled() {
+                                // wasm registry expects: message, line, column, error_type
                                 debug::push_parse_error_from_parts(
                                     format!("{}", e),
                                     stmt.line,
@@ -184,7 +258,7 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
             StatementKind::Group { name, body } => {
                 interpreter.groups.insert(name.clone(), body.clone());
             }
-            StatementKind::Call { name, args: _ } => {
+            StatementKind::Call { name, args } => {
                 // If this call contains an inline pattern (parser stores it in stmt.value as a Map
                 // with `inline_pattern = true`), register it as a Pattern statement in variables
                 // so that handle_call can find and execute it targeting the correct bank.trigger.
@@ -217,7 +291,7 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
                     }
                 }
 
-                super::handler::handle_call(interpreter, name)?;
+                super::handler::handle_call(interpreter, name, args)?;
             }
 
             StatementKind::Automate { target } => {
@@ -272,6 +346,20 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
                                 midi_manager: interpreter.midi_manager.clone(),
                                 current_statement_location: None,
                                 suppress_beat_emit: true,
+                                suppress_print: true,
+                                break_flag: false,
+                                // Inherit background_event_tx from parent so spawned/child
+                                // interpreters reuse the same Sender when running under
+                                // live playback. This prevents child interpreters from
+                                // creating their own private Receiver that would be
+                                // dropped while background workers keep running.
+                                background_event_tx: interpreter.background_event_tx.clone(),
+                                background_event_rx: None,
+                                background_workers: Vec::new(),
+                                realtime_print_tx: None,
+                                function_call_depth: 0,
+                                returning_flag: false,
+                                return_value: None,
                             };
 
                             // Inherit synth definitions
@@ -328,6 +416,16 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
                                 midi_manager: interpreter.midi_manager.clone(),
                                 current_statement_location: None,
                                 suppress_beat_emit: true,
+                                suppress_print: true,
+                                break_flag: false,
+                                // Keep the same background sender as the parent interpreter
+                                background_event_tx: interpreter.background_event_tx.clone(),
+                                background_event_rx: None,
+                                background_workers: Vec::new(),
+                                realtime_print_tx: None,
+                                function_call_depth: 0,
+                                returning_flag: false,
+                                return_value: None,
                             };
 
                             // Inherit synth definitions so durations reflect real events
@@ -405,6 +503,33 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
             } => {
                 interpreter.execute_for(variable, iterable, body)?;
             }
+            StatementKind::Return { value } => {
+                // Only allow 'return' inside a function call context
+                if interpreter.function_call_depth == 0 {
+                    return Err(anyhow::anyhow!(
+                        "'return' used outside of a function at {}:{}",
+                        stmt.line,
+                        stmt.column
+                    ));
+                }
+
+                // Resolve return value (if provided) and signal function return
+                if let Some(vbox) = value.as_ref() {
+                    let resolved = interpreter.resolve_value(vbox)?;
+                    interpreter.return_value = Some(resolved);
+                } else {
+                    interpreter.return_value = Some(Value::Null);
+                }
+                interpreter.returning_flag = true;
+                // Stop further execution of the current statement block
+                return Ok(());
+            }
+            StatementKind::Break => {
+                // Signal to enclosing loop/for that a break occurred
+                interpreter.break_flag = true;
+                // Stop processing this block so loop logic can handle the break
+                return Ok(());
+            }
             StatementKind::Print => {
                 super::handler::execute_print(interpreter, &stmt.value)?;
             }
@@ -416,23 +541,27 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
                 super::handler::execute_if(interpreter, condition, body, else_body)?;
             }
             StatementKind::On { event, args, body } => {
+                // Build handler: pick up once flag and keep args (intervals etc.)
                 let once = args
                     .as_ref()
-                    .and_then(|a| a.first())
-                    .and_then(|v| {
-                        if let Value::String(s) = v {
-                            Some(s == "once")
-                        } else {
-                            None
-                        }
+                    .and_then(|a| {
+                        a.iter().find_map(|v| {
+                            if let Value::String(s) = v {
+                                Some(s == "once")
+                            } else {
+                                None
+                            }
+                        })
                     })
                     .unwrap_or(false);
+
                 // Normalize event name (strip trailing ':' if present)
                 let event_name = event.trim_end_matches(':').trim().to_string();
                 let handler = EventHandler {
                     event_name: event_name.clone(),
                     body: body.clone(),
                     once,
+                    args: args.clone(),
                 };
                 interpreter.event_registry.register_handler(handler);
             }
@@ -520,9 +649,11 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
             StatementKind::Trigger {
                 entity,
                 duration: _,
-                effects: _,
+                effects,
             } => {
-                super::handler::handle_trigger(interpreter, entity)?;
+                // Pass the effects associated with the trigger statement into the handler so
+                // runtime scheduling can attach them to sample events.
+                super::handler::handle_trigger(interpreter, entity, effects.as_ref())?;
             }
             _ => {}
         }
@@ -603,6 +734,19 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
                         midi_manager: interpreter.midi_manager.clone(),
                         current_statement_location: None,
                         suppress_beat_emit: interpreter.suppress_beat_emit,
+                        suppress_print: interpreter.suppress_print,
+                        break_flag: false,
+                        // Ensure spawned local interpreters inherit the parent's
+                        // background sender when present. This avoids creating
+                        // ephemeral receivers that would be dropped and cause
+                        // background workers to observe "receiver closed".
+                        background_event_tx: interpreter.background_event_tx.clone(),
+                        background_event_rx: None,
+                        background_workers: Vec::new(),
+                        realtime_print_tx: None,
+                        function_call_depth: 0,
+                        returning_flag: false,
+                        return_value: None,
                     };
 
                     // Inherit synth definitions from parent so spawned groups can snapshot synths/plugins
@@ -731,13 +875,17 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
             for i in 0..max_beats {
                 let beat_time = i as f32 * beat_duration;
                 interpreter.cursor_time = beat_time;
-                interpreter.special_vars.current_time = beat_time;
-                interpreter.special_vars.current_beat = beat_time / beat_duration;
+                // Update special vars consistently (updates beat and bar)
+                interpreter.special_vars.update_time(beat_time);
 
                 // execute handlers for 'beat' but ensure handlers won't re-emit beats by setting the guard
                 let prev = interpreter.suppress_beat_emit;
                 interpreter.suppress_beat_emit = true;
                 interpreter.execute_event_handlers("beat")?;
+                // Also call 'bar' handlers at bar boundaries (every 4 beats)
+                if (i % 4) == 0 {
+                    interpreter.execute_event_handlers("bar")?;
+                }
                 interpreter.suppress_beat_emit = prev;
             }
 
@@ -745,8 +893,15 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
             interpreter.cursor_time = prev_cursor;
             interpreter.special_vars.current_time = prev_time;
             interpreter.special_vars.current_beat = prev_beat;
+            // restore bar too
+            interpreter.special_vars.current_bar = prev_beat / 4.0;
         }
     }
+
+    // Do not perform a blocking drain here — background 'pass' workers will deliver
+    // their events asynchronously. Blocking here caused noticeable latency before
+    // playback in some offline render scenarios, so we avoid waiting and let the
+    // normal event merge logic handle incoming background batches.
 
     Ok(())
 }

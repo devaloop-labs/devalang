@@ -37,11 +37,9 @@ pub mod workspace;
 #[cfg(all(target_arch = "wasm32", feature = "wasm"))]
 pub mod web;
 
-// Stub for web module when compiling for wasm32 without "wasm" feature (e.g., plugins)
 #[cfg(all(target_arch = "wasm32", not(feature = "wasm")))]
 pub mod web {
-    //! Stub module for web functionality when compiling plugins
-    //! This prevents compilation errors when plugin code references web modules
+    //! Minimal web registry stubs for plugin builds
 
     pub mod registry {
         pub mod samples {
@@ -87,20 +85,15 @@ pub mod web {
     }
 }
 
-// Stub for web_sys when compiling for wasm32 without "wasm" feature
 #[cfg(all(target_arch = "wasm32", not(feature = "wasm")))]
 pub mod web_sys {
-    //! Stub module for web_sys when compiling plugins without wasm-bindgen
+    //! Minimal web_sys stubs for plugin builds
     pub mod console {
         pub fn log_1(_msg: &str) {}
         pub fn warn_1(_msg: &str) {}
     }
 }
 
-// Fallback stub for `web` module when not compiling for wasm32 at all.
-// Some code references `crate::web::registry` even when building for native
-// (e.g., tests or host builds). Provide a minimal stub so those references
-// compile in non-wasm builds.
 #[cfg(not(target_arch = "wasm32"))]
 pub mod web {
     pub mod registry {
@@ -140,10 +133,9 @@ pub mod web {
     }
 }
 
-// Stub for midly when not available
 #[cfg(all(target_arch = "wasm32", not(any(feature = "wasm", feature = "cli"))))]
 pub mod midly {
-    //! Stub module for midly when compiling plugins
+    //! Minimal midly stubs for plugin builds
     pub struct Header;
     pub enum Format {
         SingleTrack,

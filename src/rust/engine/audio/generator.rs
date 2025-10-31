@@ -192,7 +192,7 @@ pub fn generate_note_with_options(
             use crate::engine::audio::lfo::LfoTarget;
             if lfo.target == LfoTarget::Volume {
                 let lfo_value = generate_lfo_value(lfo, time, bpm);
-                amplitude *= (1.0 + lfo_value); // Range: 0.0 to 2.0 with default depth
+                amplitude *= 1.0 + lfo_value; // Range: 0.0 to 2.0 with default depth
             }
         }
 

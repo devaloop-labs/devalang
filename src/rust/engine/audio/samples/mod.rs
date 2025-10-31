@@ -3,8 +3,8 @@
 //! This module provides functionality to load sample banks from disk (TOML manifests + WAV files)
 //! and manage a registry of loaded samples for use in audio rendering.
 
-#![cfg(feature = "cli")]
-
+// This module is conditionally exported from its parent via `#[cfg(feature = "cli")]`.
+// Avoid duplicating crate-level cfg attributes here which cause lints.
 use anyhow::{Context, Result};
 use once_cell::sync::Lazy;
 use serde::Deserialize;

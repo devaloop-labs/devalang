@@ -122,7 +122,7 @@ impl InitCommand {
     "bpm": 120
   }},
   "live": {{
-    "crossfade_ms": 500
+    "crossfade_ms": 50
   }}
 }}
 "#,

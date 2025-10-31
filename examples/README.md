@@ -4,11 +4,17 @@
 
 # Examples
 
+This directory contains example scripts and playable demos for Devalang. Explore the examples to learn more about how to use Devalang effectively.
+
+## Example Scripts
+
 This folder contains various examples demonstrating the capabilities and features of Devalang. Each example is designed to showcase different aspects of the language, from basic syntax to advanced functionalities.
 
-## Getting Started
+> Take those script examples as references rather than ready-to-run scripts.
 
-We recommend starting with the `./scripts` folder, which provides simple scripts to help you get familiar with Devalang's syntax and features.
+<!-- ## Playable demos
+
+This folder contains complete tracks that allow you to experience Devalang in action. These demos are designed to be run directly and provide a hands-on way to explore the language's features. -->
 
 ## Running Examples
 

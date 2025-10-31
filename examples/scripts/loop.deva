@@ -4,15 +4,45 @@
 # You can create loops using the loop and for directives.
 #
 # Loop syntax:
-# `loop <number | iterable_object>:`
-# 
+# `loop <optional_number> <optional_pass>(<int>):`
+#
 # For syntax:
-# `for <variable> in <number | iterable_object>:`
+# `for <index_var> in <number | array | range>:`
 
+# Load bank for the triggers below
+bank devaloop.808 as myBank
+
+# Basic loop (repeat 4 times 3x sounds)
 loop 4:
     .myBank.kick
     .myBank.snare
     .myBank.clap
 
+# Infinite loop (repeat until break statement)
+loop:
+    .myBank.kick
+    .myBank.snare
+    .myBank.clap
+    break
+
+# Loop with pass (non-blocking)
+# Will play the kick in loop for 2000ms
+# Will execute next statements after the loop immediately
+loop pass(2000):
+    .myBank.kick
+
+# For loop over an array of numbers
 for i in [1, 2, 3]:
     print "Loop iteration: " + i
+
+# For loop over an array of notes
+let mySynth = synth square
+for note in [C4, E4, G4, B4]:
+    print "Playing note: " + note
+    mySynth -> note(note)
+            -> velocity(100)
+            -> duration(500)
+
+# For loop over a range of numbers
+for index in [0..10]:
+    print "Index: " + index

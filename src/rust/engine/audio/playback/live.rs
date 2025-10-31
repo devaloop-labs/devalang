@@ -8,7 +8,6 @@ use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result, bail};
 use rodio::{Decoder, OutputStream, OutputStreamHandle, Sink};
-use tokio::task::spawn_blocking;
 use tokio::time::sleep;
 
 use crate::engine::audio::settings::{AudioBitDepth, AudioChannels, AudioFormat, ResampleQuality};
@@ -72,12 +71,55 @@ impl LivePlaybackEngine {
         ));
         let sink = Arc::new(self.create_sink(&source)?);
         sink.set_volume(volume);
+
+        // Attempt to load scheduled print events sidecar (module.printlog) for this audio
+        let mut scheduled_logs: Vec<(f32, String)> = Vec::new();
+        if let Some(stem) = source.path.file_stem().and_then(|s| s.to_str()) {
+            let log_path = source.path.with_file_name(format!("{}.printlog", stem));
+            if let Ok(contents) = std::fs::read_to_string(&log_path) {
+                for line in contents.lines() {
+                    if let Some((t, msg)) = line.split_once('\t') {
+                        if let Ok(secs) = t.parse::<f32>() {
+                            scheduled_logs.push((secs, msg.to_string()));
+                        }
+                    }
+                }
+                scheduled_logs
+                    .sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
+            }
+        }
+
         let sink_clone = Arc::clone(&sink);
-        spawn_blocking(move || {
+        let wait_handle = std::thread::spawn(move || {
             sink_clone.sleep_until_end();
-        })
-        .await
-        .context("audio playback worker panicked")?;
+        });
+
+        // Track playback start time so we can schedule print events
+        let start_instant = std::time::Instant::now();
+        let mut next_log_idx: usize = 0;
+
+        // Poll loop: while playback is ongoing emit scheduled prints
+        let poll_interval = std::time::Duration::from_millis(25);
+        loop {
+            if wait_handle.is_finished() {
+                let _ = wait_handle.join();
+                break;
+            }
+
+            if !scheduled_logs.is_empty() {
+                let elapsed = start_instant.elapsed().as_secs_f32();
+                while next_log_idx < scheduled_logs.len()
+                    && scheduled_logs[next_log_idx].0 <= elapsed
+                {
+                    let msg = &scheduled_logs[next_log_idx].1;
+                    self.logger().print(msg.clone());
+                    next_log_idx += 1;
+                }
+            }
+
+            std::thread::sleep(poll_interval);
+        }
+
         sink.stop();
         self.logger().success("Playback completed.");
         Ok(())
@@ -87,6 +129,13 @@ impl LivePlaybackEngine {
         &self,
         source: LiveAudioSource,
         options: LivePlaybackOptions,
+        background_event_rx: Option<
+            std::sync::Arc<
+                std::sync::Mutex<
+                    std::sync::mpsc::Receiver<crate::engine::audio::events::AudioEventList>,
+                >,
+            >,
+        >,
     ) -> Result<LivePlaybackSession> {
         let volume = options.volume();
         let volume_display = if volume == 0.0 {
@@ -132,6 +181,7 @@ impl LivePlaybackEngine {
             handle,
             last_update,
             options,
+            background_event_rx,
         ))
     }
 }
@@ -187,10 +237,31 @@ fn run_loop(
             }
         };
 
+        // Attempt to load scheduled print events sidecar (module.printlog) for this audio
+        let mut scheduled_logs: Vec<(f32, String)> = Vec::new();
+        if let Some(stem) = current.path.file_stem().and_then(|s| s.to_str()) {
+            let log_path = current.path.with_file_name(format!("{}.printlog", stem));
+            if let Ok(contents) = std::fs::read_to_string(&log_path) {
+                for line in contents.lines() {
+                    if let Some((t, msg)) = line.split_once('\t') {
+                        if let Ok(secs) = t.parse::<f32>() {
+                            scheduled_logs.push((secs, msg.to_string()));
+                        }
+                    }
+                }
+                scheduled_logs
+                    .sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
+            }
+        }
+
         let sink_clone = Arc::clone(&sink);
         let wait_handle = thread::spawn(move || {
             sink_clone.sleep_until_end();
         });
+
+        // Track playback start time so we can schedule print events
+        let start_instant = Instant::now();
+        let mut next_log_idx: usize = 0;
 
         let mut stop_requested = false;
 
@@ -198,6 +269,18 @@ fn run_loop(
             if wait_handle.is_finished() {
                 let _ = wait_handle.join();
                 break;
+            }
+            // Emit scheduled prints at the correct playback time
+            if !scheduled_logs.is_empty() {
+                let elapsed = start_instant.elapsed().as_secs_f32();
+                while next_log_idx < scheduled_logs.len()
+                    && scheduled_logs[next_log_idx].0 <= elapsed
+                {
+                    let msg = &scheduled_logs[next_log_idx].1;
+                    // Emit using the engine logger so print messages use the [PRINT] format
+                    logger.print(msg.clone());
+                    next_log_idx += 1;
+                }
             }
 
             match rx.recv_timeout(poll_interval) {
@@ -341,6 +424,13 @@ pub struct LivePlaybackSession {
     handle: Option<thread::JoinHandle<Result<()>>>,
     last_update: Arc<Mutex<Instant>>,
     options: LivePlaybackOptions,
+    background_event_rx: Option<
+        std::sync::Arc<
+            std::sync::Mutex<
+                std::sync::mpsc::Receiver<crate::engine::audio::events::AudioEventList>,
+            >,
+        >,
+    >,
 }
 
 impl LivePlaybackSession {
@@ -350,6 +440,13 @@ impl LivePlaybackSession {
         handle: thread::JoinHandle<Result<()>>,
         last_update: Arc<Mutex<Instant>>,
         options: LivePlaybackOptions,
+        background_event_rx: Option<
+            std::sync::Arc<
+                std::sync::Mutex<
+                    std::sync::mpsc::Receiver<crate::engine::audio::events::AudioEventList>,
+                >,
+            >,
+        >,
     ) -> Self {
         Self {
             engine,
@@ -357,6 +454,7 @@ impl LivePlaybackSession {
             handle: Some(handle),
             last_update,
             options,
+            background_event_rx,
         }
     }
 

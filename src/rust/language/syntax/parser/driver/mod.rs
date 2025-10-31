@@ -1,785 +1,485 @@
 pub mod directive;
 pub mod duration;
+pub mod effects;
 pub mod helpers;
 pub mod preprocessing;
 pub mod routing;
 pub mod statements;
 pub mod trigger;
-
-use std::fs;
+// Re-export statement-level parsers so they are available at driver root
+use crate::language::syntax::ast::nodes::{Statement, StatementKind, Value};
+use anyhow::{Result, anyhow};
+pub use statements::*;
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result, anyhow};
+/// Entry point: parse source into a list of Statements
+pub fn parse(source: &str, path: PathBuf) -> Result<Vec<Statement>> {
+    // Pre-process: merge ALL multiline statements with braces
+    let braces_pre = preprocessing::preprocess_multiline_braces(source);
 
-use crate::language::syntax::ast::{Statement, StatementKind, Value};
-use directive::parse_directive;
-use preprocessing::{preprocess_multiline_arrow_calls, preprocess_multiline_braces};
-use routing::parse_routing_command;
-use statements::*;
-use trigger::parse_trigger_line;
+    // Then merge multiline arrow calls (without braces)
+    let preprocessed = preprocessing::preprocess_multiline_arrow_calls(&braces_pre);
 
-pub struct SimpleParser;
+    let lines: Vec<_> = preprocessed.lines().collect();
+    parse_lines(&lines, 0, lines.len(), 0, &path)
+}
 
-impl SimpleParser {
-    pub fn new() -> Self {
-        Self
-    }
+/// Parse a range of lines into statements, handling indentation for blocks.
+fn parse_lines(
+    lines: &Vec<&str>,
+    start: usize,
+    end: usize,
+    indent: usize,
+    path: &Path,
+) -> Result<Vec<Statement>> {
+    use crate::language::syntax::ast::nodes::StatementKind;
 
-    pub fn parse_file(path: impl AsRef<Path>) -> Result<Vec<Statement>> {
-        let path = path.as_ref();
-        let content = fs::read_to_string(path)
-            .with_context(|| format!("failed to read source file: {}", path.display()))?;
-        Self::parse(&content, path.to_path_buf())
-    }
+    let mut i = start;
+    let mut statements: Vec<Statement> = Vec::new();
 
-    pub fn parse(source: &str, path: PathBuf) -> Result<Vec<Statement>> {
-        // Pre-process: merge ALL multiline statements with braces
-        let preprocessed = preprocess_multiline_braces(source);
+    while i < end {
+        let raw = lines[i];
+        let trimmed = raw.trim();
 
-        // Then merge multiline arrow calls (without braces)
-        let preprocessed = preprocess_multiline_arrow_calls(&preprocessed);
-
-        let lines: Vec<_> = preprocessed.lines().collect();
-        Self::parse_lines(&lines, 0, lines.len(), 0, &path)
-    }
-
-    fn parse_lines(
-        lines: &[&str],
-        start: usize,
-        end: usize,
-        base_indent: usize,
-        path: &Path,
-    ) -> Result<Vec<Statement>> {
-        let mut statements = Vec::new();
-        let mut i = start;
-
-        while i < end {
-            let raw_line = lines[i];
-            let line_number = i + 1;
-            let trimmed = raw_line.trim();
-
-            // Skip empty lines and comments
-            if trimmed.is_empty() || trimmed.starts_with('#') {
-                i += 1;
-                continue;
-            }
-
-            // Calculate indentation
-            let indent = raw_line.len() - raw_line.trim_start().len();
-
-            // If this line is less indented than base, stop parsing this block
-            if indent < base_indent {
-                break;
-            }
-
-            // Parse the statement
-            let mut statement = match Self::parse_line(trimmed, line_number, path) {
-                Ok(stmt) => {
-                    let mut s = stmt;
-                    s.indent = indent;
-                    s
-                }
-                Err(error) => {
-                    let error_msg = error.to_string();
-
-                    // Push structured error to WASM registry if available
-                    #[cfg(feature = "wasm")]
-                    {
-                        use crate::web::registry::debug;
-                        if debug::is_debug_errors_enabled() {
-                            debug::push_parse_error_from_parts(
-                                error_msg.clone(),
-                                line_number,
-                                1,
-                                "ParseError".to_string(),
-                            );
-                        }
-                    }
-
-                    Statement::new(
-                        StatementKind::Error { message: error_msg },
-                        Value::String(trimmed.to_string()),
-                        indent,
-                        line_number,
-                        1,
-                    )
-                }
-            };
-
-            // If this is a statement needing body parsing (group, for, loop, if, on, automate)
-            let needs_body_parsing = matches!(
-                &statement.kind,
-                StatementKind::Group { .. }
-                    | StatementKind::For { .. }
-                    | StatementKind::Loop { .. }
-                    | StatementKind::If { .. }
-                    | StatementKind::On { .. }
-                    | StatementKind::Automate { .. }
-            );
-
-            if needs_body_parsing {
-                i += 1; // Move to next line
-
-                // Find the end of the body (next line with same or less indentation)
-                let block_indent = indent;
-                let body_start = i;
-                let mut body_end = i;
-
-                while body_end < end {
-                    let body_line = lines[body_end];
-                    let body_trimmed = body_line.trim();
-
-                    if body_trimmed.is_empty() || body_trimmed.starts_with('#') {
-                        body_end += 1;
-                        continue;
-                    }
-
-                    let body_indent = body_line.len() - body_line.trim_start().len();
-                    if body_indent <= block_indent {
-                        break;
-                    }
-
-                    body_end += 1;
-                }
-
-                // Parse the body recursively
-                let body = Self::parse_lines(lines, body_start, body_end, block_indent + 1, path)?;
-
-                // Update the statement with the parsed body
-                match &statement.kind {
-                    StatementKind::Group { name, .. } => {
-                        let group_name = name.clone();
-                        statement.kind = StatementKind::Group {
-                            name: group_name.clone(),
-                            body,
-                        };
-                        statement.value = Value::Identifier(group_name);
-                    }
-                    StatementKind::For {
-                        variable, iterable, ..
-                    } => {
-                        statement.kind = StatementKind::For {
-                            variable: variable.clone(),
-                            iterable: iterable.clone(),
-                            body,
-                        };
-                    }
-                    StatementKind::Loop { count, .. } => {
-                        statement.kind = StatementKind::Loop {
-                            count: count.clone(),
-                            body,
-                        };
-                    }
-                    StatementKind::On { event, args, .. } => {
-                        statement.kind = StatementKind::On {
-                            event: event.clone(),
-                            args: args.clone(),
-                            body,
-                        };
-                    }
-                    StatementKind::If { condition, .. } => {
-                        // Check if there's an else clause after the body
-                        let mut else_body = None;
-                        if body_end < end {
-                            let next_line = lines[body_end].trim();
-                            if next_line.starts_with("else") {
-                                // Found else, parse its body
-                                let else_start = body_end + 1;
-                                let mut else_end = else_start;
-
-                                while else_end < end {
-                                    let else_line = lines[else_end];
-                                    let else_trimmed = else_line.trim();
-
-                                    if else_trimmed.is_empty() || else_trimmed.starts_with('#') {
-                                        else_end += 1;
-                                        continue;
-                                    }
-
-                                    let else_indent =
-                                        else_line.len() - else_line.trim_start().len();
-                                    if else_indent <= block_indent {
-                                        break;
-                                    }
-
-                                    else_end += 1;
-                                }
-
-                                else_body = Some(Self::parse_lines(
-                                    lines,
-                                    else_start,
-                                    else_end,
-                                    block_indent + 1,
-                                    path,
-                                )?);
-                                body_end = else_end; // Update i to skip else body
-                            }
-                        }
-
-                        statement.kind = StatementKind::If {
-                            condition: condition.clone(),
-                            body,
-                            else_body,
-                        };
-                    }
-                    StatementKind::Automate { target } => {
-                        // Preserve any provided mode from the original statement value
-                        let mode = if let Value::Map(map) = &statement.value {
-                            map.get("mode").and_then(|v| {
-                                if let Value::String(s) = v {
-                                    Some(s.clone())
-                                } else {
-                                    None
-                                }
-                            })
-                        } else {
-                            None
-                        };
-
-                        // Reconstruct raw body text from the original source lines
-                        let raw_lines: Vec<String> = lines[body_start..body_end]
-                            .iter()
-                            .map(|s| s.to_string())
-                            .collect();
-                        let raw_body = raw_lines.join("\n");
-
-                        let mut map = std::collections::HashMap::new();
-                        if let Some(m) = mode {
-                            map.insert("mode".to_string(), Value::String(m));
-                        }
-                        map.insert("body".to_string(), Value::String(raw_body));
-
-                        statement.kind = StatementKind::Automate {
-                            target: target.clone(),
-                        };
-                        statement.value = Value::Map(map);
-                    }
-                    _ => {}
-                }
-
-                i = body_end;
-                statements.push(statement);
-                continue;
-            }
-
-            statements.push(statement);
+        if trimmed.is_empty() || trimmed.starts_with('#') {
             i += 1;
-        }
-
-        Ok(statements)
-    }
-
-    fn parse_line(line: &str, line_number: usize, path: &Path) -> Result<Statement> {
-        if line.starts_with('@') {
-            return parse_directive(line, line_number, path);
-        }
-
-        if line.starts_with('.') {
-            return parse_trigger_line(line, line_number);
-        }
-
-        let mut parts = line.split_whitespace();
-        let keyword = parts
-            .next()
-            .ok_or_else(|| anyhow!("empty line"))?
-            .to_lowercase();
-
-        // Check if this is a property assignment first: target.property = value
-        if line.contains('=') && keyword.contains('.') {
-            return parse_assign(line, line_number);
-        }
-
-        // Check if this looks like a trigger (contains a dot like "drums.kick")
-        if keyword.contains('.') && !keyword.contains('(') {
-            // Reconstruct the line and parse as trigger
-            return parse_trigger_line(line, line_number);
-        }
-
-        // Check if this is a bind statement first (before arrow call)
-        if keyword == "bind" && line.contains("->") {
-            return parse_bind(line, line_number);
-        }
-
-        // Check if this is an arrow call: target -> method(args)
-        if line.contains("->") {
-            return parse_arrow_call(line, line_number);
-        }
-
-        return match keyword.as_str() {
-            "bpm" | "tempo" => parse_tempo(parts, line_number),
-            "print" => parse_print(line, line_number),
-            "sleep" => parse_sleep(parts, line_number),
-            "trigger" => Err(anyhow!(
-                "keyword 'trigger' is deprecated; use dot notation like '.alias' instead"
-            )),
-            "pattern" => parse_pattern(parts, line_number),
-            "bank" => parse_bank(parts, line_number),
-            "let" => parse_let(line, parts, line_number),
-            "var" => parse_var(line, parts, line_number),
-            "const" => parse_const(line, parts, line_number),
-            "for" => parse_for(parts, line_number),
-            "loop" => parse_loop(parts, line_number),
-            "if" => parse_if(parts, line_number),
-            "else" => parse_else(line, line_number),
-            "group" => parse_group(parts, line_number),
-            "automate" => {
-                crate::language::syntax::parser::driver::statements::structure::parse_automate(
-                    parts,
-                    line_number,
-                )
-            }
-            "call" => parse_call(line, parts, line_number),
-            "spawn" => parse_spawn(parts, line_number),
-            "on" => parse_on(parts, line_number),
-            "emit" => parse_emit(line, parts, line_number),
-            "routing" => parse_routing_command(parts, line_number),
-            _ => {
-                // Check if this looks like a potential trigger identifier (single word, no special chars except dots)
-                // This handles cases like variable references: let kick = drums.kick; kick
-                if keyword
-                    .chars()
-                    .all(|c| c.is_alphanumeric() || c == '_' || c == '.')
-                {
-                    // Parse as trigger
-                    return parse_trigger_line(line, line_number);
-                }
-
-                let error_msg = format!(
-                    "Unknown statement '{}' at {}:{}",
-                    keyword,
-                    path.display(),
-                    line_number
-                );
-
-                // Push structured error to WASM registry if available
-                #[cfg(feature = "wasm")]
-                {
-                    use crate::web::registry::debug;
-                    if debug::is_debug_errors_enabled() {
-                        debug::push_parse_error_from_parts(
-                            format!("Unknown statement '{}'", keyword),
-                            line_number,
-                            1,
-                            "UnknownStatement".to_string(),
-                        );
-                    }
-                }
-
-                return Ok(Statement::new(
-                    StatementKind::Unknown,
-                    Value::String(error_msg),
-                    0,
-                    line_number,
-                    1,
-                ));
-            }
-        };
-    }
-
-    /// Parse a condition string into a Value (for if statements)
-    /// Supports: var > value, var < value, var == value, var != value, var >= value, var <= value
-    fn parse_condition(condition_str: &str) -> Result<Value> {
-        use std::collections::HashMap;
-
-        // Find the operator
-        let operators = vec![">=", "<=", "==", "!=", ">", "<"];
-        for op in operators {
-            if let Some(idx) = condition_str.find(op) {
-                let left = condition_str[..idx].trim();
-                let right = condition_str[idx + op.len()..].trim();
-
-                // Create a map representing the condition
-                let mut map = HashMap::new();
-                map.insert("operator".to_string(), Value::String(op.to_string()));
-                map.insert(
-                    "left".to_string(),
-                    if let Ok(num) = left.parse::<f32>() {
-                        Value::Number(num)
-                    } else {
-                        Value::Identifier(left.to_string())
-                    },
-                );
-                map.insert(
-                    "right".to_string(),
-                    if let Ok(num) = right.parse::<f32>() {
-                        Value::Number(num)
-                    } else {
-                        Value::Identifier(right.to_string())
-                    },
-                );
-
-                return Ok(Value::Map(map));
-            }
-        }
-
-        // No operator found, treat as boolean identifier
-        Ok(Value::Identifier(condition_str.to_string()))
-    }
-}
-
-/// Parse an arrow call: target -> method(args) -> method2(args2)
-/// Supports chaining multiple calls
-fn parse_arrow_call(line: &str, line_number: usize) -> Result<Statement> {
-    use std::collections::HashMap;
-
-    // Split by "->" to get chain of calls
-    let parts: Vec<&str> = line.split("->").map(|s| s.trim()).collect();
-
-    if parts.len() < 2 {
-        return Err(anyhow!("Arrow call requires at least one '->' operator"));
-    }
-
-    // First part is the target
-    let target = parts[0].to_string();
-
-    // Parse method calls
-    let mut calls = Vec::new();
-
-    for method_call in &parts[1..] {
-        // Parse method(args) or just method
-        if let Some(paren_idx) = method_call.find('(') {
-            let method_name = method_call[..paren_idx].trim();
-            let args_str = &method_call[paren_idx + 1..];
-
-            // Find matching closing paren
-            let close_paren = args_str
-                .rfind(')')
-                .ok_or_else(|| anyhow!("Missing closing parenthesis in arrow call"))?;
-
-            let args_str = &args_str[..close_paren];
-
-            // Parse arguments
-            let args = if args_str.trim().is_empty() {
-                Vec::new()
-            } else {
-                parse_function_args(args_str)?
-            };
-
-            calls.push((method_name.to_string(), args));
-        } else {
-            // Method without args
-            calls.push((method_call.trim().to_string(), Vec::new()));
-        }
-    }
-
-    // For now, we'll store all calls as separate ArrowCall statements
-    // or we can store them in a chain structure
-    // Let's store the first call and chain the rest
-
-    if calls.is_empty() {
-        return Err(anyhow!("No method calls found in arrow call"));
-    }
-
-    let (method, args) = calls[0].clone();
-
-    // Store chain in value for later processing
-    let mut chain_value = HashMap::new();
-    chain_value.insert("target".to_string(), Value::String(target.clone()));
-    chain_value.insert("method".to_string(), Value::String(method.clone()));
-    chain_value.insert("args".to_string(), Value::Array(args.clone()));
-
-    // Add remaining calls to chain
-    if calls.len() > 1 {
-        let chain_calls: Vec<Value> = calls[1..]
-            .iter()
-            .map(|(m, a)| {
-                let mut call_map = HashMap::new();
-                call_map.insert("method".to_string(), Value::String(m.clone()));
-                call_map.insert("args".to_string(), Value::Array(a.clone()));
-                Value::Map(call_map)
-            })
-            .collect();
-
-        chain_value.insert("chain".to_string(), Value::Array(chain_calls));
-    }
-
-    Ok(Statement::new(
-        StatementKind::ArrowCall {
-            target,
-            method,
-            args,
-        },
-        Value::Map(chain_value),
-        0,
-        line_number,
-        1,
-    ))
-}
-
-/// Parse function arguments from string
-/// Supports: numbers, strings, identifiers, arrays, maps
-fn parse_function_args(args_str: &str) -> Result<Vec<Value>> {
-    let mut args = Vec::new();
-    let mut current_arg = String::new();
-    let mut depth = 0; // Track nested structures
-    let mut in_string = false;
-
-    for ch in args_str.chars() {
-        match ch {
-            '"' => {
-                in_string = !in_string;
-                current_arg.push(ch);
-            }
-            '[' | '{' if !in_string => {
-                depth += 1;
-                current_arg.push(ch);
-            }
-            ']' | '}' if !in_string => {
-                depth -= 1;
-                current_arg.push(ch);
-            }
-            ',' if depth == 0 && !in_string => {
-                // End of argument
-                if !current_arg.trim().is_empty() {
-                    args.push(parse_single_arg(current_arg.trim())?);
-                    current_arg.clear();
-                }
-            }
-            _ => {
-                current_arg.push(ch);
-            }
-        }
-    }
-
-    // Last argument
-    if !current_arg.trim().is_empty() {
-        args.push(parse_single_arg(current_arg.trim())?);
-    }
-
-    Ok(args)
-}
-
-/// Parse a single argument value
-fn parse_single_arg(arg: &str) -> Result<Value> {
-    use std::collections::HashMap;
-
-    let arg = arg.trim();
-
-    // String literal
-    if arg.starts_with('"') && arg.ends_with('"') {
-        return Ok(Value::String(arg[1..arg.len() - 1].to_string()));
-    }
-
-    // Array
-    if arg.starts_with('[') && arg.ends_with(']') {
-        let inner = &arg[1..arg.len() - 1];
-        let items = parse_function_args(inner)?;
-        return Ok(Value::Array(items));
-    }
-
-    // Map/Object
-    if arg.starts_with('{') && arg.ends_with('}') {
-        let inner = &arg[1..arg.len() - 1];
-        let mut map = HashMap::new();
-
-        // Parse key: value pairs
-        for pair in inner.split(',') {
-            if let Some(colon_idx) = pair.find(':') {
-                let key = pair[..colon_idx].trim().trim_matches('"');
-                let value = parse_single_arg(pair[colon_idx + 1..].trim())?;
-                map.insert(key.to_string(), value);
-            }
-        }
-
-        return Ok(Value::Map(map));
-    }
-
-    // Number
-    if let Ok(num) = arg.parse::<f32>() {
-        return Ok(Value::Number(num));
-    }
-
-    // Boolean
-    match arg.to_lowercase().as_str() {
-        "true" => return Ok(Value::Boolean(true)),
-        "false" => return Ok(Value::Boolean(false)),
-        _ => {}
-    }
-
-    // Default to identifier
-    Ok(Value::Identifier(arg.to_string()))
-}
-
-/// Parse synth definition: synth waveform { params }
-/// Returns a Map with type="synth", waveform, and ADSR parameters
-fn parse_synth_definition(input: &str) -> Result<Value> {
-    use std::collections::HashMap;
-
-    // Remove "synth " prefix
-    let input = input.trim_start_matches("synth ").trim();
-
-    // Extract waveform (everything before '{')
-    let (waveform, params_str) = if let Some(brace_idx) = input.find('{') {
-        let waveform = input[..brace_idx].trim();
-        let params = &input[brace_idx..];
-        (waveform, params)
-    } else {
-        // No parameters, just waveform
-        return Ok(Value::Map({
-            let mut map = HashMap::new();
-            map.insert("type".to_string(), Value::String("synth".to_string()));
-            map.insert("waveform".to_string(), Value::String(input.to_string()));
-            map
-        }));
-    };
-
-    // Parse parameters from { key: value, ... }
-    let params_str = params_str.trim_matches(|c| c == '{' || c == '}').trim();
-    let mut params_map = HashMap::new();
-
-    // Add type and waveform
-    params_map.insert("type".to_string(), Value::String("synth".to_string()));
-    params_map.insert("waveform".to_string(), Value::String(waveform.to_string()));
-
-    // Parse key: value pairs (support newlines by replacing them with commas)
-    if !params_str.is_empty() {
-        // First, remove inline comments (everything after //)
-        let mut cleaned_lines = Vec::new();
-        for line in params_str.lines() {
-            if let Some(comment_pos) = line.find("//") {
-                let clean_line = &line[..comment_pos];
-                if !clean_line.trim().is_empty() {
-                    cleaned_lines.push(clean_line);
-                }
-            } else if !line.trim().is_empty() {
-                cleaned_lines.push(line);
-            }
-        }
-
-        // Now join lines and split by comma and newline
-        let cleaned = cleaned_lines.join("\n");
-        let normalized = cleaned.replace('\n', ",").replace('\r', "");
-
-        for pair in normalized.split(',') {
-            let pair = pair.trim();
-            if pair.is_empty() {
-                continue;
-            }
-
-            let parts: Vec<&str> = pair.split(':').collect();
-            if parts.len() >= 2 {
-                let key = parts[0].trim().to_string();
-                // Join back in case value contains ':'
-                let value_part = parts[1..].join(":");
-                let value_str = value_part.trim().trim_matches(',');
-
-                // Parse arrays (for filters)
-                if value_str.starts_with('[') {
-                    if let Ok(array_val) = parse_array_value(value_str) {
-                        params_map.insert(key, array_val);
-                        continue;
-                    }
-                }
-
-                // Try to parse as number
-                if let Ok(num) = value_str.parse::<f32>() {
-                    params_map.insert(key, Value::Number(num));
-                } else {
-                    // Store as string
-                    params_map.insert(key, Value::String(value_str.to_string()));
-                }
-            }
-        }
-    }
-
-    Ok(Value::Map(params_map))
-}
-
-/// Parse array value like [{ key: val }, ...]
-fn parse_array_value(input: &str) -> Result<Value> {
-    let input = input.trim().trim_matches(|c| c == '[' || c == ']').trim();
-    if input.is_empty() {
-        return Ok(Value::Array(Vec::new()));
-    }
-
-    // Check for range pattern: "start..end"
-    if input.contains("..") {
-        let parts: Vec<&str> = input.split("..").collect();
-        if parts.len() == 2 {
-            let start_str = parts[0].trim();
-            let end_str = parts[1].trim();
-
-            // Try to parse as numbers
-            if let (Ok(start), Ok(end)) = (start_str.parse::<f32>(), end_str.parse::<f32>()) {
-                return Ok(Value::Range {
-                    start: Box::new(Value::Number(start)),
-                    end: Box::new(Value::Number(end)),
-                });
-            }
-        }
-    }
-
-    let mut items = Vec::new();
-    let mut depth = 0;
-    let mut current = String::new();
-
-    for ch in input.chars() {
-        match ch {
-            '{' => {
-                depth += 1;
-                current.push(ch);
-            }
-            '}' => {
-                depth -= 1;
-                current.push(ch);
-
-                if depth == 0 && !current.trim().is_empty() {
-                    // Parse this object
-                    if let Ok(obj) = parse_map_value(&current) {
-                        items.push(obj);
-                    }
-                    current.clear();
-                }
-            }
-            ',' if depth == 0 => {
-                // Skip commas at array level
-                continue;
-            }
-            _ => {
-                current.push(ch);
-            }
-        }
-    }
-
-    Ok(Value::Array(items))
-}
-
-/// Parse map value like { key: val, key2: val2 }
-fn parse_map_value(input: &str) -> Result<Value> {
-    use std::collections::HashMap;
-
-    let input = input.trim().trim_matches(|c| c == '{' || c == '}').trim();
-    let mut map = HashMap::new();
-
-    for pair in input.split(',') {
-        let pair = pair.trim();
-        if pair.is_empty() {
             continue;
         }
 
-        let parts: Vec<&str> = pair.split(':').collect();
-        if parts.len() >= 2 {
-            let key = parts[0].trim().to_string();
-            // Join back in case value contains ':' (shouldn't happen but just in case)
-            let value_part = parts[1..].join(":");
+        let current_indent = raw.len() - raw.trim_start().len();
+        if current_indent < indent {
+            break;
+        }
 
-            // Remove inline comments (everything after //)
-            let value_clean = if let Some(comment_pos) = value_part.find("//") {
-                &value_part[..comment_pos]
-            } else {
-                &value_part
-            };
+        // parse header line
+        let mut statement = parse_line(trimmed, i + 1, path)?;
+        statement.indent = current_indent;
+        statement.line = i + 1;
 
-            let value_str = value_clean.trim().trim_matches('"').trim_matches('\'');
-
-            // Try to parse as number
-            if let Ok(num) = value_str.parse::<f32>() {
-                map.insert(key, Value::Number(num));
-            } else {
-                map.insert(key, Value::String(value_str.to_string()));
+        // determine body range for block statements
+        let body_start = i + 1;
+        let mut body_end = body_start;
+        while body_end < end {
+            let l = lines[body_end];
+            if l.trim().is_empty() || l.trim().starts_with('#') {
+                body_end += 1;
+                continue;
             }
+            let indent_l = l.len() - l.trim_start().len();
+            if indent_l <= current_indent {
+                break;
+            }
+            body_end += 1;
+        }
+
+        // If we found a body, parse it and attach appropriately based on kind
+        if body_end > body_start {
+            let body = parse_lines(lines, body_start, body_end, current_indent + 1, path)?;
+
+            // To avoid borrowing `statement.kind` and then assigning to it
+            // (which the borrow checker forbids), take ownership of the kind
+            // temporarily and then replace it with the updated version.
+            let orig_kind = std::mem::replace(&mut statement.kind, StatementKind::Unknown);
+            match orig_kind {
+                StatementKind::If { condition, .. } => {
+                    // Keep If simple here; attach else/else-if later in post-processing
+                    statement.kind = StatementKind::If {
+                        condition,
+                        body: body.clone(),
+                        else_body: None,
+                    };
+                }
+                StatementKind::For {
+                    variable, iterable, ..
+                } => {
+                    statement.kind = StatementKind::For {
+                        variable,
+                        iterable,
+                        body: body.clone(),
+                    };
+                }
+                StatementKind::Loop { count, .. } => {
+                    statement.kind = StatementKind::Loop {
+                        count,
+                        body: body.clone(),
+                    };
+                }
+                StatementKind::On { event, args, .. } => {
+                    statement.kind = StatementKind::On {
+                        event,
+                        args,
+                        body: body.clone(),
+                    };
+                }
+                StatementKind::Automate { target } => {
+                    statement.kind = StatementKind::Automate { target };
+                    // store raw body as value map if needed elsewhere
+                    let raw_lines: Vec<String> = lines[body_start..body_end]
+                        .iter()
+                        .map(|s| s.to_string())
+                        .collect();
+                    let raw_body = raw_lines.join("\n");
+                    let mut map = std::collections::HashMap::new();
+                    map.insert("body".to_string(), Value::String(raw_body));
+                    statement.value = Value::Map(map);
+                }
+                StatementKind::Function {
+                    name, parameters, ..
+                } => {
+                    statement.kind = StatementKind::Function {
+                        name: name.clone(),
+                        parameters,
+                        body: body.clone(),
+                    };
+                    statement.value = Value::Identifier(name.clone());
+                }
+                StatementKind::Group { .. } => {
+                    // attach body for groups, keep name in value if present
+                    let group_name = match &statement.value {
+                        Value::Identifier(s) => s.clone(),
+                        _ => "".to_string(),
+                    };
+                    statement.kind = StatementKind::Group {
+                        name: group_name,
+                        body: body.clone(),
+                    };
+                }
+                other => {
+                    // keep original kind for other statements
+                    statement.kind = other;
+                }
+            }
+
+            // If this statement was a plain 'else' marker (Comment with value "else"),
+            // the parsed body was not attached to the marker (we intentionally
+            // keep the marker lightweight). We must append the parsed body
+            // statements into the parent statements vector so the post-process
+            // pass can collect them and attach to the previous If.
+            i = body_end;
+            statements.push(statement);
+
+            if let StatementKind::Comment = &statements.last().unwrap().kind {
+                if let Value::String(s) = &statements.last().unwrap().value {
+                    if s == "else" {
+                        // append the body statements after the marker
+                        for stmt in body.into_iter() {
+                            statements.push(stmt);
+                        }
+                    }
+                }
+            }
+            continue;
+        }
+
+        // No body found
+        statements.push(statement);
+        i += 1;
+    }
+
+    // Post-process to attach else/else-if blocks
+    fn attach_else_blocks(statements: &mut Vec<Statement>) {
+        use crate::language::syntax::ast::StatementKind;
+
+        // Helper: attach a new else-body (Vec<Statement>) to an existing If Statement.
+        // If the If already has a nested else-if chain (encoded as a single If in
+        // its else_body vector), descend into that chain and attach to the deepest
+        // nested If instead of overwriting the entire else_body.
+        fn attach_else_to_if_statement(target: Statement, new_else: Vec<Statement>) -> Statement {
+            use crate::language::syntax::ast::StatementKind;
+
+            match target.kind {
+                StatementKind::If {
+                    condition,
+                    body,
+                    else_body,
+                } => {
+                    match else_body {
+                        None => Statement::new(
+                            StatementKind::If {
+                                condition,
+                                body,
+                                else_body: Some(new_else),
+                            },
+                            target.value,
+                            target.indent,
+                            target.line,
+                            target.column,
+                        ),
+                        Some(mut eb) => {
+                            if eb.len() == 1 {
+                                let inner = eb.remove(0);
+                                // If inner is an If, recurse into it
+                                if let StatementKind::If { .. } = inner.kind {
+                                    let updated_inner =
+                                        attach_else_to_if_statement(inner, new_else);
+                                    Statement::new(
+                                        StatementKind::If {
+                                            condition,
+                                            body,
+                                            else_body: Some(vec![updated_inner]),
+                                        },
+                                        target.value,
+                                        target.indent,
+                                        target.line,
+                                        target.column,
+                                    )
+                                } else {
+                                    // Not an If inside else_body; overwrite
+                                    Statement::new(
+                                        StatementKind::If {
+                                            condition,
+                                            body,
+                                            else_body: Some(new_else),
+                                        },
+                                        target.value,
+                                        target.indent,
+                                        target.line,
+                                        target.column,
+                                    )
+                                }
+                            } else {
+                                // Multiple statements in existing else_body; overwrite for now
+                                Statement::new(
+                                    StatementKind::If {
+                                        condition,
+                                        body,
+                                        else_body: Some(new_else),
+                                    },
+                                    target.value,
+                                    target.indent,
+                                    target.line,
+                                    target.column,
+                                )
+                            }
+                        }
+                    }
+                }
+                _ => target,
+            }
+        }
+
+        let mut idx = 0;
+        while idx < statements.len() {
+            // Handle plain 'else' marker: Comment with value "else"
+            if let StatementKind::Comment = &statements[idx].kind {
+                if let Value::String(s) = &statements[idx].value {
+                    if s == "else" {
+                        let else_indent = statements[idx].indent;
+
+                        // Collect following statements that are part of the else body
+                        let mut body: Vec<Statement> = Vec::new();
+                        let j = idx + 1;
+                        while j < statements.len() && statements[j].indent > else_indent {
+                            body.push(statements.remove(j));
+                        }
+
+                        // Remove the 'else' marker itself
+                        statements.remove(idx);
+
+                        // Find previous If to attach to (search backwards) and attach
+                        // the parsed else body to the deepest nested If in the chain.
+                        let mut k = idx as isize - 1;
+                        while k >= 0 {
+                            if let StatementKind::If { .. } = &statements[k as usize].kind {
+                                // Take ownership of the previous If statement, attach into it,
+                                // then put back the updated statement.
+                                let prev = std::mem::replace(
+                                    &mut statements[k as usize],
+                                    Statement::new(StatementKind::Unknown, Value::Null, 0, 0, 1),
+                                );
+                                let updated = attach_else_to_if_statement(prev, body);
+                                statements[k as usize] = updated;
+                                break;
+                            }
+                            k -= 1;
+                        }
+
+                        continue;
+                    }
+                }
+            }
+
+            // Handle 'else if' which was parsed as an If with value == "else-if"
+            if let StatementKind::If { .. } = &statements[idx].kind {
+                if let Value::String(s) = &statements[idx].value {
+                    if s == "else-if" {
+                        // Remove this else-if statement and attach it as the
+                        // else_body (single-statement vector) of the previous If.
+                        let else_if_stmt = statements.remove(idx);
+
+                        // find previous If and attach this else-if into its nested chain
+                        let mut k = idx as isize - 1;
+                        while k >= 0 {
+                            if let StatementKind::If { .. } = &statements[k as usize].kind {
+                                let prev = std::mem::replace(
+                                    &mut statements[k as usize],
+                                    Statement::new(StatementKind::Unknown, Value::Null, 0, 0, 1),
+                                );
+                                let updated = attach_else_to_if_statement(prev, vec![else_if_stmt]);
+                                statements[k as usize] = updated;
+                                break;
+                            }
+                            k -= 1;
+                        }
+
+                        continue;
+                    }
+                }
+            }
+
+            idx += 1;
         }
     }
 
-    Ok(Value::Map(map))
+    attach_else_blocks(&mut statements);
+
+    Ok(statements)
+}
+
+fn parse_line(line: &str, line_number: usize, path: &Path) -> Result<Statement> {
+    use crate::language::syntax::parser::driver::statements::*;
+
+    if line.starts_with('@') {
+        return directive::parse_directive(line, line_number, path);
+    }
+
+    if line.starts_with('.') {
+        return trigger::parse_trigger_line(line, line_number);
+    }
+
+    let mut parts = line.split_whitespace();
+    // Extract first token as keyword and strip a trailing ':' if present
+    let first_token = parts
+        .next()
+        .ok_or_else(|| anyhow!("empty line"))?
+        .to_string();
+    let keyword = first_token.trim_end_matches(':').to_lowercase();
+
+    // Check if this is a property assignment first: target.property = value
+    if line.contains('=') && keyword.contains('.') {
+        return parse_assign(line, line_number);
+    }
+
+    // Check if this looks like a trigger (contains a dot like "drums.kick")
+    if keyword.contains('.') && !keyword.contains('(') {
+        // Reconstruct the line and parse as trigger
+        return trigger::parse_trigger_line(line, line_number);
+    }
+
+    // Check if this is a bind statement first (before arrow call)
+    if keyword == "bind" && line.contains("->") {
+        return parse_bind(line, line_number);
+    }
+
+    // If this line contains an arrow call, parse it as an ArrowCall, UNLESS the
+    // statement starts with a reserved keyword that must be handled (let/var/const/etc.).
+    // This ensures constructs like `let name = .bank.kick -> reverse(...)` are
+    // parsed by `parse_let` rather than being mis-parsed as an ArrowCall.
+    let reserved_keywords = [
+        "bpm", "tempo", "print", "sleep", "pattern", "bank", "let", "var", "const", "for", "loop",
+        "if", "else", "group", "automate", "call", "spawn", "on", "emit", "routing", "return",
+        "break",
+    ];
+    if line.contains("->") && !reserved_keywords.contains(&keyword.as_str()) {
+        return statements::parse_arrow_call(line, line_number);
+    }
+
+    return match keyword.as_str() {
+        "bpm" | "tempo" => statements::core::parse_tempo(parts, line_number),
+        "print" => statements::core::parse_print(line, line_number),
+        "sleep" => statements::core::parse_sleep(parts, line_number),
+        "trigger" => Err(anyhow!(
+            "keyword 'trigger' is deprecated; use dot notation like '.alias' instead"
+        )),
+        "pattern" => parse_pattern(parts, line_number),
+        "bank" => parse_bank(parts, line_number),
+        "let" => parse_let(line, parts, line_number),
+        "var" => parse_var(line, parts, line_number),
+        "const" => parse_const(line, parts, line_number),
+        "for" => parse_for(parts, line_number),
+        "loop" => parse_loop(parts, line_number),
+        "if" => statements::structure::parse_if(parts, line_number),
+        "else" => statements::structure::parse_else(line, line_number),
+        "group" => statements::structure::parse_group(parts, line_number),
+        "automate" => {
+            crate::language::syntax::parser::driver::statements::structure::parse_automate(
+                parts,
+                line_number,
+            )
+        }
+        "call" => parse_call(line, parts, line_number),
+        "break" => statements::structure::parse_break(parts, line_number),
+        "function" => statements::structure::parse_function(line, line_number),
+        "spawn" => parse_spawn(parts, line_number),
+        "on" => parse_on(parts, line_number),
+        "emit" => parse_emit(line, parts, line_number),
+        "return" => statements::core::parse_return(line, line_number),
+        "routing" => crate::language::syntax::parser::driver::routing::parse_routing_command(
+            parts,
+            line_number,
+        ),
+        _ => {
+            // Check if this looks like a potential trigger identifier (single word, no special chars except dots)
+            // This handles cases like variable references: let kick = drums.kick; kick
+            if keyword
+                .chars()
+                .all(|c| c.is_alphanumeric() || c == '_' || c == '.')
+            {
+                // Parse as trigger
+                return trigger::parse_trigger_line(line, line_number);
+            }
+
+            let error_msg = format!(
+                "Unknown statement '{}' at {}:{}",
+                keyword,
+                path.display(),
+                line_number
+            );
+
+            // Push structured error to WASM registry if available
+            #[cfg(feature = "wasm")]
+            {
+                use crate::web::registry::debug;
+                if debug::is_debug_errors_enabled() {
+                    // wasm registry expects: message, line, column, error_type
+                    debug::push_parse_error_from_parts(
+                        format!("Unknown statement '{}'", keyword),
+                        line_number,
+                        1,
+                        "UnknownStatement".to_string(),
+                    );
+                }
+            }
+
+            return Ok(Statement::new(
+                StatementKind::Unknown,
+                Value::String(error_msg),
+                0,
+                line_number,
+                1,
+            ));
+        }
+    };
+}
+
+/// Re-export helper parsing functions from helpers.rs so other modules can call them
+pub use helpers::{
+    parse_array_value, parse_condition, parse_function_args, parse_map_value, parse_single_arg,
+    parse_synth_definition,
+};
+
+/// SimpleParser is a small wrapper used by other modules/tests in the crate.
+/// It forwards to the top-level parse implementation above.
+pub struct SimpleParser;
+
+impl SimpleParser {
+    pub fn parse(source: &str, path: PathBuf) -> Result<Vec<Statement>> {
+        crate::language::syntax::parser::driver::parse(source, path)
+    }
+
+    pub fn parse_file<P: AsRef<Path>>(path: P) -> Result<Vec<Statement>> {
+        let buf = std::path::PathBuf::from(path.as_ref());
+        let s = std::fs::read_to_string(&buf)?;
+        Self::parse(&s, buf)
+    }
 }

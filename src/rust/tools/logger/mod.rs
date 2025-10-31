@@ -11,6 +11,7 @@ pub enum LogLevel {
     Warning,
     Watch,
     Debug,
+    Print,
     Action,
 }
 
@@ -63,6 +64,12 @@ impl Logger {
 
     pub fn action(&self, message: impl AsRef<str>) {
         self.log(LogLevel::Action, message);
+    }
+
+    /// Print-level messages coming from user `print` statements. Rendered as [PRINT]
+    /// in plain/CLI output. Convenience wrapper around `log`.
+    pub fn print(&self, message: impl AsRef<str>) {
+        self.log(LogLevel::Print, message);
     }
 
     fn print_detail(&self, detail: &str) {
@@ -150,6 +157,7 @@ impl LogLevel {
             LogLevel::Watch => "WATCH",
             LogLevel::Debug => "DEBUG",
             LogLevel::Action => "ACTION",
+            LogLevel::Print => "PRINT",
         }
     }
 
@@ -162,6 +170,7 @@ impl LogLevel {
             LogLevel::Watch => "WATCH",
             LogLevel::Debug => "DEBUG",
             LogLevel::Action => "ACTION",
+            LogLevel::Print => "PRINT",
         }
     }
 
@@ -224,6 +233,7 @@ impl LogLevel {
                     b: 212,
                 },
             ),
+            LogLevel::Print => ("", Color::White),
         }
     }
 }

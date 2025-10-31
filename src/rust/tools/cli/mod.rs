@@ -1,5 +1,4 @@
-#![cfg(feature = "cli")]
-
+// Parent `tools` module controls `cli` gating; avoid duplicating crate-level cfg here.
 mod commands;
 pub mod config;
 pub mod io;

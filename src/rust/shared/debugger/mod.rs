@@ -18,9 +18,7 @@ impl DebugTimer {
         self.start.elapsed().as_secs_f64() * 1000.0
     }
 
-    pub fn log_elapsed(&self) {
-        // Debug timing removed - use profiler if needed
-    }
+    pub fn log_elapsed(&self) {}
 }
 
 impl Drop for DebugTimer {
@@ -30,15 +28,5 @@ impl Drop for DebugTimer {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use std::thread;
-    use std::time::Duration;
-
-    #[test]
-    fn test_debug_timer() {
-        let timer = DebugTimer::new("test");
-        thread::sleep(Duration::from_millis(10));
-        assert!(timer.elapsed_ms() >= 10.0);
-    }
-}
+#[path = "test_shared_debugger.rs"]
+mod tests;

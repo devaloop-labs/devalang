@@ -66,7 +66,6 @@ impl WasmPluginRunner {
             let mut linker = Linker::new(&self.engine);
 
             // Add wasm-bindgen placeholder imports (for plugins compiled with wasm-bindgen)
-            // These are stub implementations that do nothing but allow the WASM to load
             linker
                 .func_wrap(
                     "__wbindgen_placeholder__",
@@ -188,8 +187,6 @@ impl WasmPluginRunner {
         // Allocate memory in WASM for the buffer
         let byte_len = std::mem::size_of_val(buffer);
         let ptr = Self::alloc_temp(&mut entry.0, &entry.1, &memory, byte_len)? as i32;
-
-        // Calling plugin with parameters (log removed)
 
         // Copy buffer into WASM memory
         let mem_slice = memory

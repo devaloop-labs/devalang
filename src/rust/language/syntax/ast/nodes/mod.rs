@@ -22,6 +22,7 @@ pub enum Value {
     String(String),
     Array(Vec<Value>),
     Map(HashMap<String, Value>),
+    Call { name: String, args: Vec<Value> },
     Block(Vec<Statement>),
     Sample(String),
     Beat(String),
@@ -172,6 +173,10 @@ pub enum StatementKind {
         body: Vec<Statement>,
         else_body: Option<Vec<Statement>>, // Can contain statements or another If for else if
     },
+    Return {
+        value: Option<Box<Value>>,
+    },
+    Break,
     Comment,
     Indent,
     Dedent,

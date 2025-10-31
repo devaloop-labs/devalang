@@ -1,9 +1,18 @@
-/// Audio effects module - parameter extraction and normalization
+/// Audio effects module - Processor and effect type management
 pub mod chain;
 pub mod processors;
+pub mod registry;
 
 use crate::language::syntax::ast::Value;
 use std::collections::HashMap;
+
+/// Effect availability enum - defines where an effect can be used
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum EffectAvailability {
+    SynthOnly,
+    TriggerOnly,
+    Both,
+}
 
 /// Effect parameters extracted from a map
 #[derive(Debug, Clone)]
@@ -13,9 +22,34 @@ pub struct EffectParams {
     pub fade_in: f32,
     pub fade_out: f32,
     pub pitch: f32,
-    pub drive: f32,
-    pub reverb: f32,
-    pub delay: f32,
+    pub drive: DriveParams,
+    pub reverb: ReverbParams,
+    pub delay: DelayParams,
+    pub speed: f32,
+    pub reverse: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct DriveParams {
+    pub amount: f32,
+    pub mix: f32,
+    pub tone: f32,
+    pub color: f32,
+}
+
+#[derive(Debug, Clone)]
+pub struct ReverbParams {
+    pub size: f32,
+    pub mix: f32,
+    pub decay: f32,
+    pub damping: f32,
+}
+
+#[derive(Debug, Clone)]
+pub struct DelayParams {
+    pub time: f32,
+    pub feedback: f32,
+    pub mix: f32,
 }
 
 impl Default for EffectParams {
@@ -26,9 +60,25 @@ impl Default for EffectParams {
             fade_in: 0.0,
             fade_out: 0.0,
             pitch: 1.0,
-            drive: 0.0,
-            reverb: 0.0,
-            delay: 0.0,
+            drive: DriveParams {
+                amount: 0.7,
+                mix: 0.5,
+                tone: 0.5,
+                color: 0.5,
+            },
+            reverb: ReverbParams {
+                size: 0.5,
+                mix: 0.3,
+                decay: 0.5,
+                damping: 0.5,
+            },
+            delay: DelayParams {
+                time: 250.0,
+                feedback: 0.4,
+                mix: 0.3,
+            },
+            speed: 1.0,
+            reverse: false,
         }
     }
 }
@@ -43,9 +93,31 @@ pub fn extract_effect_params(effects: &Option<Value>) -> EffectParams {
         params.fade_in = param_as_f32(map, &["fadeIn", "fadein", "fade_in"], 0.0);
         params.fade_out = param_as_f32(map, &["fadeOut", "fadeout", "fade_out"], 0.0);
         params.pitch = param_as_f32(map, &["pitch", "tune"], 1.0);
-        params.drive = param_as_f32(map, &["drive", "distortion"], 0.0);
-        params.reverb = param_as_f32(map, &["reverb", "verb"], 0.0);
-        params.delay = param_as_f32(map, &["delay", "echo"], 0.0);
+        params.speed = param_as_f32(map, &["speed", "rate"], 1.0);
+        params.reverse = param_as_bool(map, &["reverse", "rev"], false);
+
+        // Extract drive parameters
+        if let Some(Value::Map(drive_map)) = map.get("drive") {
+            params.drive.amount = param_as_f32(drive_map, &["amount", "drive"], 0.7);
+            params.drive.mix = param_as_f32(drive_map, &["mix", "wet"], 0.5);
+            params.drive.tone = param_as_f32(drive_map, &["tone"], 0.5);
+            params.drive.color = param_as_f32(drive_map, &["color", "tone"], 0.5);
+        }
+
+        // Extract reverb parameters
+        if let Some(Value::Map(reverb_map)) = map.get("reverb") {
+            params.reverb.size = param_as_f32(reverb_map, &["size", "room"], 0.5);
+            params.reverb.mix = param_as_f32(reverb_map, &["mix", "wet"], 0.3);
+            params.reverb.damping = param_as_f32(reverb_map, &["damping", "damp"], 0.5);
+            params.reverb.decay = param_as_f32(reverb_map, &["decay", "tail"], 0.5);
+        }
+
+        // Extract delay parameters
+        if let Some(Value::Map(delay_map)) = map.get("delay") {
+            params.delay.time = param_as_f32(delay_map, &["time", "length"], 250.0);
+            params.delay.feedback = param_as_f32(delay_map, &["feedback", "fb"], 0.4);
+            params.delay.mix = param_as_f32(delay_map, &["mix", "wet"], 0.3);
+        }
     }
 
     params
@@ -70,11 +142,35 @@ pub fn param_as_f32(params: &HashMap<String, Value>, names: &[&str], default: f3
     default
 }
 
+/// Read a boolean parameter from a map with multiple possible key names
+pub fn param_as_bool(params: &HashMap<String, Value>, names: &[&str], default: bool) -> bool {
+    for name in names.iter() {
+        if let Some(v) = params.get(*name) {
+            match v {
+                Value::Boolean(b) => return *b,
+                Value::Number(n) => return *n != 0.0,
+                Value::String(s) | Value::Identifier(s) => {
+                    if let Ok(parsed) = s.parse::<bool>() {
+                        return parsed;
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    default
+}
+
 /// Normalize effects map into per-effect parameter structure
 pub fn normalize_effects(effects: &Option<Value>) -> HashMap<String, HashMap<String, Value>> {
     let mut out: HashMap<String, HashMap<String, Value>> = HashMap::new();
 
     if let Some(Value::Map(map)) = effects {
+        // DEPRECATION: legacy map-style effect parameters are deprecated.
+        // Prefer chained params (-> effect(...)) in scripts. Keep compatibility for now but warn.
+        eprintln!(
+            "DEPRECATION: effect param map support is deprecated — use chained params instead. This will be removed in a future version."
+        );
         for (k, v) in map.iter() {
             match v {
                 Value::Number(_) | Value::Boolean(_) | Value::String(_) | Value::Identifier(_) => {

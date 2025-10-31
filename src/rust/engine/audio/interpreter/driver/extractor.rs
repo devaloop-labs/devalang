@@ -56,6 +56,8 @@ pub fn extract_audio_event(
     // Implementation simplified: reuse existing driver logic
     // Try single note first
     if let Some(Value::String(note_name)) = context.get("note") {
+        // Prepare placeholder for merged effects (will be computed after collecting synth/note effects)
+        let mut event_effects: Option<crate::language::syntax::ast::Value> = None;
         let midi = crate::engine::functions::note::parse_note_to_midi(note_name)?;
 
         // Duration: prefer context.duration if set (execute_arrow_call may set it), otherwise read "duration" value (ms)
@@ -144,7 +146,7 @@ pub fn extract_audio_event(
         let synth_id = if target.is_empty() { "default" } else { target };
 
         // Build a synth definition snapshot and apply automation overrides so that the
-        // snapshot used for this specific event reflects current automations.
+
         let mut synth_def = interpreter
             .events
             .get_synth(synth_id)
@@ -197,17 +199,119 @@ pub fn extract_audio_event(
             }
         }
 
-        // Log resolved values for diagnostics
-        #[cfg(feature = "cli")]
-        {
-            crate::tools::logger::Logger::new().info(format!(
-                "Scheduling Note: synth='{}' time={} dur={} pan={} detune={} gain={}",
-                synth_id, interpreter.cursor_time, duration, pan, detune, gain
-            ));
+        let mut synth_effects_vec: Vec<crate::language::syntax::ast::Value> = Vec::new();
+        if let Some(var_val) = interpreter.variables.get(synth_id) {
+            match var_val {
+                crate::language::syntax::ast::Value::Map(m) => {
+                    if let Some(chain_v) = m.get("chain") {
+                        if let crate::language::syntax::ast::Value::Array(arr) = chain_v {
+                            synth_effects_vec.extend(arr.clone());
+                        }
+                    } else if let Some(effs) = m.get("effects") {
+                        // Deprecated map-style: normalize into individual effect maps
+                        eprintln!(
+                            "DEPRECATION: synth-level effect param map support is deprecated — use chained params instead."
+                        );
+                        let normalized =
+                            crate::engine::audio::effects::normalize_effects(&Some(effs.clone()));
+                        for (k, v) in normalized.into_iter() {
+                            let mut map = std::collections::HashMap::new();
+                            map.insert(
+                                "type".to_string(),
+                                crate::language::syntax::ast::Value::String(k),
+                            );
+                            for (pk, pv) in v.into_iter() {
+                                map.insert(pk, pv);
+                            }
+                            synth_effects_vec.push(crate::language::syntax::ast::Value::Map(map));
+                        }
+                    }
+                }
+                crate::language::syntax::ast::Value::Statement(stmt_box) => {
+                    if let crate::language::syntax::ast::StatementKind::ArrowCall { .. } =
+                        &stmt_box.kind
+                    {
+                        if let crate::language::syntax::ast::Value::Map(m) = &stmt_box.value {
+                            if let Some(crate::language::syntax::ast::Value::Array(arr)) =
+                                m.get("chain")
+                            {
+                                synth_effects_vec.extend(arr.clone());
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
         }
 
-        // Create the AudioEvent::Note directly so we can control the synth snapshot used
-        use crate::engine::audio::events::AudioEvent;
+        // Collect note-level effects from FunctionContext when invoking note/chord/sample
+        let mut note_effects_vec: Vec<crate::language::syntax::ast::Value> = Vec::new();
+        if let Some(crate::language::syntax::ast::Value::String(method_name)) =
+            context.get("method")
+        {
+            let m = method_name.as_str();
+            if m == "note" || m == "chord" || m == "sample" {
+                if let Some(eff_val) = context.get("effects") {
+                    match eff_val {
+                        crate::language::syntax::ast::Value::Array(arr) => {
+                            note_effects_vec.extend(arr.clone());
+                        }
+                        crate::language::syntax::ast::Value::Map(map_v) => {
+                            // normalize map into per-effect entries
+                            let normalized = crate::engine::audio::effects::normalize_effects(
+                                &Some(crate::language::syntax::ast::Value::Map(map_v.clone())),
+                            );
+                            for (k, v) in normalized.into_iter() {
+                                let mut map = std::collections::HashMap::new();
+                                map.insert(
+                                    "type".to_string(),
+                                    crate::language::syntax::ast::Value::String(k),
+                                );
+                                for (pk, pv) in v.into_iter() {
+                                    map.insert(pk, pv);
+                                }
+                                note_effects_vec
+                                    .push(crate::language::syntax::ast::Value::Map(map));
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+
+        // As a last resort, if no synth variable chain and context.effects exists (non-note invocation), treat context.effects as synth-level
+        if synth_effects_vec.is_empty() {
+            if let Some(eff_val) = context.get("effects") {
+                if let crate::language::syntax::ast::Value::Array(arr) = eff_val {
+                    synth_effects_vec.extend(arr.clone());
+                } else if let crate::language::syntax::ast::Value::Map(map_v) = eff_val {
+                    let normalized = crate::engine::audio::effects::normalize_effects(&Some(
+                        crate::language::syntax::ast::Value::Map(map_v.clone()),
+                    ));
+                    for (k, v) in normalized.into_iter() {
+                        let mut map = std::collections::HashMap::new();
+                        map.insert(
+                            "type".to_string(),
+                            crate::language::syntax::ast::Value::String(k),
+                        );
+                        for (pk, pv) in v.into_iter() {
+                            map.insert(pk, pv);
+                        }
+                        synth_effects_vec.push(crate::language::syntax::ast::Value::Map(map));
+                    }
+                }
+            }
+        }
+
+        // Merge synth-level then note-level
+        if !synth_effects_vec.is_empty() || !note_effects_vec.is_empty() {
+            let mut merged: Vec<crate::language::syntax::ast::Value> = Vec::new();
+            merged.extend(synth_effects_vec);
+            merged.extend(note_effects_vec);
+            event_effects = Some(crate::language::syntax::ast::Value::Array(merged));
+        }
+
         interpreter.events.events.push(AudioEvent::Note {
             midi,
             start_time: interpreter.cursor_time,
@@ -226,6 +330,7 @@ pub fn extract_audio_event(
             reverb_amount: None,
             drive_amount: None,
             drive_color: None,
+            effects: event_effects,
             use_per_note_automation,
         });
         return Ok(());
@@ -387,6 +492,98 @@ pub fn extract_audio_event(
                 .get_synth(synth_id)
                 .cloned()
                 .unwrap_or_default();
+            // Determine effects for this chord event by merging synth-level and any chord-level effects
+            let mut event_effects: Option<crate::language::syntax::ast::Value> = None;
+
+            // Collect synth-level effects if present in variable
+            let mut synth_effects_vec: Vec<crate::language::syntax::ast::Value> = Vec::new();
+            if let Some(var_val) = interpreter.variables.get(synth_id) {
+                match var_val {
+                    crate::language::syntax::ast::Value::Map(m) => {
+                        if let Some(chain_v) = m.get("chain") {
+                            if let crate::language::syntax::ast::Value::Array(arr) = chain_v {
+                                synth_effects_vec.extend(arr.clone());
+                            }
+                        } else if let Some(effs) = m.get("effects") {
+                            eprintln!(
+                                "DEPRECATION: synth-level effect param map support is deprecated — use chained params instead."
+                            );
+                            let normalized = crate::engine::audio::effects::normalize_effects(
+                                &Some(effs.clone()),
+                            );
+                            for (k, v) in normalized.into_iter() {
+                                let mut map = std::collections::HashMap::new();
+                                map.insert(
+                                    "type".to_string(),
+                                    crate::language::syntax::ast::Value::String(k),
+                                );
+                                for (pk, pv) in v.into_iter() {
+                                    map.insert(pk, pv);
+                                }
+                                synth_effects_vec
+                                    .push(crate::language::syntax::ast::Value::Map(map));
+                            }
+                        }
+                    }
+                    crate::language::syntax::ast::Value::Statement(stmt_box) => {
+                        if let crate::language::syntax::ast::StatementKind::ArrowCall { .. } =
+                            &stmt_box.kind
+                        {
+                            if let crate::language::syntax::ast::Value::Map(m) = &stmt_box.value {
+                                if let Some(crate::language::syntax::ast::Value::Array(arr)) =
+                                    m.get("chain")
+                                {
+                                    synth_effects_vec.extend(arr.clone());
+                                }
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+
+            // Collect chord-level (note-level) effects from FunctionContext when invoking chord
+            let mut chord_effects_vec: Vec<crate::language::syntax::ast::Value> = Vec::new();
+            if let Some(crate::language::syntax::ast::Value::String(method_name)) =
+                context.get("method")
+            {
+                let m = method_name.as_str();
+                if m == "chord" {
+                    if let Some(eff_val) = context.get("effects") {
+                        match eff_val {
+                            crate::language::syntax::ast::Value::Array(arr) => {
+                                chord_effects_vec.extend(arr.clone());
+                            }
+                            crate::language::syntax::ast::Value::Map(map_v) => {
+                                let normalized = crate::engine::audio::effects::normalize_effects(
+                                    &Some(crate::language::syntax::ast::Value::Map(map_v.clone())),
+                                );
+                                for (k, v) in normalized.into_iter() {
+                                    let mut map = std::collections::HashMap::new();
+                                    map.insert(
+                                        "type".to_string(),
+                                        crate::language::syntax::ast::Value::String(k),
+                                    );
+                                    for (pk, pv) in v.into_iter() {
+                                        map.insert(pk, pv);
+                                    }
+                                    chord_effects_vec
+                                        .push(crate::language::syntax::ast::Value::Map(map));
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            }
+
+            if !synth_effects_vec.is_empty() || !chord_effects_vec.is_empty() {
+                let mut merged: Vec<crate::language::syntax::ast::Value> = Vec::new();
+                merged.extend(synth_effects_vec);
+                merged.extend(chord_effects_vec);
+                event_effects = Some(crate::language::syntax::ast::Value::Array(merged));
+            }
+
             interpreter.events.events.push(AudioEvent::Chord {
                 midis,
                 start_time: interpreter.cursor_time,
@@ -406,7 +603,8 @@ pub fn extract_audio_event(
                 reverb_amount,
                 drive_amount,
                 drive_color,
-                use_per_note_automation,
+                effects: event_effects,
+                use_per_note_automation: false,
             });
             // Apply note-mode/global automation to synth-specific options (cutoff, resonance, etc.)
             // Collect automated values first to avoid borrowing conflicts

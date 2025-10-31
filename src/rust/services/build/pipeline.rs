@@ -12,7 +12,7 @@ use crate::language::syntax::parser::driver::SimpleParser;
 use crate::tools::logger::Logger;
 
 use super::outputs::ast::AstBuilder;
-use super::outputs::audio::AudioBuilder;
+use super::outputs::audio::builder::AudioBuilder;
 use super::outputs::logs::LogWriter;
 
 #[derive(Debug, Clone)]
@@ -80,7 +80,7 @@ impl ProjectBuilder {
             .write(&statements, &request.output_root, &module_name)?;
 
         // Render audio output in all requested formats
-        use super::outputs::audio::MultiFormatRenderSummary;
+        use super::outputs::audio::builder::MultiFormatRenderSummary;
         let MultiFormatRenderSummary {
             primary_path,
             primary_format,

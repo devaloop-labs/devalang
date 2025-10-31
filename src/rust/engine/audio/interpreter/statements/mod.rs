@@ -6,4 +6,6 @@ pub mod tempo;
 /// Statement handlers for audio interpreter
 pub mod trigger;
 
-// Stub modules for other statements
+#[cfg(test)]
+#[path = "test_loop.rs"]
+mod tests;

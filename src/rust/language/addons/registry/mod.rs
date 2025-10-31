@@ -1,5 +1,5 @@
-#![cfg(feature = "cli")]
-
+// Module is gated by parent `language::addons` via #[cfg(feature = "cli")]
+// Do not duplicate crate-level cfg attribute here.
 use std::collections::{HashMap, HashSet, hash_map::Entry};
 use std::fs;
 use std::path::{Path, PathBuf};

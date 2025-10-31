@@ -25,6 +25,8 @@ pub enum AudioEvent {
         reverb_amount: Option<f32>,  // 0.0-1.0
         drive_amount: Option<f32>,   // 0.0-1.0
         drive_color: Option<f32>,    // 0.0-1.0
+        // Full effects map (optional) - may contain chained effects for this event
+        effects: Option<crate::language::syntax::ast::Value>,
         // Per-note automation flag
         use_per_note_automation: bool, // Whether to apply per-note automation at render time
     },
@@ -49,6 +51,8 @@ pub enum AudioEvent {
         reverb_amount: Option<f32>,  // 0.0-1.0
         drive_amount: Option<f32>,   // 0.0-1.0
         drive_color: Option<f32>,    // 0.0-1.0
+        // Full effects map (optional)
+        effects: Option<crate::language::syntax::ast::Value>,
         // Per-note automation flag
         use_per_note_automation: bool, // Whether to apply per-note automation at render time
     },
@@ -56,6 +60,8 @@ pub enum AudioEvent {
         uri: String,
         start_time: f32,
         velocity: f32,
+        // Effects to apply to this sample (trigger effects)
+        effects: Option<crate::language::syntax::ast::Value>,
     },
 }
 
@@ -63,6 +69,9 @@ pub enum AudioEvent {
 #[derive(Debug, Default)]
 pub struct AudioEventList {
     pub events: Vec<AudioEvent>,
+    /// Print/log messages recorded during interpretation. These are not audio events
+    /// and should not affect loop termination logic.
+    pub logs: Vec<(f32, String)>,
     pub synths: HashMap<String, SynthDefinition>,
 }
 
@@ -106,6 +115,7 @@ impl AudioEventList {
     pub fn new() -> Self {
         Self {
             events: Vec::new(),
+            logs: Vec::new(),
             synths: HashMap::new(),
         }
     }
@@ -158,6 +168,7 @@ impl AudioEventList {
             reverb_amount,
             drive_amount,
             drive_color,
+            effects: None,
             use_per_note_automation: false,
         });
     }
@@ -204,6 +215,7 @@ impl AudioEventList {
             reverb_amount,
             drive_amount,
             drive_color,
+            effects: None,
             use_per_note_automation: false,
         });
     }
@@ -213,7 +225,30 @@ impl AudioEventList {
             uri: uri.to_string(),
             start_time,
             velocity,
+            effects: None,
         });
+    }
+
+    /// Add a sample event with an attached effects map (owned)
+    pub fn add_sample_event_with_effects(
+        &mut self,
+        uri: &str,
+        start_time: f32,
+        velocity: f32,
+        effects: Option<Value>,
+    ) {
+        self.events.push(AudioEvent::Sample {
+            uri: uri.to_string(),
+            start_time,
+            velocity,
+            effects,
+        });
+    }
+
+    /// Add a log message (created by `print` statements). Time is in seconds from start.
+    /// Logs are stored separately from audio events so they don't affect rendering/loop logic.
+    pub fn add_log_event(&mut self, message: String, time: f32) {
+        self.logs.push((time, message));
     }
 
     pub fn get_synth(&self, name: &str) -> Option<&SynthDefinition> {
@@ -256,7 +291,7 @@ impl AudioEventList {
                         let _ = uri; // Silence unused warning on non-WASM targets
                         start_time + 2.0
                     }
-                }
+                } // Log events are not considered in audio total duration
             })
             .fold(0.0, f32::max)
     }
@@ -299,6 +334,29 @@ impl AudioEventList {
             }
             self.events.push(event);
         }
+
+        // Merge logs (print messages) as well
+        for log in other.logs {
+            // Avoid inserting duplicate or near-duplicate log entries (same message
+            // and timestamps within a small epsilon). Multiple workers or interpreter
+            // snapshots may produce the same scheduled print with slightly different
+            // float timestamps; deduplicate those here.
+            let mut duplicated = false;
+            for existing in &self.logs {
+                let time_diff = (existing.0 - log.0).abs();
+                if existing.1 == log.1 && time_diff <= 0.001 {
+                    duplicated = true;
+                    break;
+                }
+            }
+            if !duplicated {
+                self.logs.push(log);
+            }
+        }
+
+        // Keep logs time-ordered for predictable playback
+        self.logs
+            .sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
     }
 }
 

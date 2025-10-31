@@ -84,6 +84,23 @@ pub fn parse_single_arg(arg: &str) -> Result<Value> {
         return Ok(Value::Number(num));
     }
 
+    // Function call expression: name(arg1, arg2)
+    if let Some(open_paren) = arg.find('(') {
+        if arg.ends_with(')') {
+            let name = arg[..open_paren].trim().to_string();
+            let args_str = &arg[open_paren + 1..arg.len() - 1];
+            let parsed_args = if args_str.trim().is_empty() {
+                Vec::new()
+            } else {
+                parse_function_args(args_str)?
+            };
+            return Ok(Value::Call {
+                name,
+                args: parsed_args,
+            });
+        }
+    }
+
     // Boolean
     match arg.to_lowercase().as_str() {
         "true" => return Ok(Value::Boolean(true)),
@@ -291,11 +308,41 @@ pub fn parse_array_value(input: &str) -> Result<Value> {
                 }
             }
             ',' if depth == 0 => {
-                // Skip commas at array level
+                // End of a top-level array element (not inside an object).
+                let token = current.trim();
+                if !token.is_empty() {
+                    // Parse simple token (number, identifier, string, nested array/map)
+                    if let Ok(val) = parse_single_arg(token) {
+                        // If the parsed value is a Map, keep it. Otherwise, wrap into a Map
+                        // with `index` and `value` keys so arrays of simple tokens become
+                        // objects supporting property access (index, value).
+                        if let Value::Map(_) = val {
+                            items.push(val);
+                        } else {
+                            let mut map = HashMap::new();
+                            let idx = items.len();
+                            map.insert("index".to_string(), Value::Number(idx as f32));
+                            map.insert("value".to_string(), val);
+                            items.push(Value::Map(map));
+                        }
+                    }
+                }
+                current.clear();
                 continue;
             }
             _ => {
                 current.push(ch);
+            }
+        }
+    }
+
+    // If there is a trailing token after the loop, parse and push it
+    if !current.trim().is_empty() {
+        let token = current.trim();
+        // If it's an object it should have been handled above; otherwise parse as single arg
+        if !token.is_empty() {
+            if let Ok(val) = parse_single_arg(token) {
+                items.push(val);
             }
         }
     }

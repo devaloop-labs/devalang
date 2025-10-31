@@ -1,4 +1,7 @@
+#![allow(unused_macros)]
 use super::AudioInterpreter;
+use crate::engine::audio::effects::chain::{EffectChain, build_effect_chain};
+use crate::engine::audio::effects::normalize_effects;
 use crate::engine::audio::effects::processors::{
     DelayProcessor, DriveProcessor, EffectProcessor, ReverbProcessor,
 };
@@ -71,12 +74,7 @@ pub fn render_audio(interpreter: &AudioInterpreter) -> Result<Vec<f32>> {
         total_duration
     );
 
-    for event in &interpreter.events.events {
-        match event {
-            crate::engine::audio::events::AudioEvent::Note { .. } => {}
-            _ => {}
-        }
-    }
+    // No-op pre-scan: logs are stored separately in interpreter.events.logs and are ignored by renderer.
 
     // Render each event (copied logic from driver)
     let mut note_count = 0;
@@ -102,6 +100,7 @@ pub fn render_audio(interpreter: &AudioInterpreter) -> Result<Vec<f32>> {
                 drive_amount,
                 drive_color,
                 use_per_note_automation,
+                ..
             } => {
                 note_count += 1;
                 // Log note rendering only if needed (debug mode)
@@ -227,24 +226,79 @@ pub fn render_audio(interpreter: &AudioInterpreter) -> Result<Vec<f32>> {
                     )?
                 };
 
+                // If this event has an effects map/array, build an effect chain and apply it.
+                // Also avoid double-applying drive/reverb/delay when those keys appear in the effects map.
+                let mut skip_drive = false;
+                let mut skip_reverb = false;
+                let mut skip_delay = false;
+                let mut effect_chain: Option<EffectChain> = None;
+
+                // Try to extract per-event effects (if present) and build a chain
+                if let crate::engine::audio::events::AudioEvent::Note { effects, .. } = event {
+                    if let Some(eff_val) = effects {
+                        match eff_val {
+                            crate::language::syntax::ast::Value::Array(arr) => {
+                                let chain = build_effect_chain(arr, true);
+                                if !chain.is_empty() {
+                                    effect_chain = Some(chain);
+                                }
+                            }
+                            crate::language::syntax::ast::Value::Map(_) => {
+                                let normalized = normalize_effects(&Some(eff_val.clone()));
+                                if !normalized.is_empty() {
+                                    let mut chain = EffectChain::new(true);
+                                    for (k, v) in normalized.into_iter() {
+                                        chain.add_effect(
+                                            &k,
+                                            Some(crate::language::syntax::ast::Value::Map(v)),
+                                        );
+                                        // mark skips for known audio processors
+                                        match k.as_str() {
+                                            "drive" => skip_drive = true,
+                                            "reverb" => skip_reverb = true,
+                                            "delay" => skip_delay = true,
+                                            _ => {}
+                                        }
+                                    }
+                                    effect_chain = Some(chain);
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+
+                if let Some(chain) = effect_chain.as_mut() {
+                    chain.process(&mut samples, interpreter.sample_rate);
+                }
+
+                // Apply legacy per-field processors only when not overridden by the effects map
                 if let Some(amount) = drive_amount {
-                    let color = drive_color.unwrap_or(0.5);
-                    let mix = 0.7;
-                    let mut processor = DriveProcessor::new(*amount, color, mix);
-                    processor.process(&mut samples, interpreter.sample_rate);
+                    if !skip_drive {
+                        let color = drive_color.unwrap_or(0.5);
+                        let mix = 0.7;
+                        // tone default to 0.5, color passed from drive_color
+                        let mut processor = DriveProcessor::new(*amount, 0.5, color, mix);
+                        processor.process(&mut samples, interpreter.sample_rate);
+                    }
                 }
                 if let Some(amount) = reverb_amount {
-                    let room_size = *amount;
-                    let damping = 0.5;
-                    let mix = *amount * 0.5;
-                    let mut processor = ReverbProcessor::new(room_size, damping, mix);
-                    processor.process(&mut samples, interpreter.sample_rate);
+                    if !skip_reverb {
+                        let room_size = *amount;
+                        let damping = 0.5;
+                        let decay = 0.5;
+                        let mix = *amount * 0.5;
+                        let mut processor = ReverbProcessor::new(room_size, damping, decay, mix);
+                        processor.process(&mut samples, interpreter.sample_rate);
+                    }
                 }
                 if let Some(time) = delay_time {
-                    let feedback = delay_feedback.unwrap_or(0.3);
-                    let mix = delay_mix.unwrap_or(0.5);
-                    let mut processor = DelayProcessor::new(*time, feedback, mix);
-                    processor.process(&mut samples, interpreter.sample_rate);
+                    if !skip_delay {
+                        let feedback = delay_feedback.unwrap_or(0.3);
+                        let mix = delay_mix.unwrap_or(0.5);
+                        let mut processor = DelayProcessor::new(*time, feedback, mix);
+                        processor.process(&mut samples, interpreter.sample_rate);
+                    }
                 }
 
                 let start_sample = (*start_time * interpreter.sample_rate as f32) as usize * 2;
@@ -275,6 +329,7 @@ pub fn render_audio(interpreter: &AudioInterpreter) -> Result<Vec<f32>> {
                 reverb_amount,
                 drive_amount,
                 drive_color,
+                effects,
                 use_per_note_automation: _,
             } => {
                 let mut params = SynthParams {
@@ -309,24 +364,71 @@ pub fn render_audio(interpreter: &AudioInterpreter) -> Result<Vec<f32>> {
                     *spread,
                 )?;
 
+                // Build and apply effect chain if per-event effects are present
+                let mut skip_drive = false;
+                let mut skip_reverb = false;
+                let mut skip_delay = false;
+                let mut effect_chain: Option<EffectChain> = None;
+                if let Some(eff_val) = effects {
+                    match eff_val {
+                        crate::language::syntax::ast::Value::Array(arr) => {
+                            let chain = build_effect_chain(arr, true);
+                            if !chain.is_empty() {
+                                effect_chain = Some(chain);
+                            }
+                        }
+                        crate::language::syntax::ast::Value::Map(_) => {
+                            let normalized = normalize_effects(&Some(eff_val.clone()));
+                            if !normalized.is_empty() {
+                                let mut chain = EffectChain::new(true);
+                                for (k, v) in normalized.into_iter() {
+                                    chain.add_effect(
+                                        &k,
+                                        Some(crate::language::syntax::ast::Value::Map(v)),
+                                    );
+                                    match k.as_str() {
+                                        "drive" => skip_drive = true,
+                                        "reverb" => skip_reverb = true,
+                                        "delay" => skip_delay = true,
+                                        _ => {}
+                                    }
+                                }
+                                effect_chain = Some(chain);
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+
+                if let Some(chain) = effect_chain.as_mut() {
+                    chain.process(&mut samples, interpreter.sample_rate);
+                }
+
                 if let Some(amount) = drive_amount {
-                    let color = drive_color.unwrap_or(0.5);
-                    let mix = 0.7;
-                    let mut processor = DriveProcessor::new(*amount, color, mix);
-                    processor.process(&mut samples, interpreter.sample_rate);
+                    if !skip_drive {
+                        let color = drive_color.unwrap_or(0.5);
+                        let mix = 0.7;
+                        let mut processor = DriveProcessor::new(*amount, 0.5, color, mix);
+                        processor.process(&mut samples, interpreter.sample_rate);
+                    }
                 }
                 if let Some(amount) = reverb_amount {
-                    let room_size = *amount;
-                    let damping = 0.5;
-                    let mix = *amount * 0.5;
-                    let mut processor = ReverbProcessor::new(room_size, damping, mix);
-                    processor.process(&mut samples, interpreter.sample_rate);
+                    if !skip_reverb {
+                        let room_size = *amount;
+                        let damping = 0.5;
+                        let decay = 0.5;
+                        let mix = *amount * 0.5;
+                        let mut processor = ReverbProcessor::new(room_size, damping, decay, mix);
+                        processor.process(&mut samples, interpreter.sample_rate);
+                    }
                 }
                 if let Some(time) = delay_time {
-                    let feedback = delay_feedback.unwrap_or(0.3);
-                    let mix = delay_mix.unwrap_or(0.5);
-                    let mut processor = DelayProcessor::new(*time, feedback, mix);
-                    processor.process(&mut samples, interpreter.sample_rate);
+                    if !skip_delay {
+                        let feedback = delay_feedback.unwrap_or(0.3);
+                        let mix = delay_mix.unwrap_or(0.5);
+                        let mut processor = DelayProcessor::new(*time, feedback, mix);
+                        processor.process(&mut samples, interpreter.sample_rate);
+                    }
                 }
 
                 let start_sample = (*start_time * interpreter.sample_rate as f32) as usize * 2;
@@ -342,6 +444,7 @@ pub fn render_audio(interpreter: &AudioInterpreter) -> Result<Vec<f32>> {
                 uri,
                 start_time,
                 velocity,
+                effects,
             } => {
                 sample_count += 1;
                 // Log sample rendering only if needed (debug mode)
@@ -381,7 +484,42 @@ pub fn render_audio(interpreter: &AudioInterpreter) -> Result<Vec<f32>> {
                         let velocity_scale = velocity;
                         let resample_ratio =
                             interpreter.sample_rate as f32 / sample_data.sample_rate as f32;
-                        for (i, &sample) in sample_data.samples.iter().enumerate() {
+
+                        // Make a mutable copy so we can run effects on it (effects expect f32 slices)
+                        let mut proc_samples = sample_data.samples.clone();
+
+                        // Build and apply effect chain for sample events (trigger context)
+                        let mut sample_chain: Option<EffectChain> = None;
+                        if let Some(eff_val) = effects {
+                            match eff_val {
+                                crate::language::syntax::ast::Value::Array(arr) => {
+                                    let chain = build_effect_chain(arr, false);
+                                    if !chain.is_empty() {
+                                        sample_chain = Some(chain);
+                                    }
+                                }
+                                crate::language::syntax::ast::Value::Map(_) => {
+                                    let normalized = normalize_effects(&Some(eff_val.clone()));
+                                    if !normalized.is_empty() {
+                                        let mut chain = EffectChain::new(false);
+                                        for (k, v) in normalized.into_iter() {
+                                            chain.add_effect(
+                                                &k,
+                                                Some(crate::language::syntax::ast::Value::Map(v)),
+                                            );
+                                        }
+                                        sample_chain = Some(chain);
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
+
+                        if let Some(chain) = sample_chain.as_mut() {
+                            chain.process(&mut proc_samples, interpreter.sample_rate);
+                        }
+
+                        for (i, &sample) in proc_samples.iter().enumerate() {
                             let output_idx =
                                 start_sample_idx + (i as f32 * resample_ratio) as usize;
                             let stereo_pos = output_idx * 2;
@@ -399,7 +537,7 @@ pub fn render_audio(interpreter: &AudioInterpreter) -> Result<Vec<f32>> {
                         log_error!(logger, "Bank sample not found: {}", uri);
                     }
                 }
-            }
+            } // Log events are stored separately and ignored by renderer
         }
     }
 

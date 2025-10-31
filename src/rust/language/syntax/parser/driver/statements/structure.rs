@@ -168,16 +168,39 @@ pub fn parse_loop(
     mut parts: impl Iterator<Item = impl AsRef<str>>,
     line_number: usize,
 ) -> Result<Statement> {
-    // Parse: loop <count>:
-    let count_str_ref = parts
-        .next()
-        .ok_or_else(|| anyhow!("loop requires a count"))?;
-    let count_str = count_str_ref.as_ref().trim_end_matches(':');
+    // Parse: loop <count>:  OR plain `loop:` (no count)
+    // If no count is provided we store Value::Null to indicate an unbounded loop
+    let count_opt = parts.next();
 
-    let count = if let Ok(num) = count_str.parse::<f32>() {
-        Value::Number(num)
+    let count = if let Some(count_str_ref) = count_opt {
+        let count_str = count_str_ref.as_ref().trim_end_matches(':');
+        // Support forms:
+        // - loop pass:
+        // - loop pass():
+        // - loop pass(500):
+        // - loop 4:
+        if let Ok(num) = count_str.parse::<f32>() {
+            Value::Number(num)
+        } else if count_str.contains('(') && count_str.ends_with(')') {
+            // Parse as a call-like value (e.g., pass(500))
+            if let Some(open_idx) = count_str.find('(') {
+                let name = count_str[..open_idx].to_string();
+                let inside = &count_str[open_idx + 1..count_str.len() - 1];
+                let args = if inside.trim().is_empty() {
+                    Vec::new()
+                } else {
+                    crate::language::syntax::parser::driver::parse_function_args(inside)?
+                };
+                Value::Call { name, args }
+            } else {
+                Value::Identifier(count_str.to_string())
+            }
+        } else {
+            Value::Identifier(count_str.to_string())
+        }
     } else {
-        Value::Identifier(count_str.to_string())
+        // No explicit count -> mark as Null (infinite/indefinite)
+        Value::Null
     };
 
     Ok(Statement::new(
@@ -240,6 +263,48 @@ pub fn parse_for(
     ))
 }
 
+/// Parse function statement: function name(arg1, arg2, ...):
+pub fn parse_function(line: &str, line_number: usize) -> Result<Statement> {
+    // Expect form: function <name>(arg1, arg2, ...):
+    let after_kw = line
+        .trim()
+        .strip_prefix("function")
+        .ok_or_else(|| anyhow!("function parsing error"))?
+        .trim();
+
+    // Find name and args parentheses
+    if let Some(paren_idx) = after_kw.find('(') {
+        let name = after_kw[..paren_idx].trim().to_string();
+        if let Some(close_idx) = after_kw.rfind(')') {
+            let args_str = &after_kw[paren_idx + 1..close_idx];
+            // Parse parameter names: split by ',' and trim
+            let params: Vec<String> = if args_str.trim().is_empty() {
+                Vec::new()
+            } else {
+                args_str
+                    .split(',')
+                    .map(|s| s.trim().trim_end_matches(':').to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect()
+            };
+
+            return Ok(Statement::new(
+                StatementKind::Function {
+                    name: name.clone(),
+                    parameters: params,
+                    body: Vec::new(),
+                },
+                Value::Identifier(name),
+                0,
+                line_number,
+                1,
+            ));
+        }
+    }
+
+    Err(anyhow!("Invalid function declaration"))
+}
+
 /// Parse if statement
 pub fn parse_if(
     parts: impl Iterator<Item = impl AsRef<str>>,
@@ -277,19 +342,24 @@ pub fn parse_else(line: &str, line_number: usize) -> Result<Statement> {
         let condition_str = condition_str.trim_end_matches(':').trim();
         let condition = parse_condition(condition_str)?;
 
+        // Mark this If as originating from an 'else if' so the outer parser
+        // post-process can attach it as an else-branch to the previous If.
         Ok(Statement::new(
             StatementKind::If {
                 condition,
                 body: Vec::new(), // Will be filled during indentation parsing
                 else_body: None,
             },
-            Value::Null,
+            Value::String("else-if".to_string()),
             0,
             line_number,
             1,
         ))
     } else {
         // Just "else:"
+        // Return a lightweight marker (Comment with value "else") so the
+        // outer parser can detect and attach the following indented block
+        // as the else-body of the preceding If.
         Ok(Statement::new(
             StatementKind::Comment, // We'll handle this specially during body parsing
             Value::String("else".to_string()),
@@ -309,11 +379,24 @@ pub fn parse_call(
     mut parts: impl Iterator<Item = impl AsRef<str>>,
     line_number: usize,
 ) -> Result<Statement> {
-    let first = parts
+    // Determine the call name. If the call uses parentheses (call name(arg1, arg2))
+    // extract the name from the text before the first '(', otherwise fall back to
+    // the whitespace-split first token.
+    let first_token = parts
         .next()
         .ok_or_else(|| anyhow!("call requires a target"))?
         .as_ref()
         .to_string();
+    let mut call_name = first_token.clone();
+    if line.find('(').is_some() {
+        // Extract the substring between 'call' and the first '(' as the name
+        if let Some(after_call) = line.trim().strip_prefix("call") {
+            let snippet = after_call.trim();
+            if let Some(pidx) = snippet.find('(') {
+                call_name = snippet[..pidx].trim().to_string();
+            }
+        }
+    }
 
     // Check if this is an inline pattern assignment: call target = "pattern"
     if line.contains('=') {
@@ -350,11 +433,49 @@ pub fn parse_call(
     }
 
     // Regular call statement (call groupName or call patternName)
+    // Support call with arguments: call name(arg1, arg2)
+    if let Some(paren_idx) = line.find('(') {
+        if let Some(close_idx) = line.rfind(')') {
+            let args_str = &line[paren_idx + 1..close_idx];
+            let args = if args_str.trim().is_empty() {
+                Vec::new()
+            } else {
+                // Reuse parse_function_args from parent module
+                crate::language::syntax::parser::driver::parse_function_args(args_str)?
+            };
+
+            return Ok(Statement::new(
+                StatementKind::Call {
+                    name: call_name,
+                    args,
+                },
+                Value::Null,
+                0,
+                line_number,
+                1,
+            ));
+        }
+    }
+
     Ok(Statement::new(
         StatementKind::Call {
-            name: first,
+            name: call_name,
             args: Vec::new(),
         },
+        Value::Null,
+        0,
+        line_number,
+        1,
+    ))
+}
+
+/// Parse break statement
+pub fn parse_break(
+    _parts: impl Iterator<Item = impl AsRef<str>>,
+    line_number: usize,
+) -> Result<Statement> {
+    Ok(Statement::new(
+        StatementKind::Break,
         Value::Null,
         0,
         line_number,
@@ -391,19 +512,36 @@ pub fn parse_on(
     line_number: usize,
 ) -> Result<Statement> {
     // Parse: on eventName: or on eventName once:
-    let event_name = parts
+    // Accept forms like: on beat: | on beat once: | on beat(4): | on beat(4) once:
+    let raw = parts
         .next()
         .ok_or_else(|| anyhow!("on statement requires an event name"))?
         .as_ref()
         .to_string();
 
-    // Check for "once" keyword
+    // Parse optional interval within parentheses, e.g. beat(4)
+    let mut event_name = raw.clone();
+    let mut args_vec: Vec<Value> = Vec::new();
+    if let Some(open_idx) = raw.find('(') {
+        if raw.ends_with(')') {
+            let base = raw[..open_idx].to_string();
+            let inside = &raw[open_idx + 1..raw.len() - 1];
+            if let Ok(n) = inside.trim().parse::<f32>() {
+                args_vec.push(Value::Number(n));
+            }
+            event_name = base;
+        }
+    }
+
+    // Check for "once" keyword as next token
     let next_word = parts.next();
     let once = next_word.map(|w| w.as_ref() == "once").unwrap_or(false);
+    if once {
+        args_vec.push(Value::String("once".to_string()));
+    }
 
-    // Store once flag in args (temporary workaround until we have proper AST)
-    let args = if once {
-        Some(vec![Value::String("once".to_string())])
+    let args = if !args_vec.is_empty() {
+        Some(args_vec)
     } else {
         None
     };

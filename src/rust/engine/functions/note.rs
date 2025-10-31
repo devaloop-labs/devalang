@@ -95,16 +95,5 @@ pub fn parse_note_to_midi(note: &str) -> Result<u8> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_parse_note_to_midi() {
-        assert_eq!(parse_note_to_midi("C4").unwrap(), 60);
-        assert_eq!(parse_note_to_midi("C#4").unwrap(), 61);
-        assert_eq!(parse_note_to_midi("D4").unwrap(), 62);
-        assert_eq!(parse_note_to_midi("A4").unwrap(), 69);
-        assert_eq!(parse_note_to_midi("C5").unwrap(), 72);
-        assert_eq!(parse_note_to_midi("Bb4").unwrap(), 70);
-    }
-}
+#[path = "test_note.rs"]
+mod tests;

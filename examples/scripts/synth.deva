@@ -7,13 +7,17 @@
 # Available types: pluck, pad, bass, lead.
 #
 # Syntax:
-# `synth <waveform> [options]`
+# `synth <waveform> -> <optional_param>(<param_value>)`
 
-# Creating a simple sine wave synth
-let firstSynth = synth sine {
-    type: "bass",
-    attack: 0.1,
-    decay: 0.2,
-    sustain: 0.8,
-    release: 0.3,
-}
+# Creating a simple sine wave synth without params
+let sineSynth = synth sine
+
+# Creating a simple pluck sound with a square waveform
+let pluckSynth = synth square 
+    -> type("pluck")
+    -> adsr({
+        attack: 0.001,
+        decay: 0.3,
+        sustain: 0.1,
+        release: 0.1
+    })

@@ -9,6 +9,8 @@ pub struct EventHandler {
     pub event_name: String,
     pub body: Vec<Statement>,
     pub once: bool, // If true, handler runs only once
+    /// Optional args provided on `on` declaration, e.g. [Number(4), String("once")]
+    pub args: Option<Vec<Value>>,
 }
 
 /// Event payload - data associated with an emitted event
@@ -183,90 +185,5 @@ pub mod builtin_events {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_register_and_get_handler() {
-        let mut registry = EventRegistry::new();
-
-        let handler = EventHandler {
-            event_name: "test".to_string(),
-            body: vec![],
-            once: false,
-        };
-
-        registry.register_handler(handler);
-
-        let handlers = registry.get_handlers("test");
-        assert_eq!(handlers.len(), 1);
-        assert_eq!(handlers[0].event_name, "test");
-    }
-
-    #[test]
-    fn test_emit_and_get_events() {
-        let mut registry = EventRegistry::new();
-
-        let mut data = HashMap::new();
-        data.insert("value".to_string(), Value::Number(42.0));
-
-        registry.emit("test".to_string(), data, 0.0);
-
-        let events = registry.get_events_by_name("test");
-        assert_eq!(events.len(), 1);
-        assert_eq!(events[0].event_name, "test");
-    }
-
-    #[test]
-    fn test_pattern_matches() {
-        assert!(pattern_matches("*", "anything"));
-        assert!(pattern_matches("test", "test"));
-        assert!(!pattern_matches("test", "other"));
-        assert!(pattern_matches("test*", "test123"));
-        assert!(pattern_matches("*test", "mytest"));
-        assert!(pattern_matches("te?t", "test"));
-        assert!(!pattern_matches("te?t", "teast"));
-    }
-
-    #[test]
-    fn test_once_handler() {
-        let mut registry = EventRegistry::new();
-
-        // First execution should return true
-        assert!(registry.should_execute_once("test", 0));
-
-        // Second execution should return false
-        assert!(!registry.should_execute_once("test", 0));
-    }
-
-    #[test]
-    fn test_wildcard_handlers() {
-        let mut registry = EventRegistry::new();
-
-        registry.register_handler(EventHandler {
-            event_name: "note.on".to_string(),
-            body: vec![],
-            once: false,
-        });
-
-        registry.register_handler(EventHandler {
-            event_name: "note.off".to_string(),
-            body: vec![],
-            once: false,
-        });
-
-        let handlers = registry.get_handlers_matching("note.*");
-        assert_eq!(handlers.len(), 2);
-    }
-
-    #[test]
-    fn test_clear_events() {
-        let mut registry = EventRegistry::new();
-
-        registry.emit("test".to_string(), HashMap::new(), 0.0);
-        assert_eq!(registry.get_emitted_events().len(), 1);
-
-        registry.clear_events();
-        assert_eq!(registry.get_emitted_events().len(), 0);
-    }
-}
+#[path = "test_events.rs"]
+mod tests;

@@ -1,0 +1,52 @@
+pub mod bandpass;
+pub mod bitcrush;
+pub mod chorus;
+pub mod compressor;
+pub mod delay;
+pub mod distortion;
+pub mod drive;
+pub mod flanger;
+pub mod freeze;
+pub mod highpass;
+pub mod lfo;
+pub mod lowpass;
+pub mod monoizer;
+pub mod phaser;
+pub mod reverb;
+pub mod reverse;
+pub mod roll;
+pub mod slice;
+pub mod speed;
+pub mod stereo;
+pub mod stretch;
+pub mod super_trait;
+pub mod tremolo;
+pub mod vibrato;
+
+pub use chorus::ChorusProcessor;
+pub use compressor::CompressorProcessor;
+pub use delay::DelayProcessor;
+pub use distortion::DistortionProcessor;
+pub use drive::DriveProcessor;
+pub use flanger::FlangerProcessor;
+pub use phaser::PhaserProcessor;
+pub use reverb::ReverbProcessor;
+pub use reverse::ReverseProcessor;
+pub use speed::SpeedProcessor;
+
+pub use bandpass::BandpassProcessor;
+pub use bitcrush::BitcrushProcessor;
+pub use freeze::FreezeProcessor;
+pub use highpass::HighpassProcessor;
+pub use lfo::LfoProcessor;
+pub use lowpass::LowpassProcessor;
+pub use monoizer::MonoizerProcessor;
+pub use roll::RollProcessor;
+pub use slice::SliceProcessor;
+pub use stereo::StereoProcessor;
+pub use stretch::StretchProcessor;
+pub use tremolo::TremoloProcessor;
+pub use vibrato::VibratoProcessor;
+
+// Re-export the trait too
+pub use super_trait::EffectProcessor;

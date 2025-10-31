@@ -11,6 +11,9 @@
 # else:
 #     <statements>
 
+let isActive = true
+let counter = 7
+
 if isActive:
     print "The system is active!"
 else if counter > 5:

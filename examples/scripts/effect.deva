@@ -1,0 +1,72 @@
+# =================
+# Effects
+# =================
+# You can define chained effects that execute in sequence for synth and triggers.
+#
+# Synth Syntax:
+# `let mySynth = synth <waveform> -> <effect_function>(<effect_parameters>) -> ...`
+#
+# Note Syntax:
+# `<synth_name> -> note(<note_value) -> <effect_function>(<effect_parameters>) -> ...`
+#
+# Trigger Syntax:
+# `let myTrigger = .<trigger_name> <optional_duration> -> <effect_function>(<effect_parameters>) -> ...`
+
+# Load bank for the trigger below
+bank devaloop.808 as myBank
+
+# Applying effects to a synth
+let mySynth = synth saw
+    -> lfo({
+        rate: "1/2",
+        depth: 1.0,
+        waveform: "triangle",
+        target: "pitch",
+        semitones: 3.0,
+    })
+    -> dist({
+        amount: 1.0,
+        mix: 0.5
+    })
+    -> reverb({
+        size: 1.0,
+        mix: 1.0
+    })
+
+# Apply and play synth notes
+mySynth -> note(C4)
+        -> velocity(100)
+        -> duration(1000)
+        -> pan(1.0)
+
+mySynth -> note(C5)
+        -> velocity(100)
+        -> duration(1000)
+        -> pan(-1.0)
+
+# Define a trigger with multiple chained effects
+let myTrigger = .myBank.snare auto
+    -> reverse(true)
+    -> speed(2.0)
+    -> dist({
+        amount: 1.0,
+        mix: 0.5
+    })
+    -> reverb({
+        size: 1.0,
+        decay: 0.1,
+        mix: 0.5
+    })
+    -> reverb({
+        size: 1.0,
+        decay: 0.1,
+        mix: 0.5
+    })
+    -> reverb({
+        size: 1.0,
+        decay: 0.1,
+        mix: 0.5
+    })
+
+# Play the trigger
+.myTrigger

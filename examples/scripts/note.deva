@@ -3,8 +3,13 @@
 # =================
 # Create a melody using the synth inside a group to call it easily
 #
-# Syntax:
+# Note Syntax:
 # `<synth_name> -> note(<note_name>)`
+#
+# Chord Syntax:
+# `<synth_name> -> chord(<chord_name | [note_name1, note_name2, ...]>)`
+
+const firstSynth = synth saw
 
 # Creates a group of notes to play a melody
 group myFirstLead:
@@ -16,10 +21,6 @@ group myFirstLead:
                 -> duration(1/4)
                 -> velocity(100)
                 -> pan(0.3)
-        firstSynth -> note(G4)
-                -> duration(1/4)
-                -> velocity(100)
-                -> pan(-0.3)
 
 # Creates a group of chords to play harmony
 group myFirstChords:
@@ -27,11 +28,10 @@ group myFirstChords:
                 -> duration(1/2)
                 -> velocity(80)
                 -> pan(0.0)
-        firstSynth -> chord(Fmaj7)
+        firstSynth -> chord([C4, B2, D3, E4])
                 -> duration(1/2)
                 -> velocity(80)
                 -> pan(0.0)
-        firstSynth -> chord(Gmaj7)
-                -> duration(1/2)
-                -> velocity(80)
-                -> pan(0.0)
+
+call myFirstLead
+call myFirstChords

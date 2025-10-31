@@ -86,14 +86,21 @@ pub fn resolve_special_var(name: &str, context: &SpecialVarContext) -> Option<Va
         return None;
     }
 
+    // small epsilon to avoid floating-point rounding making exact boundaries fall
+    // just below an integer (e.g., 0.9999999) which would incorrectly floor to previous
+    // bar. Use a tiny epsilon when applying floor for bar calculations.
+    let eps = 1e-6_f32;
+
     match name {
         // Time variables
         "$time" => Some(Value::Number(context.current_time)),
         "$beat" => Some(Value::Number(context.current_beat)),
-        "$bar" => Some(Value::Number(context.current_bar)),
+        // Return 1-based bar number (integers) so scripts can compare with ==
+        // e.g., at time 0 the first bar is 1
+        "$bar" => Some(Value::Number((context.current_bar + eps).floor() + 1.0)),
         "$currentTime" => Some(Value::Number(context.current_time)),
         "$currentBeat" => Some(Value::Number(context.current_beat)),
-        "$currentBar" => Some(Value::Number(context.current_bar)),
+        "$currentBar" => Some(Value::Number((context.current_bar + eps).floor() + 1.0)),
 
         // Music variables
         "$bpm" => Some(Value::Number(context.bpm)),
@@ -156,10 +163,17 @@ fn parse_random_range(name: &str) -> Option<Value> {
 pub fn get_all_special_vars(context: &SpecialVarContext) -> HashMap<String, Value> {
     let mut vars = HashMap::new();
 
+    // small epsilon to avoid floating-point rounding issues at exact boundaries
+    let eps = 1e-6_f32;
+
     // Time
     vars.insert("$time".to_string(), Value::Number(context.current_time));
     vars.insert("$beat".to_string(), Value::Number(context.current_beat));
-    vars.insert("$bar".to_string(), Value::Number(context.current_bar));
+    // Expose bar as 1-based integer (users expect $bar == 1 for first bar)
+    vars.insert(
+        "$bar".to_string(),
+        Value::Number((context.current_bar + eps).floor() + 1.0),
+    );
     vars.insert(
         "$currentTime".to_string(),
         Value::Number(context.current_time),
@@ -170,7 +184,7 @@ pub fn get_all_special_vars(context: &SpecialVarContext) -> HashMap<String, Valu
     );
     vars.insert(
         "$currentBar".to_string(),
-        Value::Number(context.current_bar),
+        Value::Number((context.current_bar + eps).floor() + 1.0),
     );
 
     // Music
@@ -252,57 +266,5 @@ pub fn list_special_vars() -> HashMap<&'static str, Vec<(&'static str, &'static 
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_is_special_var() {
-        assert!(is_special_var("$time"));
-        assert!(is_special_var("$beat"));
-        assert!(is_special_var("$random"));
-        assert!(!is_special_var("time"));
-        assert!(!is_special_var("myVar"));
-    }
-
-    #[test]
-    fn test_resolve_time_vars() {
-        let mut context = SpecialVarContext::default();
-        context.update_time(2.0);
-
-        let time = resolve_special_var("$time", &context);
-        assert_eq!(time, Some(Value::Number(2.0)));
-
-        let beat = resolve_special_var("$beat", &context);
-        assert!(matches!(beat, Some(Value::Number(_))));
-    }
-
-    #[test]
-    fn test_resolve_random_vars() {
-        let context = SpecialVarContext::default();
-
-        let rand1 = resolve_special_var("$random", &context);
-        assert!(matches!(rand1, Some(Value::Number(_))));
-
-        let rand2 = resolve_special_var("$random.noise", &context);
-        assert!(matches!(rand2, Some(Value::Number(_))));
-    }
-
-    #[test]
-    fn test_context_update_time() {
-        let mut context = SpecialVarContext::new(120.0, 44100);
-        context.update_time(1.0);
-
-        assert_eq!(context.current_time, 1.0);
-        assert!(context.current_beat > 0.0);
-    }
-
-    #[test]
-    fn test_parse_random_range() {
-        let result = parse_random_range("$random.range(0, 10)");
-        assert!(result.is_some());
-
-        if let Some(Value::Number(n)) = result {
-            assert!(n >= 0.0 && n <= 10.0);
-        }
-    }
-}
+#[path = "test_special_vars.rs"]
+mod tests;

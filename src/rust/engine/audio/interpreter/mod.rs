@@ -6,3 +6,7 @@ pub mod statements;
 // crate::engine::audio::interpreter::collector still work
 pub use driver::AudioInterpreter;
 pub use driver::{collector, extractor, handler, renderer};
+
+#[cfg(test)]
+#[path = "test_control_flow.rs"]
+mod test_control_flow;

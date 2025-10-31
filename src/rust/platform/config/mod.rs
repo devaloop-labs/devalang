@@ -120,7 +120,7 @@ impl Default for AudioSection {
 
 impl Default for LiveSection {
     fn default() -> Self {
-        Self { crossfade_ms: 500 }
+        Self { crossfade_ms: 50 }
     }
 }
 

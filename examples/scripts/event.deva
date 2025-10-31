@@ -10,11 +10,13 @@
 # Emitter Syntax:
 # `emit <event_name>`
 
-# Listen events
+# Listen to built-in events
 on beat:
     print "A beat has occurred!" # Will print on every beat
 on bar:
     print "A bar has completed!" # Will print on every bar
+
+# Listen to custom event
 on myCustomEvent:
     print "My custom event was emitted!" # Will print when the custom event is emitted
 

@@ -232,7 +232,7 @@ pub fn events_to_midi_bytes(events: &[AudioEvent], bpm: f32) -> Result<Vec<u8>> 
             }
             AudioEvent::Sample { .. } => {
                 // Samples are not exported to MIDI
-            }
+            } // Log messages are stored separately in AudioEventList.logs and are not part of AudioEvent
         }
     }
 
@@ -363,7 +363,8 @@ pub fn export_midi_file(events: &[AudioEvent], output_path: &Path, bpm: f32) -> 
             }
             AudioEvent::Sample { .. } => {
                 // Samples are not exported to MIDI
-            }
+            } // Note: Log messages are stored separately in AudioEventList.logs and are
+              // not part of the AudioEvent enum; they are ignored for MIDI export.
         }
     }
 

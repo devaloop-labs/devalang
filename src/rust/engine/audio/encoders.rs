@@ -220,7 +220,6 @@ fn encode_wav(pcm_samples: &[f32], options: &EncoderOptions) -> Result<Vec<u8>> 
     Ok(cursor.into_inner())
 }
 
-/// Fallback stub when `hound` isn't enabled (e.g., plugin-only build without features)
 #[cfg(not(any(feature = "cli", feature = "wasm")))]
 fn encode_wav(_pcm_samples: &[f32], _options: &EncoderOptions) -> Result<Vec<u8>> {
     Err(anyhow!(

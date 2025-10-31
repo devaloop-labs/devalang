@@ -67,6 +67,10 @@ pub fn inject_registered_banks(
                 trigger_map.insert(format!("{}_url", trigger_name), Value::String(uri.clone()));
             }
 
+            // Ensure default properties exist on bank objects so dotted access like
+            // `kit.kick` or `kit.volume` behave consistently at runtime.
+            crate::utils::props::ensure_default_properties(&mut trigger_map, Some("trigger"));
+
             // Inject the bank map into interpreter variables
             // Example: kit = { kick: "devalang://bank/devaloop.808/kick", kick_url: "http://..." }
             interpreter
@@ -97,6 +101,8 @@ pub fn inject_banks_into_globals(
                 trigger_map.insert(format!("{}_deva", trigger_name), Value::String(deva_uri));
             }
 
+            // Ensure defaults for legacy-injected bank maps as well
+            crate::utils::props::ensure_default_properties(&mut trigger_map, Some("trigger"));
             // Inject the bank map
             variables.insert(bank.alias.clone(), Value::Map(trigger_map));
 

@@ -52,14 +52,33 @@ pub fn parse_print(line: &str, line_number: usize) -> Result<Statement> {
             1,
         ))
     } else {
-        // treat as identifier
-        Ok(Statement::new(
-            StatementKind::Print,
-            Value::Identifier(message.to_string()),
-            0,
-            line_number,
-            1,
-        ))
+        // Support simple concatenation using '+' operator in print expressions, e.g.
+        //   print "Loop iteration: " + i
+        // We split on '+' and create a Value::Array of parts so runtime can resolve
+        // each part and join them when printing.
+        if message.contains('+') {
+            let parts: Vec<Value> = message
+                .split('+')
+                .map(|p| p.trim())
+                .filter(|s| !s.is_empty())
+                .map(|tok| {
+                    crate::language::syntax::parser::driver::helpers::parse_single_arg(tok)
+                        .unwrap_or(Value::Identifier(tok.to_string()))
+                })
+                .collect();
+
+            Ok(Statement::new(
+                StatementKind::Print,
+                Value::Array(parts),
+                0,
+                line_number,
+                1,
+            ))
+        } else {
+            // Attempt to parse the message as a full expression (supports function calls)
+            let val = crate::language::syntax::parser::driver::helpers::parse_single_arg(message)?;
+            Ok(Statement::new(StatementKind::Print, val, 0, line_number, 1))
+        }
     }
 }
 
@@ -132,17 +151,177 @@ pub fn parse_let(
     let value = if remainder.is_empty() {
         None
     } else if remainder.starts_with("synth ") {
-        // Parse synth definition: synth waveform { params }
-        Some(parse_synth_definition(&remainder)?)
+        // Reuse existing synth parsing logic (supports chained params and param maps)
+        if remainder.contains("->") {
+            let stmt =
+                crate::language::syntax::parser::driver::parse_arrow_call(&remainder, line_number)?;
+            let mut synth_map = std::collections::HashMap::new();
+            let first_part = remainder.split("->").next().unwrap_or("synth");
+            let synth_def_val = parse_synth_definition(first_part)?;
+            let mut param_map_present = false;
+            if let Value::Map(m) = synth_def_val {
+                param_map_present = m
+                    .iter()
+                    .any(|(k, v)| k != "type" && k != "waveform" && matches!(v, Value::Map(_)));
+                synth_map = m;
+            }
+
+            if let Value::Map(chain_container) = stmt.value {
+                let mut effects_arr: Vec<Value> = Vec::new();
+
+                if let Some(Value::String(first_method)) = chain_container.get("method") {
+                    let mut handled_as_synth_param = false;
+                    if let Some(Value::Array(args_arr)) = chain_container.get("args") {
+                        if first_method == "type" {
+                            if let Some(first) = args_arr.get(0) {
+                                match first {
+                                    Value::String(s) => {
+                                        synth_map.insert(
+                                            "synth_type".to_string(),
+                                            Value::String(s.clone()),
+                                        );
+                                        handled_as_synth_param = true;
+                                    }
+                                    Value::Identifier(id) => {
+                                        synth_map.insert(
+                                            "synth_type".to_string(),
+                                            Value::String(id.clone()),
+                                        );
+                                        handled_as_synth_param = true;
+                                    }
+                                    _ => {}
+                                }
+                            }
+                        } else if first_method == "adsr" {
+                            if let Some(first) = args_arr.get(0) {
+                                if let Value::Map(arg_map) = first {
+                                    for (k, v) in arg_map.iter() {
+                                        if ["attack", "decay", "sustain", "release"]
+                                            .contains(&k.as_str())
+                                        {
+                                            synth_map.insert(k.clone(), v.clone());
+                                        }
+                                    }
+                                    handled_as_synth_param = true;
+                                }
+                            }
+                        }
+                    }
+
+                    if !handled_as_synth_param {
+                        let mut eff_map = std::collections::HashMap::new();
+                        eff_map.insert("type".to_string(), Value::String(first_method.clone()));
+                        if let Some(Value::Array(args_arr)) = chain_container.get("args") {
+                            if let Some(first) = args_arr.get(0) {
+                                if let Value::Map(arg_map) = first {
+                                    for (k, v) in arg_map.iter() {
+                                        eff_map.insert(k.clone(), v.clone());
+                                    }
+                                } else {
+                                    eff_map.insert("value".to_string(), first.clone());
+                                }
+                            }
+                        }
+                        effects_arr.push(Value::Map(eff_map));
+                    }
+                }
+
+                if let Some(Value::Array(chain_arr)) = chain_container.get("chain") {
+                    for call_val in chain_arr.iter() {
+                        if let Value::Map(call_map) = call_val {
+                            if let Some(Value::String(mname)) = call_map.get("method") {
+                                if mname == "type" {
+                                    if let Some(Value::Array(args_arr)) = call_map.get("args") {
+                                        if let Some(first) = args_arr.get(0) {
+                                            match first {
+                                                Value::String(s) => {
+                                                    synth_map.insert(
+                                                        "synth_type".to_string(),
+                                                        Value::String(s.clone()),
+                                                    );
+                                                    continue;
+                                                }
+                                                Value::Identifier(id) => {
+                                                    synth_map.insert(
+                                                        "synth_type".to_string(),
+                                                        Value::String(id.clone()),
+                                                    );
+                                                    continue;
+                                                }
+                                                _ => {}
+                                            }
+                                        }
+                                    }
+                                }
+                                if mname == "adsr" {
+                                    if let Some(Value::Array(args_arr)) = call_map.get("args") {
+                                        if let Some(first) = args_arr.get(0) {
+                                            if let Value::Map(arg_map) = first {
+                                                for (k, v) in arg_map.iter() {
+                                                    if ["attack", "decay", "sustain", "release"]
+                                                        .contains(&k.as_str())
+                                                    {
+                                                        synth_map.insert(k.clone(), v.clone());
+                                                    }
+                                                }
+                                                continue;
+                                            }
+                                        }
+                                    }
+                                }
+                                let mut eff_map = std::collections::HashMap::new();
+                                eff_map.insert("type".to_string(), Value::String(mname.clone()));
+                                if let Some(Value::Array(args_arr)) = call_map.get("args") {
+                                    if let Some(first) = args_arr.get(0) {
+                                        if let Value::Map(arg_map) = first {
+                                            for (k, v) in arg_map.iter() {
+                                                eff_map.insert(k.clone(), v.clone());
+                                            }
+                                        } else {
+                                            eff_map.insert("value".to_string(), first.clone());
+                                        }
+                                    }
+                                }
+                                effects_arr.push(Value::Map(eff_map));
+                            }
+                        }
+                    }
+                }
+
+                if !effects_arr.is_empty() {
+                    synth_map.insert("chain".to_string(), Value::Array(effects_arr));
+                }
+            }
+
+            if param_map_present && synth_map.contains_key("chain") {
+                eprintln!(
+                    "DEPRECATION: chained params for synth with param map are deprecated — both will be merged, but prefer chained params."
+                );
+            }
+
+            Some(Value::Map(synth_map))
+        } else {
+            Some(parse_synth_definition(&remainder)?)
+        }
     } else if remainder.starts_with('[') && remainder.ends_with(']') {
-        // Parse as array: ["C4", "E4", "G4"] or [1..10]
         Some(parse_array_value(&remainder)?)
+    } else if remainder.starts_with('.') {
+        let stmt = crate::language::syntax::parser::driver::trigger::parse_trigger_line(
+            &remainder,
+            line_number,
+        )?;
+        Some(crate::language::syntax::ast::Value::Statement(Box::new(
+            stmt,
+        )))
     } else {
-        // Try to parse as number first
-        if let Ok(num) = remainder.parse::<f32>() {
+        let lower = remainder.to_lowercase();
+        if lower == "true" {
+            Some(Value::Boolean(true))
+        } else if lower == "false" {
+            Some(Value::Boolean(false))
+        } else if let Ok(num) = remainder.parse::<f32>() {
             Some(Value::Number(num))
         } else {
-            // Otherwise treat as identifier
             Some(Value::Identifier(remainder))
         }
     };
@@ -177,11 +356,15 @@ pub fn parse_var(
     let value = if remainder.is_empty() {
         None
     } else {
-        // Try to parse as number first
-        if let Ok(num) = remainder.parse::<f32>() {
+        // Try to parse booleans first, then numbers, then identifiers
+        let lower = remainder.to_lowercase();
+        if lower == "true" {
+            Some(Value::Boolean(true))
+        } else if lower == "false" {
+            Some(Value::Boolean(false))
+        } else if let Ok(num) = remainder.parse::<f32>() {
             Some(Value::Number(num))
         } else {
-            // Otherwise treat as identifier
             Some(Value::Identifier(remainder))
         }
     };
@@ -217,12 +400,42 @@ pub fn parse_const(
         return Err(anyhow!("const declaration requires initialization"));
     }
 
-    // Try to parse as number first
-    let value = if let Ok(num) = remainder.parse::<f32>() {
-        Some(Value::Number(num))
-    } else {
-        // Otherwise treat as identifier
-        Some(Value::Identifier(remainder))
+    // Try to parse booleans first, then numbers, then identifiers
+    let value = {
+        // Reuse the same parsing rules as `let` for RHS expressions so that
+        // const can accept synth definitions, arrays, triggers, numbers, and identifiers.
+        if remainder.starts_with("synth ") {
+            if remainder.contains("->") {
+                let stmt = crate::language::syntax::parser::driver::parse_arrow_call(
+                    &remainder,
+                    line_number,
+                )?;
+                Some(stmt.value)
+            } else {
+                Some(parse_synth_definition(&remainder)?)
+            }
+        } else if remainder.starts_with('[') && remainder.ends_with(']') {
+            Some(parse_array_value(&remainder)?)
+        } else if remainder.starts_with('.') {
+            let stmt = crate::language::syntax::parser::driver::trigger::parse_trigger_line(
+                &remainder,
+                line_number,
+            )?;
+            Some(crate::language::syntax::ast::Value::Statement(Box::new(
+                stmt,
+            )))
+        } else {
+            let lower = remainder.to_lowercase();
+            if lower == "true" {
+                Some(Value::Boolean(true))
+            } else if lower == "false" {
+                Some(Value::Boolean(false))
+            } else if let Ok(num) = remainder.parse::<f32>() {
+                Some(Value::Number(num))
+            } else {
+                Some(Value::Identifier(remainder))
+            }
+        }
     };
 
     Ok(Statement::new(
@@ -232,4 +445,35 @@ pub fn parse_const(
         line_number,
         1,
     ))
+}
+
+/// Parse return statement: return <expr>?
+pub fn parse_return(line: &str, line_number: usize) -> Result<Statement> {
+    // strip 'return' keyword
+    let remainder = line
+        .strip_prefix("return")
+        .ok_or_else(|| anyhow!("invalid return statement"))?
+        .trim();
+
+    if remainder.is_empty() {
+        Ok(Statement::new(
+            StatementKind::Return { value: None },
+            Value::Null,
+            0,
+            line_number,
+            1,
+        ))
+    } else {
+        // Parse a single argument/expression
+        let val = crate::language::syntax::parser::driver::helpers::parse_single_arg(remainder)?;
+        Ok(Statement::new(
+            StatementKind::Return {
+                value: Some(Box::new(val)),
+            },
+            Value::Null,
+            0,
+            line_number,
+            1,
+        ))
+    }
 }

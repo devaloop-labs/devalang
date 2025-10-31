@@ -1,14 +1,14 @@
 [package]
 name = "devalang"
-version = "0.1.5"
+version = "0.1.6"
 edition = "2024"
-description = "Write music like code. Devalang is a domain-specific language (DSL) for sound designers and music hackers. Compose, automate, and control sound — in plain text."
+description = "Write music with code. Devalang is a domain-specific language (DSL) for sound designers and music hackers. Compose, automate, and control sound — in plain text."
 repository = "https://github.com/devaloop-labs/devalang"
-license-file = "LICENSE"
+license = "MIT"
 readme = "README.md"
 homepage = "https://devalang.com"
 documentation = "https://docs.devalang.com/"
-authors = ["Devaloop <contact@devaloop.com>"]
+authors = ["Labscend Studios <hello@labscend.studio>"]
 
 [[bin]]
 name = "devalang"

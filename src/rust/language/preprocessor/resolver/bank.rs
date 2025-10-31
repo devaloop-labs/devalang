@@ -1,4 +1,3 @@
-// Stub resolvers for other statement types
 use crate::language::syntax::ast::{Statement, Value};
 use std::collections::HashMap;
 
