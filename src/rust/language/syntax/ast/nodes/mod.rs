@@ -53,7 +53,10 @@ impl Value {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "kind")]
 pub enum StatementKind {
-    Tempo,
+    Tempo {
+        value: f32,
+        body: Option<Vec<Statement>>,
+    },
     Print,
     Pattern {
         name: String,
@@ -246,7 +249,16 @@ impl Statement {
     }
 
     pub fn tempo(value: f32, line: usize, column: usize) -> Self {
-        Self::new(StatementKind::Tempo, Value::Number(value), 0, line, column)
+        Self::new(
+            StatementKind::Tempo {
+                value,
+                body: None,
+            },
+            Value::Null,
+            0,
+            line,
+            column,
+        )
     }
 
     pub fn print(message: impl Into<String>, line: usize, column: usize) -> Self {

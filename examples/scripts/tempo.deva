@@ -1,10 +1,19 @@
 # =================
-# BPM
+# BPM / Tempo
 # =================
 # Define the tempo of your program in beats per minute (bpm).
 # Tempo is set to 120 bpm by default if not specified.
+# You can change the tempo globally or within specific blocks.
+# NOTE: 'tempo' keyword is an alias for 'bpm', no difference in behavior.
 #
-# Syntax:
-# `bpm <number>`
+# Global Syntax:
+# `<tempo | bpm> <number>`
+# Block Syntax:
+# `<tempo | bpm> <number>:`
 
-bpm 120
+# Setting global tempo to 120 bpm
+tempo 120
+
+# Tempo block setting tempo to 150 bpm
+bpm 150:
+    print "The tempo is set to 120 bpm only within this block."

@@ -7,17 +7,60 @@ use std::iter::Iterator;
 
 /// Parse tempo/bpm statement
 pub fn parse_tempo(
-    mut parts: impl Iterator<Item = impl AsRef<str>>,
+    line: &str,
     line_number: usize,
 ) -> Result<Statement> {
-    let value = parts
-        .next()
-        .ok_or_else(|| anyhow!("tempo declaration requires a value"))?;
-    let bpm: f32 = value
-        .as_ref()
+    let trimmed = line.trim_start();
+    // Skip keyword (bpm or tempo)
+    let keyword_end = if trimmed.starts_with("tempo") {
+        "tempo".len()
+    } else if trimmed.starts_with("bpm") {
+        "bpm".len()
+    } else {
+        return Err(anyhow!("tempo/bpm parsing error"));
+    };
+    
+    let rest = trimmed[keyword_end..].trim();
+    
+    // Check if it's a block (ends with :)
+    let is_block = rest.ends_with(':');
+    
+    // Remove the colon if present
+    let value_str = if is_block {
+        rest[..rest.len() - 1].trim()
+    } else {
+        rest
+    };
+    
+    let bpm: f32 = value_str
         .parse()
-        .map_err(|_| anyhow!("invalid tempo value: '{}'", value.as_ref()))?;
-    Ok(Statement::tempo(bpm, line_number, 1))
+        .map_err(|_| anyhow!("invalid tempo value: '{}'", value_str))?;
+    
+    if is_block {
+        // Return a Tempo statement with body (will be filled during block parsing)
+        Ok(Statement::new(
+            StatementKind::Tempo {
+                value: bpm,
+                body: Some(Vec::new()),
+            },
+            Value::Number(bpm),
+            0,
+            line_number,
+            1,
+        ))
+    } else {
+        // Return a simple Tempo statement
+        Ok(Statement::new(
+            StatementKind::Tempo {
+                value: bpm,
+                body: None,
+            },
+            Value::Number(bpm),
+            0,
+            line_number,
+            1,
+        ))
+    }
 }
 
 /// Parse print statement

@@ -126,7 +126,7 @@ pub fn keyword_from_ident(ident: &str) -> Option<Keyword> {
         "let" => Some(Keyword::Let),
         "automate" => Some(Keyword::Automate),
         "trigger" => Some(Keyword::Trigger),
-        "sleep" => Some(Keyword::Sleep),
+        "sleep" | "rest" | "wait" => Some(Keyword::Sleep),
         "call" => Some(Keyword::Call),
         "spawn" => Some(Keyword::Spawn),
         "group" => Some(Keyword::Group),

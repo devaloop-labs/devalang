@@ -150,6 +150,16 @@ fn parse_lines(
                         body: body.clone(),
                     };
                 }
+                StatementKind::Tempo {
+                    value,
+                    body: Some(_),
+                } => {
+                    // Attach body to tempo block
+                    statement.kind = StatementKind::Tempo {
+                        value,
+                        body: Some(body.clone()),
+                    };
+                }
                 other => {
                     // keep original kind for other statements
                     statement.kind = other;
@@ -391,7 +401,7 @@ fn parse_line(line: &str, line_number: usize, path: &Path) -> Result<Statement> 
     // This ensures constructs like `let name = .bank.kick -> reverse(...)` are
     // parsed by `parse_let` rather than being mis-parsed as an ArrowCall.
     let reserved_keywords = [
-        "bpm", "tempo", "print", "sleep", "pattern", "bank", "let", "var", "const", "for", "loop",
+        "bpm", "tempo", "print", "sleep", "rest", "wait", "pattern", "bank", "let", "var", "const", "for", "loop",
         "if", "else", "group", "automate", "call", "spawn", "on", "emit", "routing", "return",
         "break",
     ];
@@ -400,9 +410,9 @@ fn parse_line(line: &str, line_number: usize, path: &Path) -> Result<Statement> 
     }
 
     return match keyword.as_str() {
-        "bpm" | "tempo" => statements::core::parse_tempo(parts, line_number),
+        "bpm" | "tempo" => statements::core::parse_tempo(line, line_number),
         "print" => statements::core::parse_print(line, line_number),
-        "sleep" => statements::core::parse_sleep(parts, line_number),
+        "sleep" | "rest" | "wait" => statements::core::parse_sleep(parts, line_number),
         "trigger" => Err(anyhow!(
             "keyword 'trigger' is deprecated; use dot notation like '.alias' instead"
         )),

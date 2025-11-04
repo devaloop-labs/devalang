@@ -198,9 +198,19 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
                 super::extractor::extract_audio_event(interpreter, target, &context)?;
                 interpreter.cursor_time += context.duration;
             }
-            StatementKind::Tempo => {
-                if let Value::Number(bpm_value) = &stmt.value {
-                    interpreter.set_bpm(*bpm_value);
+            StatementKind::Tempo { value, body } => {
+                let prev_bpm = interpreter.bpm;
+                interpreter.set_bpm(*value);
+                
+                // If this is a block, execute its body with the new tempo
+                if let Some(block_body) = body {
+                    collect_events(interpreter, block_body)?;
+                }
+                
+                // If body is None (simple tempo declaration), keep the new BPM
+                // Otherwise, restore the previous BPM after the block completes
+                if body.is_some() {
+                    interpreter.bpm = prev_bpm;
                 }
             }
             StatementKind::Sleep => {
@@ -806,20 +816,7 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
                     // Try to spawn a group first
                     if let Some(body) = groups_snapshot.get(resolved_name) {
                         // Spawn group (parallel)
-                        log_info!(
-                            logger,
-                            "Spawning group '{}' with {} synths inherited",
-                            resolved_name,
-                            local_interpreter.events.synths.len()
-                        );
                         collect_events(&mut local_interpreter, body)?;
-                        log_info!(
-                            logger,
-                            "Group '{}' produced {} events, {} synths",
-                            resolved_name,
-                            local_interpreter.events.events.len(),
-                            local_interpreter.events.synths.len()
-                        );
                         Ok(local_interpreter.events)
                     }
                     // Try to spawn a pattern
@@ -831,23 +828,11 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
                                         local_interpreter.extract_pattern_data(&stmt_box.value);
                                     if let Some(pat) = pattern_str {
                                         // Execute pattern in spawned context
-                                        log_info!(
-                                            logger,
-                                            "Spawning pattern '{}' on target '{}'",
-                                            resolved_name,
-                                            tgt
-                                        );
                                         local_interpreter.execute_pattern(
                                             tgt.as_str(),
                                             &pat,
                                             options,
                                         )?;
-                                        log_info!(
-                                            logger,
-                                            "Pattern '{}' produced {} events",
-                                            resolved_name,
-                                            local_interpreter.events.events.len()
-                                        );
                                         return Ok(local_interpreter.events);
                                     }
                                 }
@@ -877,19 +862,7 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
         for result in spawn_results {
             match result {
                 Ok(spawn_events) => {
-                    log_info!(
-                        logger,
-                        "Merging spawn result: {} events, {} synths",
-                        spawn_events.events.len(),
-                        spawn_events.synths.len()
-                    );
                     interpreter.events.merge(spawn_events);
-                    log_info!(
-                        logger,
-                        "Total after merge: {} events, {} synths",
-                        interpreter.events.events.len(),
-                        interpreter.events.synths.len()
-                    );
                 }
                 Err(e) => {
                     log_error!(logger, "Error in spawn execution: {}", e);

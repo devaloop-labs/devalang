@@ -1,13 +1,18 @@
 # =================
-# Sleep
+# Sleep Directive
 # =================
-# You can make the audio engine wait for a specified duration using the sleep directive.
+# You can make the audio engine wait for a specified duration using the sleep/rest/wait directives.
+# This is useful for creating pauses or delays in your audio sequences.
+# NOTE: sleep, rest, and wait are synonymous in this context.
 # 
 # Syntax:
-# `sleep <duration_ms | duration_beats>`
+# `<sleep | rest | wait> <duration_ms | duration_beats>`
 
 # Sleeps for 1000 milliseconds (1 second)
 sleep 1000
 
-# Sleeps for a quarter note based on the current BPM
-sleep 1/4
+# Rest for a quarter note based on the current BPM
+rest 1/4
+
+# Waits for 500 milliseconds before proceeding
+wait 500

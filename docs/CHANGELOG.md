@@ -11,12 +11,17 @@ All notable changes to Devalang will be documented in this file.
 ### 🚀 What's New
 
 - Implemented `routing` capabilities to route audio between different nodes and effects in the audio graph.
-  - Added `routing` statement block to define audio routing configurations :
   - Added `node` definitions to create audio nodes linked variables (synths, groups, triggers...).
   - Added `fx` definitions to apply global effects to nodes.
   - Added `route` definitions to connect nodes and effects together.
   - Added `duck` definitions to create sidechain ducking between nodes.
   - Added `sidechain` definitions to create sidechain compression between nodes.
+- Implemented `bpm` and `tempo` block syntax to set tempo within specific blocks.
+
+### 🛠️ Improvements
+
+- Added `rest` and `wait` aliases for `sleep` statement for better readability in musical context.
+- Added `tempo` as an alias for `bpm` statement for better readability.
 
 ## Version 0.1.6 - 2025-10-31
 
