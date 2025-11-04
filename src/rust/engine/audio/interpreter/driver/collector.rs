@@ -11,6 +11,7 @@ use crate::language::syntax::ast::{Statement, StatementKind, Value};
 use super::AudioInterpreter;
 
 // Conditional logging macros for CLI feature
+#[allow(unused_macros)]
 #[cfg(feature = "cli")]
 macro_rules! log_info {
     ($logger:expr, $($arg:tt)*) => {
@@ -18,6 +19,7 @@ macro_rules! log_info {
     };
 }
 
+#[allow(unused_macros)]
 #[cfg(not(feature = "cli"))]
 macro_rules! log_info {
     ($_logger:expr, $($arg:tt)*) => {
@@ -25,6 +27,7 @@ macro_rules! log_info {
     };
 }
 
+#[allow(unused_macros)]
 #[cfg(feature = "cli")]
 macro_rules! log_warn {
     ($logger:expr, $($arg:tt)*) => {
@@ -32,6 +35,7 @@ macro_rules! log_warn {
     };
 }
 
+#[allow(unused_macros)]
 #[cfg(not(feature = "cli"))]
 macro_rules! log_warn {
     ($_logger:expr, $($arg:tt)*) => {
@@ -39,6 +43,7 @@ macro_rules! log_warn {
     };
 }
 
+#[allow(unused_macros)]
 #[cfg(feature = "cli")]
 macro_rules! log_error {
     ($logger:expr, $($arg:tt)*) => {
@@ -46,6 +51,7 @@ macro_rules! log_error {
     };
 }
 
+#[allow(unused_macros)]
 #[cfg(not(feature = "cli"))]
 macro_rules! log_error {
     ($_logger:expr, $($arg:tt)*) => {

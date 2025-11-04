@@ -399,10 +399,6 @@ fn parse_lines(
 fn parse_line(line: &str, line_number: usize, path: &Path) -> Result<Statement> {
     use crate::language::syntax::parser::driver::statements::*;
 
-    if line.starts_with('@') {
-        return directive::parse_directive(line, line_number, path);
-    }
-
     if line.starts_with('.') {
         return trigger::parse_trigger_line(line, line_number);
     }
@@ -445,9 +441,9 @@ fn parse_line(line: &str, line_number: usize, path: &Path) -> Result<Statement> 
     // This ensures constructs like `let name = .bank.kick -> reverse(...)` are
     // parsed by `parse_let` rather than being mis-parsed as an ArrowCall.
     let reserved_keywords = [
-        "bpm", "tempo", "print", "sleep", "rest", "wait", "pattern", "bank", "let", "var", "const",
-        "for", "loop", "if", "else", "group", "automate", "call", "spawn", "on", "emit", "routing",
-        "return", "break",
+        "bpm", "tempo", "print", "sleep", "rest", "wait", "pattern", "bank", "let", "const", "for",
+        "foreach", "loop", "if", "else", "group", "automate", "call", "spawn", "sequence", "layer",
+        "on", "emit", "routing", "return", "break", "import", "export", "use", "load",
     ];
     if line.contains("->") && !reserved_keywords.contains(&keyword.as_str()) {
         return statements::parse_arrow_call(line, line_number);
@@ -463,9 +459,8 @@ fn parse_line(line: &str, line_number: usize, path: &Path) -> Result<Statement> 
         "pattern" => parse_pattern(parts, line_number),
         "bank" => parse_bank(parts, line_number),
         "let" => parse_let(line, parts, line_number),
-        "var" => parse_var(line, parts, line_number),
         "const" => parse_const(line, parts, line_number),
-        "for" => parse_for(parts, line_number),
+        "for" | "foreach" => parse_for(parts, line_number),
         "loop" => parse_loop(parts, line_number),
         "if" => statements::structure::parse_if(parts, line_number),
         "else" => statements::structure::parse_else(line, line_number),
@@ -476,16 +471,20 @@ fn parse_line(line: &str, line_number: usize, path: &Path) -> Result<Statement> 
                 line_number,
             )
         }
-        "call" => parse_call(line, parts, line_number),
+        "call" | "sequence" => parse_call(line, parts, line_number),
         "break" => statements::structure::parse_break(parts, line_number),
         "function" => statements::structure::parse_function(line, line_number),
-        "spawn" => parse_spawn(parts, line_number),
+        "spawn" | "layer" => parse_spawn(parts, line_number),
         "on" => parse_on(parts, line_number),
         "emit" => parse_emit(line, parts, line_number),
         "return" => statements::core::parse_return(line, line_number),
         "routing" => {
             crate::language::syntax::parser::driver::routing::parse_routing_command(line_number)
         }
+        "import" => directive::parse_directive_keyword(line, "import", line_number, path),
+        "export" => directive::parse_directive_keyword(line, "export", line_number, path),
+        "use" => directive::parse_directive_keyword(line, "use", line_number, path),
+        "load" => directive::parse_directive_keyword(line, "load", line_number, path),
         _ => {
             // Provide helpful suggestions for common typos FIRST
             let suggestion = find_keyword_suggestion(&keyword, &reserved_keywords);

@@ -6,13 +6,24 @@
 # NOTE: sleep, rest, and wait are synonymous in this context.
 # 
 # Syntax:
-# `<sleep | rest | wait> <duration_ms | duration_beats>`
+# `<sleep | rest | wait> <duration>`
+#
+# Duration formats:
+# - Milliseconds: 1000 or 500ms
+# - Beats/Fractions: 1/4 (quarter note), 1/8 (eighth note)
+# - Temporal: 1 beat, 2 bar, 3 measure
 
 # Sleeps for 1000 milliseconds (1 second)
 sleep 1000
 
-# Rest for a quarter note based on the current BPM
+# Rest for a quarter note (based on current BPM: 120 BPM = 500ms)
 rest 1/4
 
-# Waits for 500 milliseconds before proceeding
-wait 500
+# Waits for 1 beat at current BPM (120 BPM = 500ms)
+wait 1 beat
+
+# Sleep for 2 bars (at 120 BPM: 2 * 4 beats = 4000ms)
+sleep 2 bar
+
+# Rest for 3 measures (same as 3 bars)
+rest 3 measure

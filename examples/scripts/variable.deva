@@ -1,11 +1,13 @@
 # =================
 # Variables
 # =================
-# You can define variables using const, let or var keywords.
+# You can define variables using const or let keywords.
+# NOTE: var keyword is deprecated; use let instead.
 #
 # Syntax:
-# <const|let|var> <variable_name> = <value>
+# <const|let> <variable_name> = <value>
 
 const greeting = "Hello, World !"
+const melody = [C4, E4, G4, C5]
 let counter = 0
-var isActive = true
+let isActive = true

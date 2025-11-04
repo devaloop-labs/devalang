@@ -1,10 +1,10 @@
 # =================
 # Loading MIDI Files & Samples
 # =================
-# You can load MIDI files and audio samples using the @load directive.
+# You can load MIDI files and audio samples using the load directive.
 #
 # Syntax:
-# `@load <"path/to/file"> as <variableName>`
+# `load <"path/to/file"> as <variableName>`
 
-@load "./samples/lead.mid" as myMidi
-@load "./samples/kick.wav" as myKick
+load "./samples/lead.mid" as myMidi
+load "./samples/kick.wav" as myKick

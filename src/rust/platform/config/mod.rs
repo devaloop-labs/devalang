@@ -18,6 +18,7 @@ pub struct AppConfig {
     pub paths: PathsSection,
     pub audio: AudioSection,
     pub live: LiveSection,
+    pub rules: RulesSection,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -43,6 +44,66 @@ pub struct AudioSection {
     pub sample_rate: u32,
     pub resample_quality: String,
     pub bpm: f32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct LiveSection {
+    pub crossfade_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct RulesSection {
+    #[serde(default)]
+    pub explicit_durations: RuleLevel,
+    #[serde(default)]
+    pub deprecated_syntax: RuleLevel,
+    #[serde(default)]
+    pub var_keyword: RuleLevel,
+    #[serde(default)]
+    pub missing_duration: RuleLevel,
+    #[serde(default)]
+    pub implicit_type_conversion: RuleLevel,
+    #[serde(default)]
+    pub unused_variables: RuleLevel,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum RuleLevel {
+    #[serde(rename = "error")]
+    Error,
+    #[serde(rename = "warning")]
+    Warning,
+    #[serde(rename = "info")]
+    Info,
+    #[serde(rename = "off")]
+    Off,
+}
+
+impl Default for RuleLevel {
+    fn default() -> Self {
+        RuleLevel::Warning
+    }
+}
+
+impl RuleLevel {
+    pub fn should_report(&self) -> bool {
+        *self != RuleLevel::Off
+    }
+
+    pub fn is_error(&self) -> bool {
+        *self == RuleLevel::Error
+    }
+
+    pub fn is_warning(&self) -> bool {
+        *self == RuleLevel::Warning
+    }
+
+    pub fn is_info(&self) -> bool {
+        *self == RuleLevel::Info
+    }
 }
 
 /// Custom deserializer to handle both String and Vec<String> for format field
@@ -71,12 +132,6 @@ where
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(default)]
-pub struct LiveSection {
-    pub crossfade_ms: u64,
-}
-
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
@@ -84,6 +139,7 @@ impl Default for AppConfig {
             paths: PathsSection::default(),
             audio: AudioSection::default(),
             live: LiveSection::default(),
+            rules: RulesSection::default(),
         }
     }
 }
@@ -121,6 +177,19 @@ impl Default for AudioSection {
 impl Default for LiveSection {
     fn default() -> Self {
         Self { crossfade_ms: 50 }
+    }
+}
+
+impl Default for RulesSection {
+    fn default() -> Self {
+        Self {
+            explicit_durations: RuleLevel::Warning,
+            deprecated_syntax: RuleLevel::Warning,
+            var_keyword: RuleLevel::Error,
+            missing_duration: RuleLevel::Info,
+            implicit_type_conversion: RuleLevel::Info,
+            unused_variables: RuleLevel::Warning,
+        }
     }
 }
 

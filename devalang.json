@@ -16,5 +16,13 @@
   },
   "live": {
     "crossfade_ms": 50
+  },
+  "rules": {
+    "explicit_durations": "warning",
+    "deprecated_syntax": "warning",
+    "var_keyword": "error",
+    "missing_duration": "info",
+    "implicit_type_conversion": "info",
+    "unused_variables": "warning"
   }
 }

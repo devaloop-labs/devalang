@@ -6,6 +6,7 @@ use std::path::Path;
 use std::time::Instant;
 
 use crate::language::syntax::parser::driver::SimpleParser;
+use crate::tools::cli::rules_reporter::RulesReporter;
 use crate::tools::cli::state::CliContext;
 
 #[derive(Debug, Clone, Args)]
@@ -21,6 +22,10 @@ pub struct CheckCommand {
     /// Enable debug output (lexer, parser logs)
     #[arg(short, long, default_value_t = false)]
     pub debug: bool,
+
+    /// Disable rule checking during validation
+    #[arg(long, default_value_t = false)]
+    pub no_rule: bool,
 }
 
 impl CheckCommand {
@@ -34,6 +39,13 @@ impl CheckCommand {
         }
 
         logger.action(format!("Checking '{}'...", self.entry));
+
+        // Initialize rules reporter (only if rules not disabled)
+        let rules_reporter = if !self.no_rule {
+            Some(RulesReporter::from_current_dir(logger.clone())?)
+        } else {
+            None
+        };
 
         let start = Instant::now();
 
@@ -75,8 +87,24 @@ impl CheckCommand {
                         ));
                     }
 
-                    // TODO: Type checking and validation could be added here
-                    // For now, successful parsing = valid syntax
+                    // Report on rules (var_keyword, deprecated_syntax, etc.) if enabled
+                    if let Some(ref reporter) = rules_reporter {
+                        let content = std::fs::read_to_string(file_path)?;
+                        for (line_num, line) in content.lines().enumerate() {
+                            let line_number = line_num + 1;
+
+                            // Check for deprecated @-prefixed syntax
+                            if line.trim_start().starts_with('@') {
+                                if let Some(rule_msg) = reporter.checker().check_deprecated_syntax(
+                                    line_number,
+                                    "@ prefix syntax",
+                                    "keyword syntax (import, export, use, load)",
+                                ) {
+                                    reporter.logger().log_rule_message(&rule_msg);
+                                }
+                            }
+                        }
+                    }
                 }
                 Err(e) => {
                     logger.error(format!("✗ {} - {}", file_display, e));

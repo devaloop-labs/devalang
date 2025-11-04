@@ -1,10 +1,17 @@
 # =================
 # Plugins
 # =================
-# You can import plugins using the @use directive.
+# You can import plugins using the use directive.
 # To install a plugin, use the command: "devalang addon install devaloop.acid"
 #
 # Syntax:
-# `@use <plugin_name> as <alias_name>`
+# `use <author>.<plugin> as <alias>`
 
-@use devaloop.acid as acidPlugin
+use devaloop.acid as acidPlugin
+
+# Now you can use the plugin's features via the alias "acidPlugin"
+const acidPluginSynth = synth acidPlugin.synth
+
+# Play a note using the plugin synth
+acidPluginSynth -> note(C4)
+                -> velocity(100)

@@ -6,14 +6,27 @@
 #
 # Syntax:
 # `.<trigger_name> <optional_duration> -> <optional_effects>`
+#
+# Duration formats:
+# - Auto: auto (determined by sample length)
+# - Milliseconds: 500 or 500ms
+# - Beats: 1/4 (quarter note), 1/8 (eighth note)
+# - Temporal: 1 beat, 2 bar, 3 measure
 
 # Simple trigger without effects
 .myBank.kick
 
-# Trigger with effects and duration auto, overrided to 1/4
-.myBank.kick auto
-    -> duration(1/4)
+# Trigger with effects and duration as 1 beat
+.myBank.kick 1 beat
     -> speed(2.0)
     -> pitch(12.0)
     -> reverse(false)
     -> pan(0.5)
+
+# Trigger with 1 bar duration
+.myBank.snare 1 bar
+    -> velocity(100)
+
+# Trigger with auto duration and effects
+.myBank.clap auto
+    -> reverb(0.5)

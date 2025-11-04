@@ -3,6 +3,9 @@ use crossterm::style::{Attribute, Color, ResetColor, SetAttribute, SetForeground
 #[cfg(feature = "cli")]
 use std::fmt::Write;
 
+pub mod rule_checker;
+pub use rule_checker::{RuleChecker, RuleMessage};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LogLevel {
     Success,
@@ -21,6 +24,24 @@ pub struct Logger;
 impl Logger {
     pub fn new() -> Self {
         Self
+    }
+
+    /// Log a rule message with appropriate severity handling
+    pub fn log_rule_message(&self, rule_msg: &RuleMessage) {
+        match rule_msg.level {
+            crate::platform::config::RuleLevel::Error => {
+                self.error(&rule_msg.formatted());
+            }
+            crate::platform::config::RuleLevel::Warning => {
+                self.warn(&rule_msg.formatted());
+            }
+            crate::platform::config::RuleLevel::Info => {
+                self.info(&rule_msg.formatted());
+            }
+            crate::platform::config::RuleLevel::Off => {
+                // Silent
+            }
+        }
     }
 
     pub fn log(&self, level: LogLevel, message: impl AsRef<str>) {

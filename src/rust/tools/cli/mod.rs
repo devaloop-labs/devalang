@@ -2,6 +2,7 @@
 mod commands;
 pub mod config;
 pub mod io;
+pub mod rules_reporter;
 pub mod state;
 
 use anyhow::Result;

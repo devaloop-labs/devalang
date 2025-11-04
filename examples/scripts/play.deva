@@ -1,17 +1,23 @@
 # =================
 # Playing Audio
 # =================
-# You can play audio using the "call" and "spawn" directives.
-# Call and Spawn can both be used to play groups or patterns.
+# You can play audio using the "sequence" and "layer" directives (or legacy "call" and "spawn").
+# Both sequence/call and layer/spawn can be used to play groups or patterns.
 #
-# Call Syntax:
-# `call <group_name | pattern_name>`
+# Sequence Syntax (formerly "call"):
+# `sequence <group_name | pattern_name>`
+# Or legacy: `call <group_name | pattern_name>`
 # 
-# Spawn Syntax:
-# `spawn <group_name | pattern_name>`
+# Layer Syntax (formerly "spawn"):
+# `layer <group_name | pattern_name>`
+# Or legacy: `spawn <group_name | pattern_name>`
 
 # This will play the instructions **sequentially** (one after another)
-call myAwesomeGroup
+sequence myAwesomeGroup
 
 # This will play the instructions **concurrently** (in parallel)
-spawn myAwesomeGroup
+layer myAwesomeGroup
+
+# Legacy syntax still supported:
+# call myAwesomeGroup
+# spawn myAwesomeGroup

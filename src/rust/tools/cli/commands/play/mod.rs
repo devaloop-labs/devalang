@@ -10,6 +10,7 @@ use crate::engine::audio::settings::{AudioBitDepth, AudioChannels, AudioFormat, 
 use crate::platform::config::AppConfig;
 use crate::services::build::pipeline::{BuildRequest, ProjectBuilder};
 use crate::services::live::play::{LivePlayRequest, LivePlayService};
+use crate::tools::cli::rules_reporter::RulesReporter;
 use crate::tools::cli::state::CliContext;
 
 #[derive(Debug, Clone, Args)]
@@ -57,12 +58,23 @@ pub struct PlayCommand {
     /// Volume level (0.0 to 1.0)
     #[arg(long)]
     pub volume: Option<f32>,
+
+    /// Disable rule checking during playback
+    #[arg(long, default_value_t = false)]
+    pub no_rule: bool,
 }
 
 pub async fn execute(command: PlayCommand, ctx: &CliContext) -> Result<()> {
     let logger = ctx.logger();
     let cwd = std::env::current_dir()?;
     let config = AppConfig::load(&cwd)?;
+
+    // Initialize rules reporter (only if rules not disabled)
+    let rules_reporter = if !command.no_rule {
+        Some(RulesReporter::new(config.clone(), logger.clone()))
+    } else {
+        None
+    };
 
     // Auto-load sample banks for native builds
     #[cfg(not(target_arch = "wasm32"))]
@@ -96,6 +108,24 @@ pub async fn execute(command: PlayCommand, ctx: &CliContext) -> Result<()> {
         .crossfade_ms
         .unwrap_or_else(|| config.crossfade_ms());
     let live_mode = command.live;
+
+    // Check for rule violations in entry file before playing (if enabled)
+    if let Some(ref reporter) = rules_reporter {
+        if let Ok(content) = fs::read_to_string(&entry_path) {
+            for (line_num, line) in content.lines().enumerate() {
+                let line_number = line_num + 1;
+                if line.trim_start().starts_with('@') {
+                    if let Some(rule_msg) = reporter.checker().check_deprecated_syntax(
+                        line_number,
+                        "@ prefix syntax",
+                        "keyword syntax (import, export, use, load)",
+                    ) {
+                        reporter.logger().log_rule_message(&rule_msg);
+                    }
+                }
+            }
+        }
+    }
 
     logger.info(format!(
         "Using entry={} output={} format={:?} bit_depth={} channels={} sample_rate={} resample={}",

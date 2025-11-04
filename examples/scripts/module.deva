@@ -1,14 +1,20 @@
 # =================
 # Module System
 # =================
-# You can import modules using the @import directive.
-# You can export variables from a module using the @export directive.
+# You can import modules using the import directive.
+# You can export variables from a module using the export directive.
+# You can also use the use directive to load plugins.
 #
 # Import Syntax:
-# `@import { <variableName> } from "<path/to/module>"`
+# `import { <variableName> } from "<path/to/module>"`
 #
 # Export Syntax:
-# `@export { <variableName> }`
+# `export { <variableName> }`
+#
+# Use/Plugin Syntax:
+# `use <author>.<plugin> as <alias>`
 
-@import { myImportedVar } from "./my_module.deva"
-@export { myExportedVar }
+import { myImportedVar } from "./my_module.deva"
+export { myExportedVar }
+
+use devaloop.acid as acidPlugin

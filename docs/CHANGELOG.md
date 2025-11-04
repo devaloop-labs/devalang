@@ -6,7 +6,7 @@
 
 All notable changes to Devalang will be documented in this file.
 
-## Version 0.1.7 - 2025-11-04
+## Version 0.1.7 - 2025-11-05
 
 ### 🚀 What's New
 
@@ -17,12 +17,29 @@ All notable changes to Devalang will be documented in this file.
   - Added `duck` definitions to create sidechain ducking between nodes.
   - Added `sidechain` definitions to create sidechain compression between nodes.
 - Implemented `bpm` and `tempo` block syntax to set tempo within specific blocks.
+- Added more duration units and specified their usage:
+  - `ms`: milliseconds (e.g. `sleep 500ms` for 500 milliseconds)
+  - `s`: seconds (e.g. `sleep 2s` for 2 seconds)
+  - `beat`: musical beat based on current BPM (e.g. `sleep 1 beat` for 1 beat)
+  - `bar`: musical bar based on current BPM (e.g. `sleep 1 bar` for 1 bar)
+  - `measure`: musical measure based on current BPM (e.g. `sleep 1 measure` for 1 measure)
+- Added `--no-rule` flag to the `build`, `check`, and `play` commands to disable rule checking.
+- Added rule checker system with severity levels:
+  - `error`: for critical issues that require immediate attention.
+  - `warning`: for potential issues that may not be critical but should be addressed.
+  - `info`: for informational messages that may be helpful for understanding code behavior.
+  - `off`: to disable specific rules if not needed.
 
 ### 🛠️ Improvements
 
 - Improved error logging with structured error details including file location, error type, and suggestions.
+- Improved loop range handling for using without explicit array (e.g. `for i in 1..5:` to loop 5 times).
+- Aliased `call` by `sequence` and `spawn` by `layer` for better readability.
+- Added `foreach` alias for `for` loops for better readability.
 - Added `rest` and `wait` aliases for `sleep` statement for better readability in musical context.
 - Added `tempo` as an alias for `bpm` statement for better readability.
+- Removed `@` in `@import`, `@export`, `@load` and `@use` statements for cleaner syntax.
+- Removed deprecated `var` keyword; use `let` instead.
 
 ## Version 0.1.6 - 2025-10-31
 
