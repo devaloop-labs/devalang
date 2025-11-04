@@ -35,11 +35,11 @@ pub fn handle_let(interpreter: &mut AudioInterpreter, name: &str, value: &Value)
             }
         }
 
-        // Fusionne les sous-maps de paramètres chaînés (ex: "params", "adsr", "envelope")
+        // Merge chained parameter sub-maps (e.g. "params", "adsr", "envelope")
         let chain_keys = ["params", "adsr", "envelope"];
         for key in &chain_keys {
             if let Some(Value::Map(submap)) = map.get(*key) {
-                // Buffer temporaire pour éviter le prêt mutable/immuable
+                // Temporary buffer to avoid mutable/immutable borrow conflict
                 let to_insert: Vec<(String, Value)> =
                     submap.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
                 for (k, v) in to_insert {

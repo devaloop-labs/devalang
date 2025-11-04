@@ -1,5 +1,67 @@
 # =================
-# Routing
+# Audio Routing with Ducking and Sidechaining
 # =================
+# You can route your group of sounds to a specific channel to apply global effects
+# This allows you to create complex audio routing with effects, ducking, and sidechaining.
 
-# TODO: This section will be filled in next updates
+# Define our imported bank
+bank devaloop.808 as my808
+
+# Define a first group with a kick drum
+group myKickGroup:
+    .my808.kick
+
+# Define a lead synth group
+group myLeadGroup:
+    let mySynth = synth sine
+
+    mySynth -> note(C4)
+            -> duration(5000)
+
+    mySynth -> note(E4)
+            -> duration(5000)
+
+# Define routing with effects, ducking, and sidechaining
+routing:
+    # Define audio nodes and link them to previous groups or variables
+    # Node $master is immutable and represents the final output
+    # NOTE: Without equal sign, the node is linked by reference to the group/variable implicitly
+    # NOTE: All routing nodes goes to $master by default if not specified
+    node $master
+    node myLeadNode = myLeadGroup
+    node myKickNode = myKickGroup
+
+    # Apply global effects to nodes
+    fx myLeadNode
+        -> reverb({ size: 0.9 })
+        -> drive({ gain: 0.5, color: 0.5 })
+        -> delay({ time: 300, feedback: 0.3 })
+    fx myKickNode
+        -> drive({ gain: 0.8 })
+
+    # Apply routing between nodes with optional volume control
+    route myKickNode to myLeadNode with volume(0.2)
+
+    # Applying ducking from lead to kick:
+    # Will reduce the volume of the lead when the kick is playing
+    duck myLeadNode to myKickNode with compressor({
+        threshold: -30.0,
+        ratio: 3.0,
+        attack: 5.0,
+        release: 100.0
+    })
+
+    # Applying sidechaining from lead to kick:
+    # Will create a pumping effect on the lead when the kick is playing
+    sidechain myLeadNode to myKickNode with gate({
+        threshold: -30.0,
+        attack: 1.0,
+        release: 50.0
+    })
+
+# Spawn the kick to hear the routing in action at each beat
+on beat:
+    spawn myKickGroup
+
+# Spawn lead group to hear ducking/sidechaining effect
+spawn myLeadGroup

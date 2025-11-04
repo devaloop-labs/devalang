@@ -9,6 +9,58 @@ use crate::engine::special_vars::{SpecialVarContext, is_special_var, resolve_spe
 use crate::language::addons::registry::BankRegistry;
 use crate::language::syntax::ast::{Statement, Value};
 
+/// Routing configuration for a node
+#[derive(Debug, Clone)]
+pub struct RoutingNodeConfig {
+    pub name: String,
+    pub alias: Option<String>,
+    pub effects: Option<Value>, // FX chain for this node
+}
+
+/// Route configuration
+#[derive(Debug, Clone)]
+pub struct RouteConfig {
+    pub source: String,
+    pub destination: String,
+    pub effects: Option<Value>,
+}
+
+/// Duck configuration (sidechain-like compression)
+#[derive(Debug, Clone)]
+pub struct DuckConfig {
+    pub source: String,
+    pub destination: String,
+    pub effect: Value,
+}
+
+/// Sidechain configuration
+#[derive(Debug, Clone)]
+pub struct SidechainConfig {
+    pub source: String,
+    pub destination: String,
+    pub effect: Value,
+}
+
+/// Full routing setup
+#[derive(Debug, Clone)]
+pub struct RoutingSetup {
+    pub nodes: HashMap<String, RoutingNodeConfig>,
+    pub routes: Vec<RouteConfig>,
+    pub ducks: Vec<DuckConfig>,
+    pub sidechains: Vec<SidechainConfig>,
+}
+
+impl Default for RoutingSetup {
+    fn default() -> Self {
+        Self {
+            nodes: HashMap::new(),
+            routes: Vec::new(),
+            ducks: Vec::new(),
+            sidechains: Vec::new(),
+        }
+    }
+}
+
 #[cfg(not(feature = "cli"))]
 #[allow(dead_code)]
 #[derive(Clone)]
@@ -76,6 +128,7 @@ pub mod collector;
 pub mod extractor;
 pub mod handler;
 pub mod renderer;
+pub mod renderer_graph;
 
 pub struct AudioInterpreter {
     pub sample_rate: u32,
@@ -117,6 +170,10 @@ pub struct AudioInterpreter {
     /// this flag and stores the returned value here so callers can inspect it.
     pub returning_flag: bool,
     pub return_value: Option<Value>,
+    /// Audio routing configuration
+    pub routing: RoutingSetup,
+    /// Audio graph (built from routing configuration)
+    pub audio_graph: crate::engine::audio::interpreter::AudioGraph,
 }
 
 impl AudioInterpreter {
@@ -147,6 +204,8 @@ impl AudioInterpreter {
             function_call_depth: 0,
             returning_flag: false,
             return_value: None,
+            routing: RoutingSetup::default(),
+            audio_graph: crate::engine::audio::interpreter::AudioGraph::new(),
         }
     }
 

@@ -13,16 +13,9 @@ impl AudioInterpreter {
             Value::Number(n) => {
                 let loop_count = (*n) as usize;
                 for i in 0..loop_count {
-                    // Diagnostic trace to help debug break handling in tests
-                    #[cfg(test)]
-                    eprintln!("DEBUG execute_loop: numeric iteration {} before collect (break_flag={})", i, self.break_flag);
                     self.collect_events(body)?;
-                    #[cfg(test)]
-                    eprintln!("DEBUG execute_loop: numeric iteration {} after collect (break_flag={})", i, self.break_flag);
                     // If a break was signalled inside the body, consume flag and exit loop
                     if self.break_flag {
-                        #[cfg(test)]
-                        eprintln!("DEBUG execute_loop: break observed at iteration {} - consuming and exiting", i);
                         self.break_flag = false;
                         break;
                     }

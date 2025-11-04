@@ -1,0 +1,46 @@
+# =================
+# Routing WITHOUT Ducking - for comparison
+# =================
+
+# Define our imported bank
+bank devaloop.808 as my808
+
+# Define a first group with a kick drum
+group myKickGroup:
+    .my808.kick
+
+# Define a lead synth group
+group myLeadGroup:
+    let mySynth = synth sine
+
+    mySynth -> note(C4)
+            -> duration(5000)
+
+    mySynth -> note(E4)
+            -> duration(5000)
+
+# Define routing with effects, but NO ducking
+routing:
+    node $master
+    node myLeadNode = myLeadGroup
+    node myKickNode = myKickGroup
+
+    # Apply global effects to nodes
+    fx myLeadNode
+        -> reverb({ size: 0.9 })
+        -> drive({ gain: 0.5, color: 0.5 })
+        -> delay({ time: 300, feedback: 0.3 })
+    fx myKickNode
+        -> drive({ gain: 0.8 })
+
+    # Apply routing between nodes with optional volume control
+    route myKickNode to myLeadNode with volume(0.2)
+
+    # NO DUCKING - just for comparison
+
+# Spawn groups to hear the routing in action at each beat
+on beat:
+    spawn myKickGroup
+
+# Spawn lead group slightly after the kick to hear ducking/sidechaining effect
+spawn myLeadGroup

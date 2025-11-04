@@ -7,7 +7,7 @@ use crate::engine::audio::effects::processors::{
 };
 use crate::engine::audio::effects::processors::{
     ChorusProcessor, CompressorProcessor, DelayProcessor, DistortionProcessor, DriveProcessor,
-    FlangerProcessor, PhaserProcessor, ReverbProcessor,
+    FlangerProcessor, GateProcessor, PhaserProcessor, ReverbProcessor,
 };
 use std::collections::HashMap;
 
@@ -26,6 +26,11 @@ impl EffectRegistry {
         // Common effects
         registry.register_effect(
             "gain",
+            EffectAvailability::Both,
+            Box::new(DriveProcessor::default()),
+        );
+        registry.register_effect(
+            "volume",
             EffectAvailability::Both,
             Box::new(DriveProcessor::default()),
         );
@@ -68,6 +73,11 @@ impl EffectRegistry {
             "compressor",
             EffectAvailability::Both,
             Box::new(CompressorProcessor::default()),
+        );
+        registry.register_effect(
+            "gate",
+            EffectAvailability::Both,
+            Box::new(GateProcessor::default()),
         );
         registry.register_effect(
             "drive",

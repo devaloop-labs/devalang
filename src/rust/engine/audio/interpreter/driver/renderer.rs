@@ -60,12 +60,27 @@ pub fn render_audio(interpreter: &AudioInterpreter) -> Result<Vec<f32>> {
     }
 
     let total_samples = (total_duration * interpreter.sample_rate as f32).ceil() as usize;
-    let mut buffer = vec![0.0f32; total_samples * 2]; // stereo
 
     #[cfg(feature = "cli")]
     let logger = crate::tools::logger::Logger::new();
     #[cfg(not(feature = "cli"))]
     let _logger = ();
+
+    // Check if we should use audio graph rendering (when routing is configured)
+    if !interpreter.audio_graph.node_names().is_empty() 
+        && interpreter.audio_graph.node_names().len() > 1 {
+        log_info!(
+            logger,
+            "Using audio graph rendering with {} nodes",
+            interpreter.audio_graph.node_names().len()
+        );
+        return super::renderer_graph::render_audio_graph(interpreter, total_samples)
+            .map_err(|e| anyhow::anyhow!("Audio graph rendering failed: {}", e));
+    }
+
+    // Default: simple buffer rendering (no routing)
+    let mut buffer = vec![0.0f32; total_samples * 2]; // stereo
+
     log_info!(
         logger,
         "Starting audio rendering: {} events, {} synths, duration {:.2}s",

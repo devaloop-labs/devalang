@@ -133,7 +133,32 @@ pub enum StatementKind {
         iterable: Value,
         body: Vec<Statement>,
     },
-    Routing,
+    Routing {
+        body: Vec<Statement>,
+    },
+    RoutingNode {
+        name: String,
+        alias: Option<String>,
+    },
+    RoutingFx {
+        target: String,
+        effects: Value,
+    },
+    RoutingRoute {
+        source: String,
+        destination: String,
+        effects: Option<Value>,
+    },
+    RoutingDuck {
+        source: String,
+        destination: String,
+        effect: Value,
+    },
+    RoutingSidechain {
+        source: String,
+        destination: String,
+        effect: Value,
+    },
     Bind {
         source: String,
         target: String,

@@ -258,6 +258,51 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
             StatementKind::Group { name, body } => {
                 interpreter.groups.insert(name.clone(), body.clone());
             }
+            StatementKind::Routing { body } => {
+                // Process routing block - parse nodes, fx, routes, ducks, and sidechains
+                for routing_stmt in body {
+                    match &routing_stmt.kind {
+                        StatementKind::RoutingNode { name, alias } => {
+                            let config = super::RoutingNodeConfig {
+                                name: name.clone(),
+                                alias: alias.clone(),
+                                effects: None,
+                            };
+                            interpreter.routing.nodes.insert(name.clone(), config);
+                        }
+                        StatementKind::RoutingFx { target, effects } => {
+                            if let Some(node_config) = interpreter.routing.nodes.get_mut(target) {
+                                node_config.effects = Some(effects.clone());
+                            }
+                        }
+                        StatementKind::RoutingRoute { source, destination, effects } => {
+                            interpreter.routing.routes.push(super::RouteConfig {
+                                source: source.clone(),
+                                destination: destination.clone(),
+                                effects: effects.clone(),
+                            });
+                        }
+                        StatementKind::RoutingDuck { source, destination, effect } => {
+                            interpreter.routing.ducks.push(super::DuckConfig {
+                                source: source.clone(),
+                                destination: destination.clone(),
+                                effect: effect.clone(),
+                            });
+                        }
+                        StatementKind::RoutingSidechain { source, destination, effect } => {
+                            interpreter.routing.sidechains.push(super::SidechainConfig {
+                                source: source.clone(),
+                                destination: destination.clone(),
+                                effect: effect.clone(),
+                            });
+                        }
+                        _ => {}
+                    }
+                }
+                
+                // Build the audio graph from routing configuration
+                interpreter.audio_graph = crate::engine::audio::interpreter::AudioGraph::from_routing_setup(&interpreter.routing);
+            }
             StatementKind::Call { name, args } => {
                 // If this call contains an inline pattern (parser stores it in stmt.value as a Map
                 // with `inline_pattern = true`), register it as a Pattern statement in variables
@@ -360,6 +405,8 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
                                 function_call_depth: 0,
                                 returning_flag: false,
                                 return_value: None,
+                                routing: Default::default(),
+                                audio_graph: crate::engine::audio::interpreter::AudioGraph::new(),
                             };
 
                             // Inherit synth definitions
@@ -426,6 +473,8 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
                                 function_call_depth: 0,
                                 returning_flag: false,
                                 return_value: None,
+                                routing: Default::default(),
+                                audio_graph: crate::engine::audio::interpreter::AudioGraph::new(),
                             };
 
                             // Inherit synth definitions so durations reflect real events
@@ -747,6 +796,8 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
                         function_call_depth: 0,
                         returning_flag: false,
                         return_value: None,
+                        routing: Default::default(),
+                        audio_graph: crate::engine::audio::interpreter::AudioGraph::new(),
                     };
 
                     // Inherit synth definitions from parent so spawned groups can snapshot synths/plugins

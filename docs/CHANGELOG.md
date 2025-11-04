@@ -6,6 +6,18 @@
 
 All notable changes to Devalang will be documented in this file.
 
+## Version 0.1.7 - 2025-11-04
+
+### 🚀 What's New
+
+- Implemented `routing` capabilities to route audio between different nodes and effects in the audio graph.
+  - Added `routing` statement block to define audio routing configurations :
+  - Added `node` definitions to create audio nodes linked variables (synths, groups, triggers...).
+  - Added `fx` definitions to apply global effects to nodes.
+  - Added `route` definitions to connect nodes and effects together.
+  - Added `duck` definitions to create sidechain ducking between nodes.
+  - Added `sidechain` definitions to create sidechain compression between nodes.
+
 ## Version 0.1.6 - 2025-10-31
 
 ### 🚀 What's New

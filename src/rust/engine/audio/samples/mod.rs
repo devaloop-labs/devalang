@@ -274,7 +274,12 @@ fn load_audio_file(path: &Path) -> Result<SampleData> {
 /// Get sample from global registry (with lazy loading)
 pub fn get_sample(uri: &str) -> Option<SampleData> {
     let mut registry = SAMPLE_REGISTRY.lock().unwrap();
-    registry.get_sample(uri)
+    if let Some(data) = registry.get_sample(uri) {
+        return Some(data);
+    }
+    
+    // Fallback: generate synthetic drum samples
+    generate_synthetic_sample(uri)
 }
 
 /// Register a sample into the global registry with the given URI.
@@ -369,4 +374,238 @@ pub fn auto_load_banks() -> Result<()> {
     }
 
     Ok(())
+}
+
+/// Generate synthetic drum sounds as fallback when bank samples aren't available
+fn generate_synthetic_sample(uri: &str) -> Option<SampleData> {
+    // Parse URI: devalang://bank/{bank_id}/{trigger_name}
+    if !uri.starts_with("devalang://bank/") {
+        return None;
+    }
+
+    let path = &uri["devalang://bank/".len()..];
+    let parts: Vec<&str> = path.split('/').collect();
+    if parts.len() < 2 {
+        return None;
+    }
+
+    let drum_type = parts[parts.len() - 1]; // e.g., "kick"
+    let sample_rate = 44100;
+
+    // Determine duration and generate appropriate sound
+    let (duration_ms, samples) = match drum_type {
+        "kick" => (500, generate_kick(sample_rate, 500)),
+        "snare" => (200, generate_snare(sample_rate, 200)),
+        "hihat" | "hi-hat" => (150, generate_hihat(sample_rate, 150)),
+        "clap" => (200, generate_clap(sample_rate, 200)),
+        "tom" | "tom-high" => (300, generate_tom(sample_rate, 300, 250.0)),
+        "tom-mid" => (350, generate_tom(sample_rate, 350, 180.0)),
+        "tom-low" => (400, generate_tom(sample_rate, 400, 120.0)),
+        "perc" | "percussion" => (100, generate_hihat(sample_rate, 100)),
+        "cowbell" => (150, generate_cowbell(sample_rate, 150)),
+        "cymbal" => (250, generate_cymbal(sample_rate, 250)),
+        _ => {
+            eprintln!("[SAMPLES] Unknown drum type: {}, using kick fallback", drum_type);
+            (500, generate_kick(sample_rate, 500))
+        }
+    };
+
+    eprintln!(
+        "[SAMPLES] Generated synthetic drum: {} (duration: {}ms, samples: {})",
+        drum_type,
+        duration_ms,
+        samples.len()
+    );
+
+    Some(SampleData { samples, sample_rate })
+}
+
+/// Generate a synthetic kick drum
+fn generate_kick(sample_rate: u32, duration_ms: u32) -> Vec<f32> {
+    let num_samples = ((duration_ms as f32 / 1000.0) * sample_rate as f32) as usize;
+    let mut samples = Vec::with_capacity(num_samples);
+
+    for i in 0..num_samples {
+        let t = i as f32 / sample_rate as f32;
+        let progress = t / (duration_ms as f32 / 1000.0);
+
+        // Pitch envelope: starts high and sweeps down
+        let pitch_start = 150.0;
+        let pitch_end = 50.0;
+        let pitch = pitch_start + (pitch_end - pitch_start) * progress;
+        let phase = 2.0 * std::f32::consts::PI * pitch * t;
+
+        // Amplitude envelope: quick decay
+        let amp = (1.0 - progress * progress).max(0.0);
+
+        // Basic sine wave with slight distortion
+        let sample = (phase.sin() * amp * 0.7).tanh();
+        samples.push(sample);
+    }
+
+    samples
+}
+
+/// Generate a synthetic snare drum
+fn generate_snare(sample_rate: u32, duration_ms: u32) -> Vec<f32> {
+    let num_samples = ((duration_ms as f32 / 1000.0) * sample_rate as f32) as usize;
+    let mut samples = Vec::with_capacity(num_samples);
+
+    for i in 0..num_samples {
+        let t = i as f32 / sample_rate as f32;
+        let progress = t / (duration_ms as f32 / 1000.0);
+
+        let amp = (1.0 - progress * 3.0).max(0.0);
+
+        let pitch = 200.0;
+        let phase = 2.0 * std::f32::consts::PI * pitch * t;
+        let pitched = phase.sin() * 0.3;
+
+        let seed = (i as u32).wrapping_mul(12345);
+        let random = ((seed >> 16) & 0x7fff) as f32 / 32768.0;
+        let noise = (random * 2.0 - 1.0) * 0.7;
+
+        let sample = (pitched + noise) * amp;
+        samples.push(sample.clamp(-1.0, 1.0));
+    }
+
+    samples
+}
+
+/// Generate a synthetic hi-hat
+fn generate_hihat(sample_rate: u32, duration_ms: u32) -> Vec<f32> {
+    let num_samples = ((duration_ms as f32 / 1000.0) * sample_rate as f32) as usize;
+    let mut samples = Vec::with_capacity(num_samples);
+
+    for i in 0..num_samples {
+        let t = i as f32 / sample_rate as f32;
+        let progress = t / (duration_ms as f32 / 1000.0);
+
+        let amp = (1.0 - progress * 6.0).max(0.0);
+
+        let seed = (i as u32).wrapping_mul(65537);
+        let random = ((seed >> 16) & 0x7fff) as f32 / 32768.0;
+        let noise = random * 2.0 - 1.0;
+
+        let sample = noise * amp * 0.5;
+        samples.push(sample.clamp(-1.0, 1.0));
+    }
+
+    samples
+}
+
+/// Generate a synthetic clap
+fn generate_clap(sample_rate: u32, duration_ms: u32) -> Vec<f32> {
+    let num_samples = ((duration_ms as f32 / 1000.0) * sample_rate as f32) as usize;
+    let mut samples = Vec::with_capacity(num_samples);
+
+    for i in 0..num_samples {
+        let t = i as f32 / sample_rate as f32;
+        let progress = t / (duration_ms as f32 / 1000.0);
+
+        let amp = if progress < 0.2 {
+            1.0 - (progress / 0.2) * 0.5
+        } else {
+            (0.5 - (progress - 0.2) * 0.4).max(0.0)
+        };
+
+        let pitch1 = 300.0;
+        let pitch2 = 100.0;
+        let phase1 = 2.0 * std::f32::consts::PI * pitch1 * t;
+        let phase2 = 2.0 * std::f32::consts::PI * pitch2 * t;
+
+        let pitched = phase1.sin() * 0.2 + phase2.sin() * 0.3;
+
+        let seed = (i as u32).wrapping_mul(12345);
+        let random = ((seed >> 16) & 0x7fff) as f32 / 32768.0;
+        let noise = (random * 2.0 - 1.0) * 0.5;
+
+        let sample = (pitched + noise) * amp;
+        samples.push(sample.clamp(-1.0, 1.0));
+    }
+
+    samples
+}
+
+/// Generate a synthetic tom (tuned drum)
+fn generate_tom(sample_rate: u32, duration_ms: u32, pitch: f32) -> Vec<f32> {
+    let num_samples = ((duration_ms as f32 / 1000.0) * sample_rate as f32) as usize;
+    let mut samples = Vec::with_capacity(num_samples);
+
+    for i in 0..num_samples {
+        let t = i as f32 / sample_rate as f32;
+        let progress = t / (duration_ms as f32 / 1000.0);
+
+        let pitch_start = pitch * 1.5;
+        let pitch_end = pitch * 0.5;
+        let current_pitch = pitch_start + (pitch_end - pitch_start) * progress;
+        let phase = 2.0 * std::f32::consts::PI * current_pitch * t;
+
+        let amp = (1.0 - progress * progress * 2.0).max(0.0);
+
+        let sample = phase.sin() * amp * 0.7;
+        samples.push(sample);
+    }
+
+    samples
+}
+
+/// Generate a synthetic cowbell
+fn generate_cowbell(sample_rate: u32, duration_ms: u32) -> Vec<f32> {
+    let num_samples = ((duration_ms as f32 / 1000.0) * sample_rate as f32) as usize;
+    let mut samples = Vec::with_capacity(num_samples);
+
+    for i in 0..num_samples {
+        let t = i as f32 / sample_rate as f32;
+        let progress = t / (duration_ms as f32 / 1000.0);
+
+        let freq1 = 540.0;
+        let freq2 = 810.0;
+        let freq3 = 1200.0;
+
+        let phase1 = 2.0 * std::f32::consts::PI * freq1 * t;
+        let phase2 = 2.0 * std::f32::consts::PI * freq2 * t;
+        let phase3 = 2.0 * std::f32::consts::PI * freq3 * t;
+
+        let amp = (1.0 - progress * 2.0).max(0.0);
+
+        let pitched = phase1.sin() * 0.3 + phase2.sin() * 0.25 + phase3.sin() * 0.2;
+        let sample = pitched * amp * 0.7;
+        samples.push(sample.clamp(-1.0, 1.0));
+    }
+
+    samples
+}
+
+/// Generate a synthetic cymbal crash
+fn generate_cymbal(sample_rate: u32, duration_ms: u32) -> Vec<f32> {
+    let num_samples = ((duration_ms as f32 / 1000.0) * sample_rate as f32) as usize;
+    let mut samples = Vec::with_capacity(num_samples);
+
+    for i in 0..num_samples {
+        let t = i as f32 / sample_rate as f32;
+        let progress = t / (duration_ms as f32 / 1000.0);
+
+        let seed1 = (i as u32).wrapping_mul(12345);
+        let seed2 = (i as u32).wrapping_mul(54321);
+
+        let random1 = ((seed1 >> 16) & 0x7fff) as f32 / 32768.0;
+        let random2 = ((seed2 >> 16) & 0x7fff) as f32 / 32768.0;
+
+        let noise = (random1 * 2.0 - 1.0) * 0.4 + (random2 * 2.0 - 1.0) * 0.3;
+
+        let freq1 = 8000.0;
+        let freq2 = 6000.0;
+        let phase1 = 2.0 * std::f32::consts::PI * freq1 * t;
+        let phase2 = 2.0 * std::f32::consts::PI * freq2 * t;
+
+        let pitched = phase1.sin() * 0.1 + phase2.sin() * 0.1;
+
+        let amp = (1.0 - progress * 0.7).max(0.0);
+
+        let sample = (noise + pitched) * amp * 0.6;
+        samples.push(sample.clamp(-1.0, 1.0));
+    }
+
+    samples
 }

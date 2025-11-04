@@ -144,6 +144,12 @@ fn parse_lines(
                         body: body.clone(),
                     };
                 }
+                StatementKind::Routing { .. } => {
+                    // Parse routing body statements
+                    statement.kind = StatementKind::Routing {
+                        body: body.clone(),
+                    };
+                }
                 other => {
                     // keep original kind for other statements
                     statement.kind = other;
@@ -355,6 +361,15 @@ fn parse_line(line: &str, line_number: usize, path: &Path) -> Result<Statement> 
         .to_string();
     let keyword = first_token.trim_end_matches(':').to_lowercase();
 
+    // Check for routing statements (node, fx, route, duck, sidechain)
+    let routing_keywords = ["node", "fx", "route", "duck", "sidechain"];
+    if routing_keywords.contains(&keyword.as_str()) {
+        return crate::language::syntax::parser::driver::routing::parse_routing_statement(
+            line,
+            line_number,
+        );
+    }
+
     // Check if this is a property assignment first: target.property = value
     if line.contains('=') && keyword.contains('.') {
         return parse_assign(line, line_number);
@@ -415,7 +430,6 @@ fn parse_line(line: &str, line_number: usize, path: &Path) -> Result<Statement> 
         "emit" => parse_emit(line, parts, line_number),
         "return" => statements::core::parse_return(line, line_number),
         "routing" => crate::language::syntax::parser::driver::routing::parse_routing_command(
-            parts,
             line_number,
         ),
         _ => {
