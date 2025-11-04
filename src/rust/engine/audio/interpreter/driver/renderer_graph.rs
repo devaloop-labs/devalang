@@ -1,5 +1,4 @@
 /// Audio graph rendering - implements proper routing, node effects, and ducking
-
 use super::AudioInterpreter;
 use crate::engine::audio::interpreter::audio_graph::Connection;
 use std::collections::HashMap;
@@ -13,7 +12,7 @@ pub fn render_audio_graph(
     total_samples: usize,
 ) -> anyhow::Result<Vec<f32>> {
     let total_duration = total_samples as f32 / interpreter.sample_rate as f32;
-    
+
     // Create buffers for each node in the graph
     let mut node_buffers: NodeBuffers = HashMap::new();
     for node_name in interpreter.audio_graph.node_names() {
@@ -42,11 +41,14 @@ fn get_event_target_node(
     _interpreter: &AudioInterpreter,
 ) -> String {
     use crate::engine::audio::events::AudioEvent;
-    
+
     match event {
         AudioEvent::Note { synth_id, .. } | AudioEvent::Chord { synth_id, .. } => {
             // Route notes/chords to lead node if synth matches lead pattern
-            if synth_id.contains("mySynth") || synth_id.contains("lead") || synth_id.contains("Lead") {
+            if synth_id.contains("mySynth")
+                || synth_id.contains("lead")
+                || synth_id.contains("Lead")
+            {
                 "myLeadNode".to_string()
             } else {
                 "$master".to_string()
@@ -77,14 +79,14 @@ fn render_events_into_nodes(
     for event in &interpreter.events.events {
         // Determine target node for this event
         let target_node = get_event_target_node(event, interpreter);
-        
+
         // Get the target buffer
         let target_buffer = node_buffers.get_mut(&target_node);
         if target_buffer.is_none() {
             continue;
         }
         let target_buffer = target_buffer.unwrap();
-        
+
         match event {
             AudioEvent::Note {
                 midi,
@@ -123,8 +125,8 @@ fn render_events_into_nodes(
 
                 let samples = generate_note_with_options(
                     *midi,
-                    *duration * 1000.0,      // Convert to milliseconds
-                    velocity * gain,         // Combined velocity and gain
+                    *duration * 1000.0, // Convert to milliseconds
+                    velocity * gain,    // Combined velocity and gain
                     &params,
                     interpreter.sample_rate,
                     *pan,
@@ -151,9 +153,10 @@ fn render_events_into_nodes(
             } => {
                 // Load sample from bank (synthetic drums for CLI)
                 use crate::engine::audio::samples;
-                
+
                 if let Some(sample_data) = samples::get_sample(uri) {
-                    let start_sample = (*start_time * interpreter.sample_rate as f32).ceil() as usize;
+                    let start_sample =
+                        (*start_time * interpreter.sample_rate as f32).ceil() as usize;
                     let start_idx = start_sample * 2; // Convert to stereo sample index
                     let end_idx = (start_idx + sample_data.samples.len()).min(total_samples * 2);
                     let write_len = end_idx - start_idx;
@@ -189,9 +192,9 @@ fn apply_node_effects(
                 crate::language::syntax::ast::Value::Array(arr) => arr.clone(),
                 _ => vec![effects_value.clone()],
             };
-            
+
             let mut effect_chain = build_effect_chain(&effects_array, false);
-            
+
             if let Some(buffer) = node_buffers.get_mut(node_name) {
                 // Apply effects to this node's buffer
                 effect_chain.process(buffer, interpreter.sample_rate);
@@ -210,20 +213,32 @@ fn apply_routing_and_ducking(
     // Phase 1: Apply all ducks and sidechains first (these modify source buffers)
     for connection in interpreter.audio_graph.connections.iter() {
         match connection {
-            Connection::Duck { source, destination, effect_params: _ } => {
+            Connection::Duck {
+                source,
+                destination,
+                effect_params: _,
+            } => {
                 apply_duck(source, destination, node_buffers, interpreter.sample_rate)?;
             }
-            Connection::Sidechain { source, destination, effect_params: _ } => {
+            Connection::Sidechain {
+                source,
+                destination,
+                effect_params: _,
+            } => {
                 apply_sidechain(source, destination, node_buffers, interpreter.sample_rate)?;
             }
             _ => {}
         }
     }
-    
+
     // Phase 2: Apply all routes (these mix audio between nodes)
     for connection in interpreter.audio_graph.connections.iter() {
         match connection {
-            Connection::Route { source, destination, gain } => {
+            Connection::Route {
+                source,
+                destination,
+                gain,
+            } => {
                 // Mix source buffer into destination buffer with gain
                 if let (Some(src_buf), Some(dst_buf)) = (
                     node_buffers.get(source).cloned(),
@@ -260,20 +275,20 @@ fn apply_duck(
     if src_opt.is_none() {
         return Ok(());
     }
-    
+
     let src_buf = src_opt.unwrap();
-    
+
     // Map buffer indices to envelope indices
     let frame_rate = 100; // Must match compute_envelope
     let samples_per_frame = (sample_rate / frame_rate) as usize * 2; // stereo samples per envelope frame
-    
+
     for frame_idx in (0..src_buf.len()).step_by(2) {
         // Calculate which envelope frame this sample belongs to
         let current_envelope_idx = frame_idx / samples_per_frame;
-        
+
         if current_envelope_idx < dest_envelope.len() {
             let dest_level = dest_envelope[current_envelope_idx];
-            
+
             // Apply compression proportional to destination level
             let threshold = 0.005; // Start reducing at very low levels
             let sensitivity = if dest_level > threshold {
@@ -281,10 +296,10 @@ fn apply_duck(
             } else {
                 0.0
             };
-            
+
             let max_duck_reduction = 0.95; // 95% maximum reduction
             let compression_gain = 1.0 - (sensitivity * max_duck_reduction);
-            
+
             src_buf[frame_idx] *= compression_gain;
             if frame_idx + 1 < src_buf.len() {
                 src_buf[frame_idx + 1] *= compression_gain;
@@ -314,17 +329,17 @@ fn apply_sidechain(
         // Map buffer indices to envelope indices
         let frame_rate = 100;
         let samples_per_frame = (sample_rate / frame_rate) as usize * 2;
-        
+
         for frame_idx in (0..src_buf.len()).step_by(2) {
             let current_envelope_idx = frame_idx / samples_per_frame;
-            
+
             if current_envelope_idx < dest_envelope.len() {
                 let dest_level = dest_envelope[current_envelope_idx];
-                
+
                 // Sidechain gate: proportional to destination level
                 let normalized_linear = (dest_level * 10.0).min(1.0);
                 let gate_open = 1.0 - (normalized_linear * 0.5); // Range [1.0, 0.5]
-                
+
                 src_buf[frame_idx] *= gate_open;
                 if frame_idx + 1 < src_buf.len() {
                     src_buf[frame_idx + 1] *= gate_open;

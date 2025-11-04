@@ -6,10 +6,7 @@ use anyhow::{Result, anyhow};
 use std::iter::Iterator;
 
 /// Parse tempo/bpm statement
-pub fn parse_tempo(
-    line: &str,
-    line_number: usize,
-) -> Result<Statement> {
+pub fn parse_tempo(line: &str, line_number: usize) -> Result<Statement> {
     let trimmed = line.trim_start();
     // Skip keyword (bpm or tempo)
     let keyword_end = if trimmed.starts_with("tempo") {
@@ -19,23 +16,23 @@ pub fn parse_tempo(
     } else {
         return Err(anyhow!("tempo/bpm parsing error"));
     };
-    
+
     let rest = trimmed[keyword_end..].trim();
-    
+
     // Check if it's a block (ends with :)
     let is_block = rest.ends_with(':');
-    
+
     // Remove the colon if present
     let value_str = if is_block {
         rest[..rest.len() - 1].trim()
     } else {
         rest
     };
-    
+
     let bpm: f32 = value_str
         .parse()
         .map_err(|_| anyhow!("invalid tempo value: '{}'", value_str))?;
-    
+
     if is_block {
         // Return a Tempo statement with body (will be filled during block parsing)
         Ok(Statement::new(

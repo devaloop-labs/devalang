@@ -250,10 +250,7 @@ impl Statement {
 
     pub fn tempo(value: f32, line: usize, column: usize) -> Self {
         Self::new(
-            StatementKind::Tempo {
-                value,
-                body: None,
-            },
+            StatementKind::Tempo { value, body: None },
             Value::Null,
             0,
             line,

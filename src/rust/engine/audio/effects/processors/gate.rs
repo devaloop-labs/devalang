@@ -50,9 +50,9 @@ impl EffectProcessor for GateProcessor {
 
             // Gate logic: fully open if above threshold, fully closed if below
             let target = if db > self.threshold {
-                0.0  // Full gain (0 dB)
+                0.0 // Full gain (0 dB)
             } else {
-                -100.0  // Silent
+                -100.0 // Silent
             };
 
             let coeff = if target > self.envelope {

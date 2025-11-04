@@ -67,8 +67,9 @@ pub fn render_audio(interpreter: &AudioInterpreter) -> Result<Vec<f32>> {
     let _logger = ();
 
     // Check if we should use audio graph rendering (when routing is configured)
-    if !interpreter.audio_graph.node_names().is_empty() 
-        && interpreter.audio_graph.node_names().len() > 1 {
+    if !interpreter.audio_graph.node_names().is_empty()
+        && interpreter.audio_graph.node_names().len() > 1
+    {
         log_info!(
             logger,
             "Using audio graph rendering with {} nodes",

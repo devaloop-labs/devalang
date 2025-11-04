@@ -53,6 +53,18 @@ macro_rules! log_error {
     };
 }
 
+#[cfg(feature = "cli")]
+macro_rules! log_structured_error {
+    ($logger:expr, $error:expr) => {
+        $logger.log_structured_error(&$error)
+    };
+}
+
+#[cfg(not(feature = "cli"))]
+macro_rules! log_structured_error {
+    ($_logger:expr, $_error:expr) => {};
+}
+
 pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statement]) -> Result<()> {
     #[cfg(feature = "cli")]
     let logger = crate::tools::logger::Logger::new();
@@ -201,12 +213,12 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
             StatementKind::Tempo { value, body } => {
                 let prev_bpm = interpreter.bpm;
                 interpreter.set_bpm(*value);
-                
+
                 // If this is a block, execute its body with the new tempo
                 if let Some(block_body) = body {
                     collect_events(interpreter, block_body)?;
                 }
-                
+
                 // If body is None (simple tempo declaration), keep the new BPM
                 // Otherwise, restore the previous BPM after the block completes
                 if body.is_some() {
@@ -285,21 +297,33 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
                                 node_config.effects = Some(effects.clone());
                             }
                         }
-                        StatementKind::RoutingRoute { source, destination, effects } => {
+                        StatementKind::RoutingRoute {
+                            source,
+                            destination,
+                            effects,
+                        } => {
                             interpreter.routing.routes.push(super::RouteConfig {
                                 source: source.clone(),
                                 destination: destination.clone(),
                                 effects: effects.clone(),
                             });
                         }
-                        StatementKind::RoutingDuck { source, destination, effect } => {
+                        StatementKind::RoutingDuck {
+                            source,
+                            destination,
+                            effect,
+                        } => {
                             interpreter.routing.ducks.push(super::DuckConfig {
                                 source: source.clone(),
                                 destination: destination.clone(),
                                 effect: effect.clone(),
                             });
                         }
-                        StatementKind::RoutingSidechain { source, destination, effect } => {
+                        StatementKind::RoutingSidechain {
+                            source,
+                            destination,
+                            effect,
+                        } => {
                             interpreter.routing.sidechains.push(super::SidechainConfig {
                                 source: source.clone(),
                                 destination: destination.clone(),
@@ -309,9 +333,12 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
                         _ => {}
                     }
                 }
-                
+
                 // Build the audio graph from routing configuration
-                interpreter.audio_graph = crate::engine::audio::interpreter::AudioGraph::from_routing_setup(&interpreter.routing);
+                interpreter.audio_graph =
+                    crate::engine::audio::interpreter::AudioGraph::from_routing_setup(
+                        &interpreter.routing,
+                    );
             }
             StatementKind::Call { name, args } => {
                 // If this call contains an inline pattern (parser stores it in stmt.value as a Map
@@ -713,6 +740,58 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
                 // Pass the effects associated with the trigger statement into the handler so
                 // runtime scheduling can attach them to sample events.
                 super::handler::handle_trigger(interpreter, entity, effects.as_ref())?;
+            }
+            StatementKind::Unknown => {
+                // Unknown statements are parser errors - log them with structured formatting
+                if let Value::String(error_msg) = &stmt.value {
+                    // Parse the structured error format: "MESSAGE|||FILE:LINE|||SUGGESTION"
+                    let parts: Vec<&str> = error_msg.split("|||").collect();
+
+                    let main_msg = parts
+                        .get(0)
+                        .map(|s| s.to_string())
+                        .unwrap_or_else(|| error_msg.clone());
+                    let file_location = parts.get(1).map(|s| s.to_string());
+                    let suggestion_text = parts.get(2).and_then(|s| {
+                        if s.is_empty() {
+                            None
+                        } else {
+                            Some(format!("Did you mean '{}' ?", s))
+                        }
+                    });
+
+                    // Create structured error with details
+                    let mut structured_err = crate::tools::logger::StructuredError::new(&main_msg)
+                        .with_location(stmt.line, stmt.column)
+                        .with_type("UnknownStatement");
+
+                    // Add file location if available
+                    if let Some(file_loc) = file_location {
+                        structured_err = structured_err.with_file(file_loc);
+                    }
+
+                    // Add suggestion if available
+                    if let Some(suggest) = suggestion_text {
+                        structured_err = structured_err.with_suggestion(suggest);
+                    }
+
+                    // Log the structured error
+                    log_structured_error!(logger, structured_err);
+
+                    // Optionally push to WASM error registry
+                    #[cfg(feature = "wasm")]
+                    {
+                        use crate::web::registry::debug;
+                        if debug::is_debug_errors_enabled() {
+                            debug::push_parse_error_from_parts(
+                                error_msg.clone(),
+                                stmt.line,
+                                stmt.column,
+                                "UnknownStatement".to_string(),
+                            );
+                        }
+                    }
+                }
             }
             _ => {}
         }

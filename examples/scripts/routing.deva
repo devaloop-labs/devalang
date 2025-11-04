@@ -42,7 +42,7 @@ routing:
     # Apply routing between nodes with optional volume control
     route myKickNode to myLeadNode with volume(0.2)
 
-    # Applying ducking from lead to kick:
+    # (optional) Applying ducking from lead to kick:
     # Will reduce the volume of the lead when the kick is playing
     duck myLeadNode to myKickNode with compressor({
         threshold: -30.0,
@@ -51,7 +51,7 @@ routing:
         release: 100.0
     })
 
-    # Applying sidechaining from lead to kick:
+    # (optional) Applying sidechaining from lead to kick:
     # Will create a pumping effect on the lead when the kick is playing
     sidechain myLeadNode to myKickNode with gate({
         threshold: -30.0,

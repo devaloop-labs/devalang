@@ -2,15 +2,11 @@ use crate::language::syntax::ast::{Statement, StatementKind, Value};
 use crate::language::syntax::parser::driver::effects::parse_chained_effects;
 use anyhow::{Result, anyhow};
 
-pub fn parse_routing_command(
-    line_number: usize,
-) -> Result<Statement> {
+pub fn parse_routing_command(line_number: usize) -> Result<Statement> {
     // The "routing" keyword itself indicates a block-based routing declaration
     // The body will be filled in during indentation parsing in the main driver
     Ok(Statement::new(
-        StatementKind::Routing {
-            body: Vec::new(),
-        },
+        StatementKind::Routing { body: Vec::new() },
         Value::Null,
         0,
         line_number,
@@ -19,12 +15,9 @@ pub fn parse_routing_command(
 }
 
 /// Parse routing block statements (node, fx, route, duck, sidechain)
-pub fn parse_routing_statement<'a>(
-    line: &str,
-    line_number: usize,
-) -> Result<Statement> {
+pub fn parse_routing_statement<'a>(line: &str, line_number: usize) -> Result<Statement> {
     let trimmed = line.trim();
-    
+
     // node <name> [= <alias>]
     if trimmed.starts_with("node ") {
         let rest = trimmed[5..].trim();
@@ -44,10 +37,7 @@ pub fn parse_routing_statement<'a>(
         } else {
             let name = rest.trim_end_matches(':').to_string();
             return Ok(Statement::new(
-                StatementKind::RoutingNode {
-                    name,
-                    alias: None,
-                },
+                StatementKind::RoutingNode { name, alias: None },
                 Value::Null,
                 0,
                 line_number,
@@ -55,7 +45,7 @@ pub fn parse_routing_statement<'a>(
             ));
         }
     }
-    
+
     // fx <target> -> effect1 -> effect2 ...
     if trimmed.starts_with("fx ") {
         let rest = trimmed[3..].trim();
@@ -71,10 +61,13 @@ pub fn parse_routing_statement<'a>(
                 1,
             ));
         } else {
-            return Err(anyhow!("fx statement requires effects after '->': {}", trimmed));
+            return Err(anyhow!(
+                "fx statement requires effects after '->': {}",
+                trimmed
+            ));
         }
     }
-    
+
     // route <source> to <dest> with effect(...)
     if trimmed.starts_with("route ") {
         let rest = trimmed[6..].trim();
@@ -110,10 +103,13 @@ pub fn parse_routing_statement<'a>(
                 ));
             }
         } else {
-            return Err(anyhow!("route statement requires format: route <source> to <dest> [with effect(...)]: {}", trimmed));
+            return Err(anyhow!(
+                "route statement requires format: route <source> to <dest> [with effect(...)]: {}",
+                trimmed
+            ));
         }
     }
-    
+
     // duck <source> to <dest> with effect(...)
     if trimmed.starts_with("duck ") {
         let rest = trimmed[5..].trim();
@@ -135,13 +131,19 @@ pub fn parse_routing_statement<'a>(
                     1,
                 ));
             } else {
-                return Err(anyhow!("duck statement requires 'with' clause: {}", trimmed));
+                return Err(anyhow!(
+                    "duck statement requires 'with' clause: {}",
+                    trimmed
+                ));
             }
         } else {
-            return Err(anyhow!("duck statement requires format: duck <source> to <dest> with effect(...): {}", trimmed));
+            return Err(anyhow!(
+                "duck statement requires format: duck <source> to <dest> with effect(...): {}",
+                trimmed
+            ));
         }
     }
-    
+
     // sidechain <source> to <dest> with effect(...)
     if trimmed.starts_with("sidechain ") {
         let rest = trimmed[10..].trim();
@@ -163,13 +165,19 @@ pub fn parse_routing_statement<'a>(
                     1,
                 ));
             } else {
-                return Err(anyhow!("sidechain statement requires 'with' clause: {}", trimmed));
+                return Err(anyhow!(
+                    "sidechain statement requires 'with' clause: {}",
+                    trimmed
+                ));
             }
         } else {
-            return Err(anyhow!("sidechain statement requires format: sidechain <source> to <dest> with effect(...): {}", trimmed));
+            return Err(anyhow!(
+                "sidechain statement requires format: sidechain <source> to <dest> with effect(...): {}",
+                trimmed
+            ));
         }
     }
-    
+
     Err(anyhow!("Unknown routing statement: {}", trimmed))
 }
 
@@ -218,7 +226,10 @@ fn parse_single_routing_effect(effect_str: &str) -> Result<Value> {
             return Ok(Value::Map(result));
         } else {
             let mut result = std::collections::HashMap::new();
-            result.insert(name, Value::String(params_str.trim_matches('"').to_string()));
+            result.insert(
+                name,
+                Value::String(params_str.trim_matches('"').to_string()),
+            );
             return Ok(Value::Map(result));
         }
     } else {

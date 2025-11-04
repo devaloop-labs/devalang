@@ -38,6 +38,15 @@ impl Logger {
         }
     }
 
+    /// Log a structured error with formatted details including file location, type, and suggestions
+    pub fn log_structured_error(&self, error: &StructuredError) {
+        self.log(LogLevel::Error, &error.message);
+        let colored_details = error.build_colored_details();
+        for (label, content) in colored_details {
+            self.print_colored_detail(&label, &content);
+        }
+    }
+
     pub fn success(&self, message: impl AsRef<str>) {
         self.log(LogLevel::Success, message);
     }
@@ -81,6 +90,43 @@ impl Logger {
         {
             println!("   -> {}", detail);
         }
+    }
+
+    /// Print a colored detail line with a label
+    /// Format: "   ↳ label: content" where label is in medium-dark grey
+    #[cfg(feature = "cli")]
+    fn print_colored_detail(&self, label: &str, content: &str) {
+        let mut output = String::new();
+        output.push_str("   ↳ ");
+
+        // Label in medium-dark grey (RGB 110, 110, 110) with bold
+        output.push_str(&format!(
+            "{}{}{}{}",
+            SetForegroundColor(Color::Rgb {
+                r: 110,
+                g: 110,
+                b: 110
+            }),
+            SetAttribute(Attribute::Bold),
+            label,
+            SetAttribute(Attribute::Reset)
+        ));
+
+        // Colon separator
+        output.push_str(": ");
+
+        // Content in normal color (white)
+        output.push_str(&format!("{}{}", SetForegroundColor(Color::White), content));
+
+        output.push_str(&format!("{}", ResetColor));
+
+        println!("{}", output);
+    }
+
+    /// Print a colored detail line with a label (non-CLI version)
+    #[cfg(not(feature = "cli"))]
+    fn print_colored_detail(&self, label: &str, content: &str) {
+        println!("   -> {}: {}", label, content);
     }
 
     fn print_line(&self, level: LogLevel, message: &str) {
@@ -241,3 +287,6 @@ impl LogLevel {
 pub mod format;
 pub mod layers;
 pub mod sinks;
+pub mod structured_error;
+
+pub use structured_error::StructuredError;

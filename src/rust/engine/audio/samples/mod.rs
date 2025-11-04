@@ -277,7 +277,7 @@ pub fn get_sample(uri: &str) -> Option<SampleData> {
     if let Some(data) = registry.get_sample(uri) {
         return Some(data);
     }
-    
+
     // Fallback: generate synthetic drum samples
     generate_synthetic_sample(uri)
 }
@@ -405,7 +405,10 @@ fn generate_synthetic_sample(uri: &str) -> Option<SampleData> {
         "cowbell" => (150, generate_cowbell(sample_rate, 150)),
         "cymbal" => (250, generate_cymbal(sample_rate, 250)),
         _ => {
-            eprintln!("[SAMPLES] Unknown drum type: {}, using kick fallback", drum_type);
+            eprintln!(
+                "[SAMPLES] Unknown drum type: {}, using kick fallback",
+                drum_type
+            );
             (500, generate_kick(sample_rate, 500))
         }
     };
@@ -417,7 +420,10 @@ fn generate_synthetic_sample(uri: &str) -> Option<SampleData> {
         samples.len()
     );
 
-    Some(SampleData { samples, sample_rate })
+    Some(SampleData {
+        samples,
+        sample_rate,
+    })
 }
 
 /// Generate a synthetic kick drum

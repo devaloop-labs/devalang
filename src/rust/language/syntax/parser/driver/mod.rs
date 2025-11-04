@@ -12,6 +12,52 @@ use anyhow::{Result, anyhow};
 pub use statements::*;
 use std::path::{Path, PathBuf};
 
+/// Find the closest keyword suggestion using Levenshtein distance
+/// Returns the suggestion if distance is <= 2 (typo-like)
+fn find_keyword_suggestion(input: &str, keywords: &[&str]) -> Option<String> {
+    // Calculate Levenshtein distance between two strings
+    fn levenshtein(s1: &str, s2: &str) -> usize {
+        let len1 = s1.len();
+        let len2 = s2.len();
+        let mut matrix = vec![vec![0; len2 + 1]; len1 + 1];
+
+        for i in 0..=len1 {
+            matrix[i][0] = i;
+        }
+        for j in 0..=len2 {
+            matrix[0][j] = j;
+        }
+
+        for (i, c1) in s1.chars().enumerate() {
+            for (j, c2) in s2.chars().enumerate() {
+                let cost = if c1 == c2 { 0 } else { 1 };
+                matrix[i + 1][j + 1] = std::cmp::min(
+                    std::cmp::min(
+                        matrix[i][j + 1] + 1, // deletion
+                        matrix[i + 1][j] + 1, // insertion
+                    ),
+                    matrix[i][j] + cost, // substitution
+                );
+            }
+        }
+        matrix[len1][len2]
+    }
+
+    let mut best = (usize::MAX, "");
+    for &keyword in keywords {
+        let distance = levenshtein(input, keyword);
+        if distance < best.0 && distance <= 2 {
+            best = (distance, keyword);
+        }
+    }
+
+    if best.0 <= 2 {
+        Some(best.1.to_string())
+    } else {
+        None
+    }
+}
+
 /// Entry point: parse source into a list of Statements
 pub fn parse(source: &str, path: PathBuf) -> Result<Vec<Statement>> {
     // Pre-process: merge ALL multiline statements with braces
@@ -146,9 +192,7 @@ fn parse_lines(
                 }
                 StatementKind::Routing { .. } => {
                     // Parse routing body statements
-                    statement.kind = StatementKind::Routing {
-                        body: body.clone(),
-                    };
+                    statement.kind = StatementKind::Routing { body: body.clone() };
                 }
                 StatementKind::Tempo {
                     value,
@@ -401,9 +445,9 @@ fn parse_line(line: &str, line_number: usize, path: &Path) -> Result<Statement> 
     // This ensures constructs like `let name = .bank.kick -> reverse(...)` are
     // parsed by `parse_let` rather than being mis-parsed as an ArrowCall.
     let reserved_keywords = [
-        "bpm", "tempo", "print", "sleep", "rest", "wait", "pattern", "bank", "let", "var", "const", "for", "loop",
-        "if", "else", "group", "automate", "call", "spawn", "on", "emit", "routing", "return",
-        "break",
+        "bpm", "tempo", "print", "sleep", "rest", "wait", "pattern", "bank", "let", "var", "const",
+        "for", "loop", "if", "else", "group", "automate", "call", "spawn", "on", "emit", "routing",
+        "return", "break",
     ];
     if line.contains("->") && !reserved_keywords.contains(&keyword.as_str()) {
         return statements::parse_arrow_call(line, line_number);
@@ -439,10 +483,53 @@ fn parse_line(line: &str, line_number: usize, path: &Path) -> Result<Statement> 
         "on" => parse_on(parts, line_number),
         "emit" => parse_emit(line, parts, line_number),
         "return" => statements::core::parse_return(line, line_number),
-        "routing" => crate::language::syntax::parser::driver::routing::parse_routing_command(
-            line_number,
-        ),
+        "routing" => {
+            crate::language::syntax::parser::driver::routing::parse_routing_command(line_number)
+        }
         _ => {
+            // Provide helpful suggestions for common typos FIRST
+            let suggestion = find_keyword_suggestion(&keyword, &reserved_keywords);
+
+            // If we found a suggestion, it's likely a typo, not a trigger call
+            if suggestion.is_some() {
+                let suggestion_str = suggestion.unwrap();
+                // Store message in a structured format: "MESSAGE|||FILE:LINE|||SUGGESTION"
+                // This allows the collector to parse it and build a StructuredError
+                let error_msg = format!(
+                    "Unknown statement '{}' at {}:{}|||{}|||{}",
+                    keyword,
+                    path.display(),
+                    line_number,
+                    path.display(),
+                    suggestion_str
+                );
+
+                // Push structured error to WASM registry if available
+                #[cfg(feature = "wasm")]
+                {
+                    use crate::web::registry::debug;
+                    if debug::is_debug_errors_enabled() {
+                        debug::push_parse_error_from_parts(
+                            format!(
+                                "Unknown statement '{}'. Did you mean '{}' ?",
+                                keyword, suggestion_str
+                            ),
+                            line_number,
+                            1,
+                            "UnknownStatement".to_string(),
+                        );
+                    }
+                }
+
+                return Ok(Statement::new(
+                    StatementKind::Unknown,
+                    Value::String(error_msg),
+                    0,
+                    line_number,
+                    1,
+                ));
+            }
+
             // Check if this looks like a potential trigger identifier (single word, no special chars except dots)
             // This handles cases like variable references: let kick = drums.kick; kick
             if keyword
@@ -453,11 +540,14 @@ fn parse_line(line: &str, line_number: usize, path: &Path) -> Result<Statement> 
                 return trigger::parse_trigger_line(line, line_number);
             }
 
+            // Generic error for truly unknown statements
+            // Format: "MESSAGE|||FILE:LINE|||NO_SUGGESTION"
             let error_msg = format!(
-                "Unknown statement '{}' at {}:{}",
+                "Unknown statement '{}' at {}:{}|||{}|||",
                 keyword,
                 path.display(),
-                line_number
+                line_number,
+                path.display()
             );
 
             // Push structured error to WASM registry if available
@@ -465,7 +555,6 @@ fn parse_line(line: &str, line_number: usize, path: &Path) -> Result<Statement> 
             {
                 use crate::web::registry::debug;
                 if debug::is_debug_errors_enabled() {
-                    // wasm registry expects: message, line, column, error_type
                     debug::push_parse_error_from_parts(
                         format!("Unknown statement '{}'", keyword),
                         line_number,

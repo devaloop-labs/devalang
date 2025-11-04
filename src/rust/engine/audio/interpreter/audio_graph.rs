@@ -1,5 +1,4 @@
 /// Audio Graph - Representation of routing and mixing graph
-
 use crate::language::syntax::ast::Value;
 use std::collections::HashMap;
 
@@ -48,7 +47,7 @@ pub struct AudioGraph {
 impl AudioGraph {
     pub fn new() -> Self {
         let mut nodes = HashMap::new();
-        
+
         // Create default master node
         nodes.insert(
             "$master".to_string(),
@@ -58,7 +57,7 @@ impl AudioGraph {
                 effects: None,
             },
         );
-        
+
         Self {
             nodes,
             connections: Vec::new(),
@@ -70,7 +69,11 @@ impl AudioGraph {
     pub fn add_node(&mut self, name: String, alias: Option<String>, effects: Option<Value>) {
         self.nodes.insert(
             name.clone(),
-            Node { name, alias, effects },
+            Node {
+                name,
+                alias,
+                effects,
+            },
         );
     }
 
@@ -80,7 +83,9 @@ impl AudioGraph {
     }
 
     /// Build the graph from routing configuration
-    pub fn from_routing_setup(routing_setup: &crate::engine::audio::interpreter::driver::RoutingSetup) -> Self {
+    pub fn from_routing_setup(
+        routing_setup: &crate::engine::audio::interpreter::driver::RoutingSetup,
+    ) -> Self {
         let mut graph = AudioGraph::new();
 
         // Add all nodes

@@ -20,6 +20,7 @@ All notable changes to Devalang will be documented in this file.
 
 ### 🛠️ Improvements
 
+- Improved error logging with structured error details including file location, error type, and suggestions.
 - Added `rest` and `wait` aliases for `sleep` statement for better readability in musical context.
 - Added `tempo` as an alias for `bpm` statement for better readability.
 
