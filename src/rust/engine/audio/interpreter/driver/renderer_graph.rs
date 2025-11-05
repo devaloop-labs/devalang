@@ -146,28 +146,32 @@ fn render_events_into_nodes(
                 }
             }
             AudioEvent::Sample {
-                uri,
-                start_time,
-                velocity,
+                uri: _uri,
+                start_time: _start_time,
+                velocity: _velocity,
                 ..
             } => {
                 // Load sample from bank (synthetic drums for CLI)
-                use crate::engine::audio::samples;
+                #[cfg(feature = "cli")]
+                {
+                    use crate::engine::audio::samples;
 
-                if let Some(sample_data) = samples::get_sample(uri) {
-                    let start_sample =
-                        (*start_time * interpreter.sample_rate as f32).ceil() as usize;
-                    let start_idx = start_sample * 2; // Convert to stereo sample index
-                    let end_idx = (start_idx + sample_data.samples.len()).min(total_samples * 2);
-                    let write_len = end_idx - start_idx;
+                    if let Some(sample_data) = samples::get_sample(_uri) {
+                        let start_sample =
+                            (*_start_time * interpreter.sample_rate as f32).ceil() as usize;
+                        let start_idx = start_sample * 2; // Convert to stereo sample index
+                        let end_idx =
+                            (start_idx + sample_data.samples.len()).min(total_samples * 2);
+                        let write_len = end_idx - start_idx;
 
-                    if start_idx < total_samples * 2 && write_len > 0 {
-                        // Scale sample with velocity
-                        let velocity_scale = velocity;
-                        target_buffer[start_idx..end_idx]
-                            .iter_mut()
-                            .zip(sample_data.samples[0..write_len].iter())
-                            .for_each(|(dst, src)| *dst += src * velocity_scale);
+                        if start_idx < total_samples * 2 && write_len > 0 {
+                            // Scale sample with velocity
+                            let velocity_scale = _velocity;
+                            target_buffer[start_idx..end_idx]
+                                .iter_mut()
+                                .zip(sample_data.samples[0..write_len].iter())
+                                .for_each(|(dst, src)| *dst += src * velocity_scale);
+                        }
                     }
                 }
             }

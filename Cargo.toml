@@ -1,6 +1,6 @@
 [package]
 name = "devalang"
-version = "0.1.6"
+version = "0.1.7"
 edition = "2024"
 description = "Write music with code. Devalang is a domain-specific language (DSL) for sound designers and music hackers. Compose, automate, and control sound — in plain text."
 repository = "https://github.com/devaloop-labs/devalang"

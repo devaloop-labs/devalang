@@ -4,14 +4,14 @@
 # You can create audio triggers using the dot notation.
 # This will directly play the sample
 #
-# Syntax:
-# `.<trigger_name> <optional_duration> -> <optional_effects>`
-#
 # Duration formats:
 # - Auto: auto (determined by sample length)
 # - Milliseconds: 500 or 500ms
 # - Beats: 1/4 (quarter note), 1/8 (eighth note)
 # - Temporal: 1 beat, 2 bar, 3 measure
+#
+# Syntax:
+# `.<trigger_name> <optional_duration> -> <optional_effects>`
 
 # Simple trigger without effects
 .myBank.kick

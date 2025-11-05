@@ -204,28 +204,6 @@ state => {
 }
 );
 
-function makeClosure(arg0, arg1, dtor, f) {
-    const state = { a: arg0, b: arg1, cnt: 1, dtor };
-    const real = (...args) => {
-
-        // First up with a closure we increment the internal reference
-        // count. This ensures that the Rust closure environment won't
-        // be deallocated while we're invoking it.
-        state.cnt++;
-        try {
-            return f(state.a, state.b, ...args);
-        } finally {
-            if (--state.cnt === 0) {
-                wasm.__wbindgen_export_5.get(state.dtor)(state.a, state.b); state.a = 0;
-                CLOSURE_DTORS.unregister(state);
-            }
-        }
-    };
-    real.original = state;
-    CLOSURE_DTORS.register(real, state, state);
-    return real;
-}
-
 function makeMutClosure(arg0, arg1, dtor, f) {
     const state = { a: arg0, b: arg1, cnt: 1, dtor };
     const real = (...args) => {
@@ -251,6 +229,141 @@ function makeMutClosure(arg0, arg1, dtor, f) {
     CLOSURE_DTORS.register(real, state, state);
     return real;
 }
+
+function makeClosure(arg0, arg1, dtor, f) {
+    const state = { a: arg0, b: arg1, cnt: 1, dtor };
+    const real = (...args) => {
+
+        // First up with a closure we increment the internal reference
+        // count. This ensures that the Rust closure environment won't
+        // be deallocated while we're invoking it.
+        state.cnt++;
+        try {
+            return f(state.a, state.b, ...args);
+        } finally {
+            if (--state.cnt === 0) {
+                wasm.__wbindgen_export_5.get(state.dtor)(state.a, state.b); state.a = 0;
+                CLOSURE_DTORS.unregister(state);
+            }
+        }
+    };
+    real.original = state;
+    CLOSURE_DTORS.register(real, state, state);
+    return real;
+}
+
+function takeFromExternrefTable0(idx) {
+    const value = wasm.__wbindgen_export_4.get(idx);
+    wasm.__externref_table_dealloc(idx);
+    return value;
+}
+/**
+ * Register a bank from a simple JSON manifest (for testing/manual registration)
+ *
+ * Manifest format:
+ * ```json
+ * {
+ *   "name": "devaloop.808",
+ *   "alias": "kit",
+ *   "version": "1.0.0",
+ *   "description": "808 drum bank",
+ *   "triggers": {
+ *     "kick": "http://example.com/kick.wav",
+ *     "snare": "http://example.com/snare.wav"
+ *   }
+ * }
+ * ```
+ *
+ * This only registers the bank metadata. Samples must be registered separately using register_sample().
+ * @param {string} manifest_json
+ */
+export function register_bank_json(manifest_json) {
+    const ptr0 = passStringToWasm0(manifest_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.register_bank_json(ptr0, len0);
+    if (ret[1]) {
+        throw takeFromExternrefTable0(ret[0]);
+    }
+}
+
+/**
+ * Load and register a complete bank from bank.toml hosted at base_url
+ *
+ * Steps:
+ * 1. Fetch base_url + "/bank.toml"
+ * 2. Parse triggers
+ * 3. For each trigger.path => fetch WAV file (relative to base_url)
+ * 4. Parse WAV directly in Rust (no Web Audio API needed)
+ * 5. Register samples with URI: devalang://bank/{publisher.name}/{path}
+ * 6. Call register_addon() with query string for triggers
+ *
+ * Returns: { ok, bank, base_url, triggers: [{ name, uri, relative, frames }] }
+ * @param {string} base_url
+ * @returns {Promise<any>}
+ */
+export function register_bank_from_manifest(base_url) {
+    const ptr0 = passStringToWasm0(base_url, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.register_bank_from_manifest(ptr0, len0);
+    return ret;
+}
+
+/**
+ * Load a bank from a URL (auto-detects bank.toml or bank.json)
+ *
+ * Tries in order:
+ * 1. Exact URL if it ends with .toml/.json
+ * 2. {base_url}/bank.toml
+ * 3. {base_url}/bank.json
+ *
+ * Example:
+ * - `load_bank_from_url("https://example.com/banks/devaloop/808")`
+ *   → tries "https://example.com/banks/devaloop/808/bank.toml" then "bank.json"
+ * - `load_bank_from_url("https://example.com/banks/kit.bank.json")`
+ *   → loads exactly that JSON file
+ * @param {string} url
+ * @returns {Promise<any>}
+ */
+export function load_bank_from_url(url) {
+    const ptr0 = passStringToWasm0(url, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.load_bank_from_url(ptr0, len0);
+    return ret;
+}
+
+/**
+ * Get metadata for code without full rendering (fast preview)
+ * @param {string} user_code
+ * @param {any} options
+ * @returns {any}
+ */
+export function get_render_metadata(user_code, options) {
+    const ptr0 = passStringToWasm0(user_code, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.get_render_metadata(ptr0, len0, options);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * Export audio with format options (WAV 16/24/32 bit, MP3)
+ * @param {string} user_code
+ * @param {any} options
+ * @param {Function | null} [on_progress]
+ * @returns {Uint8Array}
+ */
+export function export_audio(user_code, options, on_progress) {
+    const ptr0 = passStringToWasm0(user_code, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.export_audio(ptr0, len0, options, isLikeNone(on_progress) ? 0 : addToExternrefTable0(on_progress));
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
 /**
  * Enable hot reload mode with callback
  * @param {Function} callback
@@ -288,11 +401,6 @@ export function register_playhead_callback(callback) {
     return ret;
 }
 
-function takeFromExternrefTable0(idx) {
-    const value = wasm.__wbindgen_export_4.get(idx);
-    wasm.__externref_table_dealloc(idx);
-    return value;
-}
 /**
  * Collect all playhead events that have been generated
  *
@@ -543,113 +651,6 @@ export function export_midi_file(user_code, options, on_progress) {
 }
 
 /**
- * Get metadata for code without full rendering (fast preview)
- * @param {string} user_code
- * @param {any} options
- * @returns {any}
- */
-export function get_render_metadata(user_code, options) {
-    const ptr0 = passStringToWasm0(user_code, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.get_render_metadata(ptr0, len0, options);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * Export audio with format options (WAV 16/24/32 bit, MP3)
- * @param {string} user_code
- * @param {any} options
- * @param {Function | null} [on_progress]
- * @returns {Uint8Array}
- */
-export function export_audio(user_code, options, on_progress) {
-    const ptr0 = passStringToWasm0(user_code, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.export_audio(ptr0, len0, options, isLikeNone(on_progress) ? 0 : addToExternrefTable0(on_progress));
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * Register a bank from a simple JSON manifest (for testing/manual registration)
- *
- * Manifest format:
- * ```json
- * {
- *   "name": "devaloop.808",
- *   "alias": "kit",
- *   "version": "1.0.0",
- *   "description": "808 drum bank",
- *   "triggers": {
- *     "kick": "http://example.com/kick.wav",
- *     "snare": "http://example.com/snare.wav"
- *   }
- * }
- * ```
- *
- * This only registers the bank metadata. Samples must be registered separately using register_sample().
- * @param {string} manifest_json
- */
-export function register_bank_json(manifest_json) {
-    const ptr0 = passStringToWasm0(manifest_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.register_bank_json(ptr0, len0);
-    if (ret[1]) {
-        throw takeFromExternrefTable0(ret[0]);
-    }
-}
-
-/**
- * Load and register a complete bank from bank.toml hosted at base_url
- *
- * Steps:
- * 1. Fetch base_url + "/bank.toml"
- * 2. Parse triggers
- * 3. For each trigger.path => fetch WAV file (relative to base_url)
- * 4. Parse WAV directly in Rust (no Web Audio API needed)
- * 5. Register samples with URI: devalang://bank/{publisher.name}/{path}
- * 6. Call register_addon() with query string for triggers
- *
- * Returns: { ok, bank, base_url, triggers: [{ name, uri, relative, frames }] }
- * @param {string} base_url
- * @returns {Promise<any>}
- */
-export function register_bank_from_manifest(base_url) {
-    const ptr0 = passStringToWasm0(base_url, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.register_bank_from_manifest(ptr0, len0);
-    return ret;
-}
-
-/**
- * Load a bank from a URL (auto-detects bank.toml or bank.json)
- *
- * Tries in order:
- * 1. Exact URL if it ends with .toml/.json
- * 2. {base_url}/bank.toml
- * 3. {base_url}/bank.json
- *
- * Example:
- * - `load_bank_from_url("https://example.com/banks/devaloop/808")`
- *   → tries "https://example.com/banks/devaloop/808/bank.toml" then "bank.json"
- * - `load_bank_from_url("https://example.com/banks/kit.bank.json")`
- *   → loads exactly that JSON file
- * @param {string} url
- * @returns {Promise<any>}
- */
-export function load_bank_from_url(url) {
-    const ptr0 = passStringToWasm0(url, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.load_bank_from_url(ptr0, len0);
-    return ret;
-}
-
-/**
  * Parse Devalang source code
  *
  * # Arguments
@@ -686,16 +687,16 @@ export function check_syntax(source) {
     return ret !== 0;
 }
 
-function __wbg_adapter_8(arg0, arg1) {
-    wasm.wasm_bindgen__convert__closures_____invoke__hcb959311f1badae4(arg0, arg1);
+function __wbg_adapter_6(arg0, arg1, arg2) {
+    wasm.closure590_externref_shim(arg0, arg1, arg2);
 }
 
-function __wbg_adapter_11(arg0, arg1, arg2) {
-    wasm.closure584_externref_shim(arg0, arg1, arg2);
+function __wbg_adapter_17(arg0, arg1) {
+    wasm.wasm_bindgen__convert__closures_____invoke__h65e60b84a6cb1bad(arg0, arg1);
 }
 
 function __wbg_adapter_118(arg0, arg1, arg2, arg3) {
-    wasm.closure641_externref_shim(arg0, arg1, arg2, arg3);
+    wasm.closure647_externref_shim(arg0, arg1, arg2, arg3);
 }
 
 const EXPECTED_RESPONSE_TYPES = new Set(['basic', 'cors', 'default']);
@@ -1052,14 +1053,14 @@ function __wbg_get_imports() {
     imports.wbg.__wbg_wbindgenthrow_451ec1a8469d7eb6 = function(arg0, arg1) {
         throw new Error(getStringFromWasm0(arg0, arg1));
     };
-    imports.wbg.__wbindgen_cast_191d526e88204ab9 = function(arg0, arg1) {
-        // Cast intrinsic for `Closure(Closure { dtor_idx: 228, function: Function { arguments: [], shim_idx: 229, ret: Unit, inner_ret: Some(Unit) }, mutable: false }) -> Externref`.
-        const ret = makeClosure(arg0, arg1, 228, __wbg_adapter_8);
-        return ret;
-    };
     imports.wbg.__wbindgen_cast_2241b6af4c4b2941 = function(arg0, arg1) {
         // Cast intrinsic for `Ref(String) -> Externref`.
         const ret = getStringFromWasm0(arg0, arg1);
+        return ret;
+    };
+    imports.wbg.__wbindgen_cast_3c27a28208c5f586 = function(arg0, arg1) {
+        // Cast intrinsic for `Closure(Closure { dtor_idx: 589, function: Function { arguments: [Externref], shim_idx: 590, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+        const ret = makeMutClosure(arg0, arg1, 589, __wbg_adapter_6);
         return ret;
     };
     imports.wbg.__wbindgen_cast_4625c577ab2ec9ee = function(arg0) {
@@ -1067,9 +1068,9 @@ function __wbg_get_imports() {
         const ret = BigInt.asUintN(64, arg0);
         return ret;
     };
-    imports.wbg.__wbindgen_cast_6b143c64205a1304 = function(arg0, arg1) {
-        // Cast intrinsic for `Closure(Closure { dtor_idx: 583, function: Function { arguments: [Externref], shim_idx: 584, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
-        const ret = makeMutClosure(arg0, arg1, 583, __wbg_adapter_11);
+    imports.wbg.__wbindgen_cast_95202bdc3ca48719 = function(arg0, arg1) {
+        // Cast intrinsic for `Closure(Closure { dtor_idx: 422, function: Function { arguments: [], shim_idx: 423, ret: Unit, inner_ret: Some(Unit) }, mutable: false }) -> Externref`.
+        const ret = makeClosure(arg0, arg1, 422, __wbg_adapter_17);
         return ret;
     };
     imports.wbg.__wbindgen_cast_cb9088102bce6b30 = function(arg0, arg1) {

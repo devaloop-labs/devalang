@@ -460,7 +460,7 @@ pub fn render_audio(interpreter: &AudioInterpreter) -> Result<Vec<f32>> {
                 uri,
                 start_time,
                 velocity,
-                effects,
+                effects: _effects,
             } => {
                 sample_count += 1;
                 // Log sample rendering only if needed (debug mode)
@@ -506,7 +506,7 @@ pub fn render_audio(interpreter: &AudioInterpreter) -> Result<Vec<f32>> {
 
                         // Build and apply effect chain for sample events (trigger context)
                         let mut sample_chain: Option<EffectChain> = None;
-                        if let Some(eff_val) = effects {
+                        if let Some(eff_val) = _effects {
                             match eff_val {
                                 crate::language::syntax::ast::Value::Array(arr) => {
                                     let chain = build_effect_chain(arr, false);

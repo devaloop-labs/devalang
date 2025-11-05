@@ -9,5 +9,6 @@
 
 const greeting = "Hello, World !"
 const melody = [C4, E4, G4, C5]
+
 let counter = 0
 let isActive = true

@@ -123,6 +123,14 @@ impl InitCommand {
   }},
   "live": {{
     "crossfade_ms": 50
+  }},
+  "rules": {{
+    "explicit_durations": "warning",
+    "deprecated_syntax": "warning",
+    "var_keyword": "error",
+    "missing_duration": "info",
+    "implicit_type_conversion": "info",
+    "unused_variables": "warning"
   }}
 }}
 "#,
@@ -220,14 +228,8 @@ let kickVol = 1.0
 let snareVol = 0.8
 
 # Create a filtered synth
-let bass = synth sine {
-    filters: [
-        {
-            type: "lowpass",
-            cutoff: 800.0
-        }
-    ]
-}
+let bass = synth sine
+        -> type("bass")
 
 # Define drum patterns
 pattern kickPattern with drums.kick = "x--- x--- x--- x---"

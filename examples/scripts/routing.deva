@@ -3,6 +3,9 @@
 # =================
 # You can route your group of sounds to a specific channel to apply global effects
 # This allows you to create complex audio routing with effects, ducking, and sidechaining.
+#
+# Syntax:
+# `routing:`
 
 # Define our imported bank
 bank devaloop.808 as my808
@@ -61,7 +64,7 @@ routing:
 
 # Spawn the kick to hear the routing in action at each beat
 on beat:
-    spawn myKickGroup
+    layer myKickGroup
 
 # Spawn lead group to hear ducking/sidechaining effect
-spawn myLeadGroup
+layer myLeadGroup

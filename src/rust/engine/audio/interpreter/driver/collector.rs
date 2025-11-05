@@ -27,7 +27,6 @@ macro_rules! log_info {
     };
 }
 
-#[allow(unused_macros)]
 #[cfg(feature = "cli")]
 macro_rules! log_warn {
     ($logger:expr, $($arg:tt)*) => {
@@ -43,7 +42,6 @@ macro_rules! log_warn {
     };
 }
 
-#[allow(unused_macros)]
 #[cfg(feature = "cli")]
 macro_rules! log_error {
     ($logger:expr, $($arg:tt)*) => {
@@ -59,6 +57,7 @@ macro_rules! log_error {
     };
 }
 
+#[allow(unused_macros)]
 #[cfg(feature = "cli")]
 macro_rules! log_structured_error {
     ($logger:expr, $error:expr) => {
@@ -66,6 +65,7 @@ macro_rules! log_structured_error {
     };
 }
 
+#[allow(unused_macros)]
 #[cfg(not(feature = "cli"))]
 macro_rules! log_structured_error {
     ($_logger:expr, $_error:expr) => {};
@@ -767,22 +767,31 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
                     });
 
                     // Create structured error with details
-                    let mut structured_err = crate::tools::logger::StructuredError::new(&main_msg)
-                        .with_location(stmt.line, stmt.column)
-                        .with_type("UnknownStatement");
+                    #[cfg(feature = "cli")]
+                    {
+                        let mut structured_err =
+                            crate::tools::logger::StructuredError::new(&main_msg)
+                                .with_location(stmt.line, stmt.column)
+                                .with_type("UnknownStatement");
 
-                    // Add file location if available
-                    if let Some(file_loc) = file_location {
-                        structured_err = structured_err.with_file(file_loc);
+                        // Add file location if available
+                        if let Some(file_loc) = file_location {
+                            structured_err = structured_err.with_file(file_loc);
+                        }
+
+                        // Add suggestion if available
+                        if let Some(suggest) = suggestion_text {
+                            structured_err = structured_err.with_suggestion(suggest);
+                        }
+
+                        // Log the structured error
+                        log_structured_error!(logger, structured_err);
                     }
 
-                    // Add suggestion if available
-                    if let Some(suggest) = suggestion_text {
-                        structured_err = structured_err.with_suggestion(suggest);
+                    #[cfg(not(feature = "cli"))]
+                    {
+                        let _ = (&main_msg, file_location, suggestion_text);
                     }
-
-                    // Log the structured error
-                    log_structured_error!(logger, structured_err);
 
                     // Optionally push to WASM error registry
                     #[cfg(feature = "wasm")]

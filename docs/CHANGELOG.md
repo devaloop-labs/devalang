@@ -32,6 +32,7 @@ All notable changes to Devalang will be documented in this file.
 
 ### 🛠️ Improvements
 
+- Improved `on` events to support duration types and frequencies (e.g. `on every beat:`, `on once per bar:`).
 - Improved error logging with structured error details including file location, error type, and suggestions.
 - Improved loop range handling for using without explicit array (e.g. `for i in 1..5:` to loop 5 times).
 - Aliased `call` by `sequence` and `spawn` by `layer` for better readability.
@@ -83,7 +84,6 @@ All notable changes to Devalang will be documented in this file.
 - Improved `loop` statement to support infinite loops when no number is provided (e.g. `loop:`).
 - Improved `on` events to support `bar(<int>)`, `beat(<int>)` for more precise timing.
 - Refactored example scripts to use new features and best practices.
-- Added a demo track 'hello-sound' to showcase an entire track made with Devalang.
 - Synths and triggers now supports chained params. See [effect examples](../examples/scripts/effect.deva) for more details.
 - Triggers can now be stored in variables. (e.g. `let myTrigger = .myBank.kick -> velocity(100) -> duration(500)`).
 - Properties of objects can now be **accessed** and **modified** using dot notation. (e.g. `mySynth.volume`, `myTrigger.reverse`).

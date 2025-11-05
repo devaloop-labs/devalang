@@ -149,25 +149,25 @@ Create a file `hello.deva` or `index.deva` (if you do not specify `--input` argu
 - Devalang is **case-sensitive**, so be consistent with capitalization.
 - Devalang reads files from **top to bottom**, so order matters.
 - Devalang files typically starts with :
-  1. Module system (`@load`, `@import`, `@use`)
+  1. Module system (`load`, `import`, `use`)
   2. Global settings (`bpm`, `bank`)
   3. Definitions (`const/let/var`, `synth`, `pattern`, `group`)
   4. Algorithmic logic (`if`, `loop`, `for`)
   5. Musical logic / Execution (trigger calls, automations, `call`, `spawn`, `sleep`)
-  6. Optional exports (`@export`)
+  6. Optional exports (`export`)
 - Devalang files can include comments using `#` or `//` for single-line comments.
 - You can name your files anything, but `index.deva` is a common convention for the main entry file.
-- You can organize your project with subfolders as needed. (use module system like `@import { var } from '<module_file_path>.deva'` and `@export { var }`).
+- You can organize your project with subfolders as needed. (use module system like `import { var } from '<module_file_path>.deva'` and `export { var }`).
 
 Refer to the [documentation](https://docs.devalang.com) for a complete syntax reference.
 
 ```deva
 # Import some variables from other modules
-@import { myTempo } from "./shared/variables.deva" 
+import { myTempo } from "./shared/variables.deva" 
 
 # Load an external sample and a MIDI file
-@load "./samples/my-sample.wav" as mySample
-@load "./midi/my-midi-file.mid" as myMidiFile
+load "./samples/my-sample.wav" as mySample
+load "./midi/my-midi-file.mid" as myMidiFile
 
 # Set the tempo with the imported variable
 bpm myTempo
@@ -206,11 +206,11 @@ group myMelody:
             })
           -> reverb({ size: 0.3 })    # Small reverb effect
 
-# Play the melody (in parallel)
-spawn myMelody
+# Play the kick pattern (in parallel) (non-blocking)
+layer kickPattern
 
-# Play the kick pattern (in parallel too)
-spawn kickPattern
+# Play the melody (in sequential) (blocking)
+sequence myMelody
 
 # Bind and play the loaded MIDI pattern with 'mySynth' synth
 bind myMidiFile -> mySynth
@@ -243,7 +243,7 @@ let myAwesomeSample = .mySample
 .myAwesomeSample 1/8                    # Play the sample for 1/8 beats
 
 # Play the sample in conditional loop
-for i in [0..3]:
+for i in 0..3:
     if i == 2:
         .myAwesomeSample 1/4            # Play for 1/4 beats on iteration 2
     else:
@@ -255,12 +255,12 @@ loop 10:
 
 # Play the sample in an (infinite) passthrough loop (non-blocking)
 # This will continue playing in the background and let the script continue
-# You can also specify a passthrough max duration using "loop pass(500):" (in ms)
+# You can also specify a duration using "loop pass(<duration>):"
 loop pass:
     .myAwesomeSample auto
 
 # Export the melody
-@export { myMelody }
+export { myMelody }
 ```
 
 ### ⚙️ (optional) Configure project settings
@@ -290,6 +290,14 @@ This typically evitate to re-type common arguments like `--path`, `--formats`, e
   },
   "live": {
     "crossfade_ms": 50                  // Change this to adjust crossfade duration when playing live
+  },
+  "rules": {
+    "explicit_durations": "warning",
+    "deprecated_syntax": "warning",
+    "var_keyword": "error",             // Change this to "warning", "info" or "off" to relax the rule
+    "missing_duration": "info",
+    "implicit_type_conversion": "info",
+    "unused_variables": "warning"
   }
 }
 

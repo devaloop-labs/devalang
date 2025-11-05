@@ -2,7 +2,7 @@
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
      xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
   
-  <?define ProductVersion="0.1.6" ?>
+  <?define ProductVersion="0.1.7" ?>
   <?define ProductName="Devalang" ?>
   <?define Manufacturer="Devaloop Labs" ?>
   <?define UpgradeCode="{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}" ?>

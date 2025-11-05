@@ -4,7 +4,7 @@
     "Labscend Studios <hello@labscend.studio>"
   ],
   "description": "Write music with code. Devalang is a domain-specific language (DSL) for sound designers and music hackers. Compose, automate, and control sound — in plain text.",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "license": "MIT",
   "repository": {
     "type": "git",
