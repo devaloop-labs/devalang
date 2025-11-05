@@ -206,11 +206,11 @@ group myMelody:
             })
           -> reverb({ size: 0.3 })    # Small reverb effect
 
-# Play the melody (in parallel)
-layer myMelody
-
-# Play the kick pattern (in parallel too)
+# Play the kick pattern (in parallel) (non-blocking)
 layer kickPattern
+
+# Play the melody (in sequential) (blocking)
+sequence myMelody
 
 # Bind and play the loaded MIDI pattern with 'mySynth' synth
 bind myMidiFile -> mySynth
