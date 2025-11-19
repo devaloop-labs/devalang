@@ -6,6 +6,49 @@
 
 All notable changes to Devalang will be documented in this file.
 
+## Version 0.1.8 - 2025-11-19
+
+### 🚀 What's New
+
+- Implemented `stop`, `mute` and `silence` (aliases) to immediately stop audio playback of specified entities or all if no entity is specified. This statement supports scoping when inside blocks.
+  - Syntax: `<stop | mute | silence> <entity> after <duration>` or `<stop | mute | silence> all after <duration>`.
+- Implemented `fade` statement to automate parameter fading during a specified duration.
+  - Syntax: `fade <in | out> <entity>.<property> during <duration>`
+- Implemented `section` block to organize code into named sections with specified duration.
+  - Syntax: `section <name> during <opt_duration>:`
+- Implemented `timeline` statement to define linear playback order of sections. This simplifies complex event scheduling by allowing you to list `sections` to be played in defined order (auto sequential calling) but **blocks the flow until section completion**.
+  - Syntax: `timeline [<section_name> during <opt_duration>, ...]`
+- Implemented `schedule` block for time-based execution control. Unlike `timeline` which defines the order of sections, `schedule` allows executing any statement at specific times. Unlike `timeline`, `schedule` **does not block the flow**.
+- Syntax example:
+  ```deva
+  schedule:
+      at 0 bars:
+          ...
+      at 2 bars and during 4 bars:
+          ...
+      ...
+  ```
+- Implemented `&&` (aliased `and`), `||` (aliased `or`), and `!` (aliased `not`) logical operators for conditions in conditions statements.
+- Implemented `while` loop statement block for repeated execution based on a condition.
+  - Syntax: `while <condition>:`
+- Added `swing(<float>)` parameter to apply swing effect to synths and patterns.
+- Added `humanize({ amount: <float> })` parameter to apply humanization effect to synths and patterns.
+- Added `fade({ from: <float>, to: <float>, duration: <duration>})` parameter to apply fade effect to synths and patterns.
+- Added `step` duration unit to specify step duration in musical time (e.g. `sleep 1/16 step` for a sixteenth note).
+
+### 🛠️ Improvements
+
+- Improved `group` statement to accept optional duration parameter. (similar to `section` but locally, and cannot be called from `timeline` (use `section` instead)).
+  - Syntax: `group <name> during <duration>:`
+- Improved `on` events to support values inside `beat(<int>)` and `bar(<int>)` for more precise timing.
+- Improved `loop` statement to support other durations units for max timeout (e.g. `loop pass(4 bars):`).
+- Improved `routing` system to auto-route audio nodes and patterns to `$master` if not explicitly defined in routing.
+
+### 🐛 Bug Fixes
+
+- Fixed `play` command not respecting `--input` flag (wrong module called).
+- Fixed `routing` ducking not applying reduction correctly.
+
 ## Version 0.1.7 - 2025-11-05
 
 ### 🚀 What's New

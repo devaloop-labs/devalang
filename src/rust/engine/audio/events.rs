@@ -62,6 +62,12 @@ pub enum AudioEvent {
         velocity: f32,
         // Effects to apply to this sample (trigger effects)
         effects: Option<crate::language::syntax::ast::Value>,
+        // Source identifier (pattern name) for routing purposes
+        source: Option<String>,
+    },
+    Stop {
+        target: Option<String>, // None = stop all, Some = stop specific entity
+        time: f32,              // Time when to stop
     },
 }
 
@@ -226,6 +232,7 @@ impl AudioEventList {
             start_time,
             velocity,
             effects: None,
+            source: None,
         });
     }
 
@@ -242,6 +249,7 @@ impl AudioEventList {
             start_time,
             velocity,
             effects,
+            source: None,
         });
     }
 
@@ -256,7 +264,15 @@ impl AudioEventList {
     }
 
     pub fn total_duration(&self) -> f32 {
-        self.events
+        // Find the earliest stop time (if any)
+        let stop_time = self.events.iter().find_map(|event| match event {
+            AudioEvent::Stop { target: None, time } => Some(*time), // Only consider "stop all"
+            _ => None,
+        });
+
+        // Calculate total duration from all events
+        let max_duration = self
+            .events
             .iter()
             .map(|event| match event {
                 AudioEvent::Note {
@@ -291,9 +307,20 @@ impl AudioEventList {
                         let _ = uri; // Silence unused warning on non-WASM targets
                         start_time + 2.0
                     }
-                } // Log events are not considered in audio total duration
+                }
+                AudioEvent::Stop { target: None, time } => *time, // Include stop all times
+                AudioEvent::Stop {
+                    target: Some(_), ..
+                } => 0.0, // Ignore stop specific
             })
-            .fold(0.0, f32::max)
+            .fold(0.0, f32::max);
+
+        // If there's a stop all event, limit duration to it
+        if let Some(stop_t) = stop_time {
+            max_duration.min(stop_t)
+        } else {
+            max_duration
+        }
     }
 
     /// Merge another AudioEventList into this one

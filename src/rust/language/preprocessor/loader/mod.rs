@@ -52,7 +52,11 @@ pub fn load_module_exports(path: &Path) -> Result<ModuleExports> {
                     }
                 }
             }
-            StatementKind::Group { name, body } => {
+            StatementKind::Group {
+                name,
+                body,
+                duration: _,
+            } => {
                 if exports.contains(name) {
                     groups.insert(name.clone(), body.clone());
                 }

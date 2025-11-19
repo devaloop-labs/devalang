@@ -102,7 +102,8 @@ pub fn parse_pattern(
     ))
 }
 
-/// Parse group statement
+/// Parse group statement: group <name>: or group <name> during <duration>:
+/// Example: group verse: or group verse during 16 bars:
 pub fn parse_group(
     mut parts: impl Iterator<Item = impl AsRef<str>>,
     line_number: usize,
@@ -114,10 +115,27 @@ pub fn parse_group(
         .trim_end_matches(':')
         .to_string();
 
+    // Check for "during" keyword for optional duration
+    let next = parts.next();
+    let duration = if next.as_ref().map(|w| w.as_ref()) == Some("during") {
+        // Parse duration (everything after 'during')
+        let duration_str = parts
+            .map(|p| p.as_ref().to_string())
+            .collect::<Vec<_>>()
+            .join(" ")
+            .trim_end_matches(':')
+            .to_string();
+
+        Some(super::super::duration::parse_duration_token(&duration_str)?)
+    } else {
+        None
+    };
+
     Ok(Statement::new(
         StatementKind::Group {
             name: name.clone(),
             body: Vec::new(),
+            duration,
         },
         Value::Identifier(name),
         0,
@@ -165,42 +183,69 @@ pub fn parse_automate(
 
 /// Parse loop statement
 pub fn parse_loop(
-    mut parts: impl Iterator<Item = impl AsRef<str>>,
+    parts: impl Iterator<Item = impl AsRef<str>>,
     line_number: usize,
 ) -> Result<Statement> {
     // Parse: loop <count>:  OR plain `loop:` (no count)
     // If no count is provided we store Value::Null to indicate an unbounded loop
-    let count_opt = parts.next();
+    // Special case: loop pass(<duration>): - pass with explicit duration
 
-    let count = if let Some(count_str_ref) = count_opt {
-        let count_str = count_str_ref.as_ref().trim_end_matches(':');
+    // First, collect all parts and rejoin them to handle durations with spaces
+    let all_parts: Vec<String> = parts.map(|p| p.as_ref().to_string()).collect();
+
+    let count = if all_parts.is_empty() {
+        // No explicit count -> mark as Null (infinite/indefinite)
+        Value::Null
+    } else {
+        // Join all remaining parts to handle things like "pass(1 bar)"
+        let count_str = all_parts.join(" ").trim_end_matches(':').to_string();
+
         // Support forms:
         // - loop pass:
         // - loop pass():
         // - loop pass(500):
+        // - loop pass(1 bar):
+        // - loop pass(2.5 bars):
         // - loop 4:
         if let Ok(num) = count_str.parse::<f32>() {
             Value::Number(num)
         } else if count_str.contains('(') && count_str.ends_with(')') {
-            // Parse as a call-like value (e.g., pass(500))
+            // Parse as a call-like value (e.g., pass(500) or pass(1 bar))
             if let Some(open_idx) = count_str.find('(') {
                 let name = count_str[..open_idx].to_string();
                 let inside = &count_str[open_idx + 1..count_str.len() - 1];
-                let args = if inside.trim().is_empty() {
-                    Vec::new()
+
+                // Special case: if it's "pass" with a duration argument, parse as duration
+                if name == "pass" && !inside.trim().is_empty() {
+                    // Try to parse as duration first
+                    if let Ok(duration) =
+                        crate::language::syntax::parser::driver::parse_duration_token(inside.trim())
+                    {
+                        Value::Duration(duration)
+                    } else {
+                        // Fall back to call parsing
+                        let args = if inside.trim().is_empty() {
+                            Vec::new()
+                        } else {
+                            crate::language::syntax::parser::driver::parse_function_args(inside)?
+                        };
+                        Value::Call { name, args }
+                    }
                 } else {
-                    crate::language::syntax::parser::driver::parse_function_args(inside)?
-                };
-                Value::Call { name, args }
+                    // Regular call parsing
+                    let args = if inside.trim().is_empty() {
+                        Vec::new()
+                    } else {
+                        crate::language::syntax::parser::driver::parse_function_args(inside)?
+                    };
+                    Value::Call { name, args }
+                }
             } else {
                 Value::Identifier(count_str.to_string())
             }
         } else {
-            Value::Identifier(count_str.to_string())
+            Value::Identifier(count_str)
         }
-    } else {
-        // No explicit count -> mark as Null (infinite/indefinite)
-        Value::Null
     };
 
     Ok(Statement::new(
@@ -325,6 +370,34 @@ pub fn parse_if(
             condition,
             body: Vec::new(), // Will be filled during indentation parsing
             else_body: None,
+        },
+        Value::Null,
+        0,
+        line_number,
+        1,
+    ))
+}
+
+/// Parse while statement
+/// Syntax: while <condition>:
+pub fn parse_while(
+    parts: impl Iterator<Item = impl AsRef<str>>,
+    line_number: usize,
+) -> Result<Statement> {
+    // Parse: while <condition>:
+    let condition_str = parts
+        .map(|s| s.as_ref().to_string())
+        .collect::<Vec<_>>()
+        .join(" ");
+    let condition_str = condition_str.trim_end_matches(':').trim();
+
+    // Parse condition
+    let condition = parse_condition(condition_str)?;
+
+    Ok(Statement::new(
+        StatementKind::While {
+            condition,
+            body: Vec::new(), // Will be filled during indentation parsing
         },
         Value::Null,
         0,

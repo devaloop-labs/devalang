@@ -53,6 +53,12 @@ impl AudioInterpreter {
                         if (after_cursor - before_cursor).abs() < f32::EPSILON {
                             self.cursor_time += interval_secs;
                         }
+                        // Check schedule deadline (from "at X and during Y:")
+                        if let Some(deadline) = self.schedule_deadline {
+                            if self.cursor_time >= deadline {
+                                break;
+                            }
+                        }
                         if self.cursor_time - start >= render_target {
                             break;
                         }
@@ -94,6 +100,51 @@ impl AudioInterpreter {
                     if (after_cursor - before_cursor).abs() < f32::EPSILON {
                         self.cursor_time += interval_secs;
                     }
+                    // Check schedule deadline (from "at X and during Y:")
+                    if let Some(deadline) = self.schedule_deadline {
+                        if self.cursor_time >= deadline {
+                            break;
+                        }
+                    }
+                    if self.cursor_time - start >= render_target {
+                        break;
+                    }
+                    if iter_count > hard_iter_cap {
+                        break;
+                    }
+                }
+                Ok(())
+            }
+            Value::Duration(duration) => {
+                // loop pass(duration): - interval based on DurationValue
+                let interval_secs = self.duration_to_seconds(duration)?;
+                let mut iter_count: usize = 0;
+                let hard_iter_cap: usize = 100_000;
+                let start = self.cursor_time;
+                let render_target = self.special_vars.total_duration.max(1.0);
+                loop {
+                    let before_cursor = self.cursor_time;
+                    let prev = self.suppress_beat_emit;
+                    self.suppress_beat_emit = true;
+                    let res = self.collect_events(body);
+                    self.suppress_beat_emit = prev;
+                    res?;
+                    // Break signalled inside loop body -> exit pass loop
+                    if self.break_flag {
+                        self.break_flag = false;
+                        break;
+                    }
+                    iter_count = iter_count.saturating_add(1);
+                    let after_cursor = self.cursor_time;
+                    if (after_cursor - before_cursor).abs() < f32::EPSILON {
+                        self.cursor_time += interval_secs;
+                    }
+                    // Check schedule deadline (from "at X and during Y:")
+                    if let Some(deadline) = self.schedule_deadline {
+                        if self.cursor_time >= deadline {
+                            break;
+                        }
+                    }
                     if self.cursor_time - start >= render_target {
                         break;
                     }
@@ -121,6 +172,12 @@ impl AudioInterpreter {
                     }
                     if (self.cursor_time - before_cursor).abs() < f32::EPSILON {
                         break;
+                    }
+                    // Check schedule deadline (from "at X and during Y:")
+                    if let Some(deadline) = self.schedule_deadline {
+                        if self.cursor_time >= deadline {
+                            break;
+                        }
                     }
                     if self.cursor_time - start_time >= time_limit {
                         break;

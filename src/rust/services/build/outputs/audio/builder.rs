@@ -126,14 +126,39 @@ impl AudioBuilder {
 
         let output_root = output_root.as_ref();
         let audio_dir = output_root.join("audio");
-        std::fs::create_dir_all(&audio_dir).with_context(|| {
+
+        // module_name may be a relative path like "demos/hello-sound/index"
+        // Split it into directory part and file part
+        let module_path = Path::new(module_name);
+        let (output_subdir, file_name) = if let Some(parent) = module_path.parent() {
+            let parent_str = parent.to_string_lossy();
+            if parent_str.is_empty() || parent_str == "." {
+                (String::new(), module_name.to_string())
+            } else {
+                let file_name = module_path
+                    .file_name()
+                    .map(|s| s.to_string_lossy().to_string())
+                    .unwrap_or_else(|| module_name.to_string());
+                (parent_str.to_string(), file_name)
+            }
+        } else {
+            (String::new(), module_name.to_string())
+        };
+
+        let full_audio_dir = if output_subdir.is_empty() {
+            audio_dir.clone()
+        } else {
+            audio_dir.join(&output_subdir)
+        };
+
+        std::fs::create_dir_all(&full_audio_dir).with_context(|| {
             format!(
                 "failed to create audio output directory: {}",
-                audio_dir.display()
+                full_audio_dir.display()
             )
         })?;
 
-        let output_path = audio_dir.join(format!("{}.wav", module_name));
+        let output_path = full_audio_dir.join(format!("{}.wav", file_name));
 
         let mut rms = 0.0f32;
         let audio_length = if buffer.is_empty() {
@@ -153,44 +178,44 @@ impl AudioBuilder {
             }
         };
 
-        if !buffer.is_empty() {
-            let applied = write_wav(
+        let applied = if !buffer.is_empty() {
+            write_wav(
                 &output_path,
                 &buffer,
                 sample_rate,
                 requested_bit_depth,
                 channels,
-            )?;
+            )?
+        } else {
+            // Even if buffer is empty, create an empty WAV file
+            write_wav(
+                &output_path,
+                &[],
+                sample_rate,
+                requested_bit_depth,
+                channels,
+            )?
+        };
 
-            // Write scheduled print events sidecar for live playback to consume.
-            let log_path = output_path.with_file_name(format!("{}.printlog", module_name));
-            if !interpreter.events.logs.is_empty() {
-                if let Ok(mut f) = std::fs::File::create(&log_path) {
-                    use std::io::Write;
-                    for (t, msg) in &interpreter.events.logs {
-                        // time in seconds (float) TAB message NEWLINE
-                        let _ = writeln!(f, "{:.6}\t{}", t, msg);
-                    }
+        // Write scheduled print events sidecar for live playback to consume.
+        let log_path = output_path.with_file_name(format!("{}.printlog", file_name));
+        if !interpreter.events.logs.is_empty() {
+            if let Ok(mut f) = std::fs::File::create(&log_path) {
+                use std::io::Write;
+                for (t, msg) in &interpreter.events.logs {
+                    // time in seconds (float) TAB message NEWLINE
+                    let _ = writeln!(f, "{:.6}\t{}", t, msg);
                 }
             }
-
-            Ok(AudioRenderSummary {
-                path: output_path,
-                format: requested_format,
-                bit_depth: applied,
-                rms,
-                render_time: Duration::from_secs(0),
-                audio_length,
-            })
-        } else {
-            Ok(AudioRenderSummary {
-                path: output_path,
-                format: requested_format,
-                bit_depth: requested_bit_depth,
-                rms: 0.0,
-                render_time: Duration::from_secs(0),
-                audio_length,
-            })
         }
+
+        Ok(AudioRenderSummary {
+            path: output_path,
+            format: requested_format,
+            bit_depth: applied,
+            rms,
+            render_time: Duration::from_secs(0),
+            audio_length,
+        })
     }
 }

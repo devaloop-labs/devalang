@@ -85,6 +85,92 @@ pub fn preprocess_multiline_braces(source: &str) -> String {
     result.join("\n")
 }
 
+/// Preprocess source to merge multiline statements with brackets
+/// Handles: timeline, etc.
+/// Example:
+///   timeline [
+///       section1 during 4 bars,
+///       section2 during 8 bars
+///   ]
+/// becomes:
+///   timeline [section1 during 4 bars, section2 during 8 bars]
+pub fn preprocess_multiline_brackets(source: &str) -> String {
+    let lines: Vec<&str> = source.lines().collect();
+    let mut result = Vec::new();
+    let mut i = 0;
+
+    while i < lines.len() {
+        let line = lines[i];
+        let trimmed = line.trim();
+
+        // Skip empty lines and comments
+        if trimmed.is_empty() || trimmed.starts_with("//") || trimmed.starts_with("#") {
+            result.push(line.to_string());
+            i += 1;
+            continue;
+        }
+
+        // Check if this line contains an opening bracket
+        if line.contains('[') {
+            // Count brackets to see if it's complete on one line
+            let open_brackets = line.matches('[').count();
+            let close_brackets = line.matches(']').count();
+
+            if open_brackets > close_brackets {
+                // Multiline detected - collect all lines until brackets are balanced
+                let mut merged = line.to_string();
+                let mut bracket_depth = open_brackets - close_brackets;
+                i += 1;
+
+                while i < lines.len() && bracket_depth > 0 {
+                    let next_line = lines[i];
+                    let next_trimmed = next_line.trim();
+
+                    // Skip comments inside multiline blocks
+                    if next_trimmed.starts_with("//") || next_trimmed.starts_with("#") {
+                        i += 1;
+                        continue;
+                    }
+
+                    // Remove inline comments before merging
+                    let clean_line = if let Some(comment_pos) = next_line.find("//") {
+                        &next_line[..comment_pos]
+                    } else if let Some(comment_pos) = next_line.find("#") {
+                        &next_line[..comment_pos]
+                    } else {
+                        next_line
+                    };
+
+                    let clean_trimmed = clean_line.trim();
+                    if !clean_trimmed.is_empty() {
+                        // Add space before appending
+                        if !merged.ends_with('[') && !merged.ends_with(',') {
+                            merged.push(' ');
+                        } else if merged.ends_with(',') {
+                            merged.push(' ');
+                        }
+                        merged.push_str(clean_trimmed);
+                    }
+
+                    // Update bracket depth
+                    bracket_depth += next_line.matches('[').count();
+                    bracket_depth -= next_line.matches(']').count();
+
+                    i += 1;
+                }
+
+                result.push(merged);
+                continue; // Don't increment i again
+            }
+        }
+
+        result.push(line.to_string());
+        i += 1;
+    }
+
+    result.join("\n")
+}
+
 //
 
 /// Preprocess source to merge multiline arrow calls

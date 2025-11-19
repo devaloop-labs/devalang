@@ -63,8 +63,11 @@ pub fn parse(source: &str, path: PathBuf) -> Result<Vec<Statement>> {
     // Pre-process: merge ALL multiline statements with braces
     let braces_pre = preprocessing::preprocess_multiline_braces(source);
 
+    // Then merge multiline brackets (for timeline, etc.)
+    let brackets_pre = preprocessing::preprocess_multiline_brackets(&braces_pre);
+
     // Then merge multiline arrow calls (without braces)
-    let preprocessed = preprocessing::preprocess_multiline_arrow_calls(&braces_pre);
+    let preprocessed = preprocessing::preprocess_multiline_arrow_calls(&brackets_pre);
 
     let lines: Vec<_> = preprocessed.lines().collect();
     parse_lines(&lines, 0, lines.len(), 0, &path)
@@ -135,6 +138,13 @@ fn parse_lines(
                         else_body: None,
                     };
                 }
+                StatementKind::While { condition, .. } => {
+                    // Attach body to While
+                    statement.kind = StatementKind::While {
+                        condition,
+                        body: body.clone(),
+                    };
+                }
                 StatementKind::For {
                     variable, iterable, ..
                 } => {
@@ -179,7 +189,7 @@ fn parse_lines(
                     };
                     statement.value = Value::Identifier(name.clone());
                 }
-                StatementKind::Group { .. } => {
+                StatementKind::Group { duration, .. } => {
                     // attach body for groups, keep name in value if present
                     let group_name = match &statement.value {
                         Value::Identifier(s) => s.clone(),
@@ -188,11 +198,88 @@ fn parse_lines(
                     statement.kind = StatementKind::Group {
                         name: group_name,
                         body: body.clone(),
+                        duration,
                     };
                 }
                 StatementKind::Routing { .. } => {
                     // Parse routing body statements
                     statement.kind = StatementKind::Routing { body: body.clone() };
+                }
+                StatementKind::Section { name, duration, .. } => {
+                    statement.kind = StatementKind::Section {
+                        name,
+                        duration,
+                        body: body.clone(),
+                    };
+                }
+                StatementKind::Schedule { .. } => {
+                    // Parse schedule events: each "at <time>:" line with following body
+                    let mut events = Vec::new();
+                    let mut i_local = body_start;
+                    while i_local < body_end {
+                        let line = lines[i_local].trim();
+
+                        // Skip empty lines and comments
+                        if line.is_empty() || line.starts_with('#') {
+                            i_local += 1;
+                            continue;
+                        }
+
+                        // Check if this is an "at" event header
+                        if line.starts_with("at ") {
+                            if let Ok((time, optional_duration)) =
+                                statements::extended::parse_schedule_event_header(lines[i_local])
+                            {
+                                // Find the body for this event
+                                let event_body_start = i_local + 1;
+                                let mut event_body_end = event_body_start;
+
+                                while event_body_end < body_end {
+                                    let l = lines[event_body_end];
+                                    if l.trim().is_empty() || l.trim().starts_with('#') {
+                                        event_body_end += 1;
+                                        continue;
+                                    }
+
+                                    let indent_l = l.len() - l.trim_start().len();
+                                    let event_indent =
+                                        lines[i_local].len() - lines[i_local].trim_start().len();
+
+                                    // Check if it's another "at" line at same level
+                                    if l.trim().starts_with("at ") && indent_l == event_indent {
+                                        break;
+                                    }
+
+                                    if indent_l <= event_indent {
+                                        break;
+                                    }
+
+                                    event_body_end += 1;
+                                }
+
+                                // Parse the event body
+                                if event_body_end > event_body_start {
+                                    if let Ok(event_stmts) = parse_lines(
+                                        lines,
+                                        event_body_start,
+                                        event_body_end,
+                                        current_indent + 1,
+                                        path,
+                                    ) {
+                                        events.push((time, optional_duration, event_stmts));
+                                    }
+                                }
+
+                                i_local = event_body_end;
+                            } else {
+                                i_local += 1;
+                            }
+                        } else {
+                            i_local += 1;
+                        }
+                    }
+
+                    statement.kind = StatementKind::Schedule { events };
                 }
                 StatementKind::Tempo {
                     value,
@@ -204,6 +291,7 @@ fn parse_lines(
                         body: Some(body.clone()),
                     };
                 }
+
                 other => {
                     // keep original kind for other statements
                     statement.kind = other;
@@ -442,8 +530,9 @@ fn parse_line(line: &str, line_number: usize, path: &Path) -> Result<Statement> 
     // parsed by `parse_let` rather than being mis-parsed as an ArrowCall.
     let reserved_keywords = [
         "bpm", "tempo", "print", "sleep", "rest", "wait", "pattern", "bank", "let", "const", "for",
-        "foreach", "loop", "if", "else", "group", "automate", "call", "spawn", "sequence", "layer",
-        "on", "emit", "routing", "return", "break", "import", "export", "use", "load",
+        "foreach", "loop", "if", "while", "else", "group", "automate", "call", "spawn", "sequence",
+        "layer", "on", "emit", "routing", "return", "break", "import", "export", "use", "load",
+        "fade", "section", "timeline", "schedule", "stop", "silence", "mute",
     ];
     if line.contains("->") && !reserved_keywords.contains(&keyword.as_str()) {
         return statements::parse_arrow_call(line, line_number);
@@ -463,6 +552,7 @@ fn parse_line(line: &str, line_number: usize, path: &Path) -> Result<Statement> 
         "for" | "foreach" => parse_for(parts, line_number),
         "loop" => parse_loop(parts, line_number),
         "if" => statements::structure::parse_if(parts, line_number),
+        "while" => statements::structure::parse_while(parts, line_number),
         "else" => statements::structure::parse_else(line, line_number),
         "group" => statements::structure::parse_group(parts, line_number),
         "automate" => {
@@ -477,6 +567,11 @@ fn parse_line(line: &str, line_number: usize, path: &Path) -> Result<Statement> 
         "spawn" | "layer" => parse_spawn(parts, line_number),
         "on" => parse_on(parts, line_number),
         "emit" => parse_emit(line, parts, line_number),
+        "fade" => statements::extended::parse_fade(line, line_number),
+        "section" => statements::extended::parse_section(parts, line_number),
+        "timeline" => statements::extended::parse_timeline(line, line_number),
+        "schedule" => statements::extended::parse_schedule(line, line_number),
+        "stop" | "silence" | "mute" => statements::extended::parse_stop(line, line_number),
         "return" => statements::core::parse_return(line, line_number),
         "routing" => {
             crate::language::syntax::parser::driver::routing::parse_routing_command(line_number)
@@ -574,6 +669,7 @@ fn parse_line(line: &str, line_number: usize, path: &Path) -> Result<Statement> 
     };
 }
 
+pub use duration::parse_duration_token;
 /// Re-export helper parsing functions from helpers.rs so other modules can call them
 pub use helpers::{
     parse_array_value, parse_condition, parse_function_args, parse_map_value, parse_single_arg,

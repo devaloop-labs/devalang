@@ -156,7 +156,41 @@ impl ProjectBuilder {
 }
 
 fn module_name_from_path(path: &Path) -> String {
-    path.file_stem()
+    // Preserve directory structure in module name relative to "scripts" or "demos" folder
+    // This will be used to recreate the directory structure in the output folder
+
+    let file_stem = path
+        .file_stem()
         .map(|stem| stem.to_string_lossy().to_string())
-        .unwrap_or_else(|| "module".to_string())
+        .unwrap_or_else(|| "module".to_string());
+
+    if let Some(parent) = path.parent() {
+        let components: Vec<_> = parent.components().collect();
+
+        // Find if we have a "scripts" or "demos" directory and capture from there
+        let mut start_idx = None;
+        for (idx, component) in components.iter().enumerate() {
+            let comp_str = component.as_os_str().to_string_lossy();
+            if comp_str == "scripts" || comp_str == "demos" {
+                start_idx = Some(idx);
+                break;
+            }
+        }
+
+        if let Some(idx) = start_idx {
+            // Collect path components from the found "scripts" or "demos" onwards
+            let mut path_buf = PathBuf::new();
+            for component in &components[idx..] {
+                path_buf.push(component);
+            }
+            path_buf.push(&file_stem);
+
+            // Convert to forward slashes for consistency
+            path_buf.to_string_lossy().replace('\\', "/")
+        } else {
+            file_stem
+        }
+    } else {
+        file_stem
+    }
 }

@@ -122,6 +122,7 @@ pub enum StatementKind {
     Group {
         name: String,
         body: Vec<Statement>,
+        duration: Option<DurationValue>, // NEW: optional duration for "group name during 4 bars:"
     },
     Spawn {
         name: String,
@@ -196,10 +197,34 @@ pub enum StatementKind {
         event: String,
         payload: Option<Value>,
     },
+    Fade {
+        direction: String, // "in" or "out"
+        target: String,    // entity.property
+        duration: DurationValue,
+    },
+    Section {
+        name: String,
+        duration: Option<DurationValue>, // Optional duration, auto-calculated if None
+        body: Vec<Statement>,
+    },
+    Timeline {
+        sections: Vec<(String, Option<DurationValue>)>, // (section_name, optional_duration_override)
+    },
+    Schedule {
+        events: Vec<(DurationValue, Option<DurationValue>, Vec<Statement>)>, // (start_time, optional_duration, body)
+    },
+    Stop {
+        target: Option<String>, // None = "stop all", Some("entity") = "stop entity"
+        after: Option<DurationValue>, // Optional delay before stop
+    },
     If {
         condition: Value,
         body: Vec<Statement>,
         else_body: Option<Vec<Statement>>, // Can contain statements or another If for else if
+    },
+    While {
+        condition: Value,
+        body: Vec<Statement>,
     },
     Return {
         value: Option<Box<Value>>,

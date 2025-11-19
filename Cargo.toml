@@ -1,6 +1,6 @@
 [package]
 name = "devalang"
-version = "0.1.7"
+version = "0.1.8"
 edition = "2024"
 description = "Write music with code. Devalang is a domain-specific language (DSL) for sound designers and music hackers. Compose, automate, and control sound — in plain text."
 repository = "https://github.com/devaloop-labs/devalang"
@@ -23,7 +23,7 @@ crate-type = ["cdylib", "rlib"]
 [features]
 default = ["cli"]
 cli = ["dep:clap", "dep:crossterm", "dep:tokio", "dep:notify", "dep:toml", "dep:time", "dep:rodio", "dep:inquire", "dep:atty", "dep:hound", "dep:midly", "dep:midir", "dep:tiny_http", "dep:webbrowser", "dep:wasmtime", "dep:reqwest", "dep:dirs", "dep:zip", "dep:urlencoding", "dep:flate2", "dep:tar", "dep:rand", "dep:mp3lame-encoder", "uuid/v4"]
-wasm = ["dep:js-sys", "dep:web-sys", "dep:wasm-bindgen-futures", "dep:wasm-bindgen", "dep:serde-wasm-bindgen", "dep:getrandom", "getrandom/js", "dep:rand", "dep:hound", "dep:midly", "dep:toml", "uuid/js", "dep:reqwest", "dep:dirs", "dep:zip", "dep:urlencoding", "dep:flate2", "dep:tar"]
+wasm = ["dep:js-sys", "dep:web-sys", "dep:wasm-bindgen-futures", "dep:wasm-bindgen", "dep:serde-wasm-bindgen", "dep:getrandom", "getrandom/js", "dep:hound", "dep:midly", "dep:toml", "uuid/js", "dep:reqwest", "dep:dirs", "dep:zip", "dep:urlencoding", "dep:flate2", "dep:tar"]
 plugin = ["dep:paste"]
 
 # Internal feature to disable wasm-specific code when compiling plugins
@@ -42,7 +42,7 @@ once_cell = "1.19"
 rayon = "1.10"
 paste = { version = "1.0", optional = true }
 
-# Random number generation (optional)
+# Random number generation (required for slice effect and plugin compatibility)
 rand = { version = "0.8", optional = true }
 getrandom = { version = "0.2", optional = true }
 

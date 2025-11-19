@@ -2,6 +2,7 @@
 use anyhow::Result;
 use std::collections::HashMap;
 
+use crate::engine::audio::events::AudioEvent;
 use crate::language::syntax::ast::{Statement, StatementKind, Value};
 
 use super::AudioInterpreter;
@@ -75,7 +76,8 @@ pub fn handle_let(interpreter: &mut AudioInterpreter, name: &str, value: &Value)
             if let Some(Value::String(plugin_ref)) = map.get("_plugin_ref") {
                 let parts: Vec<&str> = plugin_ref.split('.').collect();
                 if parts.len() == 2 {
-                    let (var_name, prop_name) = (parts[0], parts[1]);
+                    let (var_name, prop_name_raw) = (parts[0], parts[1]);
+                    let prop_name = prop_name_raw.trim_end_matches(';'); // Remove semicolon
                     if let Some(var_value) = interpreter.variables.get(var_name) {
                         if let Value::Map(var_map) = var_value {
                             if let Some(Value::String(resolved_plugin)) = var_map.get(prop_name) {
@@ -182,7 +184,7 @@ pub fn handle_let(interpreter: &mut AudioInterpreter, name: &str, value: &Value)
                 } else {
                     "sine".to_string() // Default waveform
                 };
-                let waveform = LfoWaveform::from_str(&waveform_str);
+                let lfo_waveform = LfoWaveform::from_str(&waveform_str);
 
                 // Parse target (volume, pitch, filter, pan)
                 let target = if let Some(Value::String(s)) = lfo_map.get("target") {
@@ -201,7 +203,7 @@ pub fn handle_let(interpreter: &mut AudioInterpreter, name: &str, value: &Value)
                 Some(LfoParams {
                     rate,
                     depth,
-                    waveform,
+                    waveform: lfo_waveform,
                     target,
                     phase,
                 })
@@ -220,6 +222,17 @@ pub fn handle_let(interpreter: &mut AudioInterpreter, name: &str, value: &Value)
                     "filters",
                     "_plugin_ref",
                     "lfo",
+                    "waveform", // Don't auto-convert waveform for plugins - let plugin defaults handle it
+                    // Audio parameters (applied post-render, NOT plugin options)
+                    "pan",
+                    "gain",
+                    "volume",
+                    "detune",
+                    "spread",
+                    // Other metadata keys
+                    "synth_type", // Alias for type
+                    "chain",      // Effects chain
+                    "effects",    // Effects (deprecated)
                 ]
             } else {
                 vec![
@@ -232,6 +245,16 @@ pub fn handle_let(interpreter: &mut AudioInterpreter, name: &str, value: &Value)
                     "filters",
                     "_plugin_ref",
                     "lfo",
+                    // Audio parameters (applied post-render, NOT synth options)
+                    "pan",
+                    "gain",
+                    "volume",
+                    "detune",
+                    "spread",
+                    // Other metadata keys
+                    "synth_type", // Alias for type
+                    "chain",      // Effects chain
+                    "effects",    // Effects (deprecated)
                 ]
             };
 
@@ -265,6 +288,27 @@ pub fn handle_let(interpreter: &mut AudioInterpreter, name: &str, value: &Value)
 
             if is_plugin && map.contains_key("decay") {
                 options.insert("decay".to_string(), decay);
+            }
+
+            // Extract parameters from chain if present (e.g., from synth acid.synth -> cutoff(800) -> resonance(0.75) -> ...)
+            if let Some(Value::Array(chain_arr)) = map.get("chain") {
+                for chain_item in chain_arr {
+                    if let Value::Map(chain_map) = chain_item {
+                        // Each chain item has "type" (method name) and "value" (parameter value)
+                        if let Some(Value::String(method)) = chain_map.get("type") {
+                            // Handle string values (e.g., decay("auto"))
+                            if let Some(Value::String(str_val)) = chain_map.get("value") {
+                                if method == "decay" && str_val == "auto" {
+                                    options.insert("decay_mode".to_string(), 1.0); // 1.0 = auto mode
+                                }
+                            }
+                            // Handle numeric values
+                            else if let Some(Value::Number(val)) = chain_map.get("value") {
+                                options.insert(method.clone(), *val);
+                            }
+                        }
+                    }
+                }
             }
 
             let final_waveform = if is_plugin {
@@ -403,7 +447,14 @@ pub fn handle_call(interpreter: &mut AudioInterpreter, name: &str, args: &[Value
                 if let Some(tgt) = target.as_ref() {
                     let (pattern_str, options) = interpreter.extract_pattern_data(&stmt_box.value);
                     if let Some(pat) = pattern_str {
-                        interpreter.execute_pattern(tgt.as_str(), &pat, options)?;
+                        // Pass pattern name as source for routing
+                        execute_pattern_with_source(
+                            interpreter,
+                            tgt.as_str(),
+                            &pat,
+                            options,
+                            Some(name),
+                        )?;
                         return Ok(());
                     }
                 }
@@ -634,6 +685,45 @@ pub fn execute_if(
         super::collector::collect_events(interpreter, body)?;
     } else if let Some(else_stmts) = else_body {
         super::collector::collect_events(interpreter, else_stmts)?;
+    }
+
+    Ok(())
+}
+
+pub fn execute_while(
+    interpreter: &mut AudioInterpreter,
+    condition: &Value,
+    body: &[Statement],
+) -> Result<()> {
+    let mut iter_count: usize = 0;
+    let hard_iter_cap: usize = 100_000; // Prevent infinite loops
+
+    loop {
+        let condition_result = interpreter.evaluate_condition(condition)?;
+
+        if !condition_result {
+            break;
+        }
+
+        super::collector::collect_events(interpreter, body)?;
+
+        // Break signalled inside while body -> exit
+        if interpreter.break_flag {
+            interpreter.break_flag = false;
+            break;
+        }
+
+        // Check schedule deadline (from "at X and during Y:")
+        if let Some(deadline) = interpreter.schedule_deadline {
+            if interpreter.cursor_time >= deadline {
+                break;
+            }
+        }
+
+        iter_count = iter_count.saturating_add(1);
+        if iter_count > hard_iter_cap {
+            break;
+        }
     }
 
     Ok(())
@@ -899,31 +989,52 @@ pub fn extract_synth_def_from_map(
     };
 
     let mut options = HashMap::new();
+
+    // List of SYNTH ADSR keys (standard parameters, not plugin options)
+    let synth_keys = [
+        "waveform",
+        "attack",
+        "decay",
+        "sustain",
+        "release",
+        "type",
+        "filters",
+        "plugin_author",
+        "plugin_name",
+        "plugin_export",
+        "lfo",
+    ];
+
+    // List of AUDIO parameters (applied post-render, not plugin options)
+    let audio_keys = [
+        "pan",
+        "gain",
+        "volume",
+        "detune",
+        "spread",
+        "synth_type", // Alias for type
+        "chain",      // Effects chain
+        "effects",    // Effects (deprecated name)
+    ];
+
     for (key, val) in map.iter() {
-        if ![
-            "waveform",
-            "attack",
-            "decay",
-            "sustain",
-            "release",
-            "type",
-            "filters",
-            "plugin_author",
-            "plugin_name",
-            "plugin_export",
-            "lfo",
-        ]
-        .contains(&key.as_str())
-        {
-            if let Value::Number(n) = val {
-                options.insert(key.clone(), *n);
-            } else if let Value::String(s) = val {
-                if key == "waveform" || key.starts_with("_") {
-                    continue;
-                }
-                if let Ok(n) = s.parse::<f32>() {
-                    options.insert(key.clone(), n);
-                }
+        // Skip all synth standard keys AND audio parameters
+        if synth_keys.contains(&key.as_str()) || audio_keys.contains(&key.as_str()) {
+            continue;
+        }
+
+        // Skip keys starting with underscore (internal keys)
+        if key.starts_with("_") {
+            continue;
+        }
+
+        // Now add everything else to options (plugin parameters)
+        if let Value::Number(n) = val {
+            options.insert(key.clone(), *n);
+        } else if let Value::String(s) = val {
+            // Try to parse string numbers
+            if let Ok(n) = s.parse::<f32>() {
+                options.insert(key.clone(), n);
             }
         }
     }
@@ -1542,6 +1653,16 @@ pub fn execute_pattern(
     pattern: &str,
     options: Option<HashMap<String, f32>>,
 ) -> Result<()> {
+    execute_pattern_with_source(interpreter, target, pattern, options, None)
+}
+
+pub fn execute_pattern_with_source(
+    interpreter: &mut AudioInterpreter,
+    target: &str,
+    pattern: &str,
+    options: Option<HashMap<String, f32>>,
+    source: Option<&str>,
+) -> Result<()> {
     use crate::engine::audio::events::AudioEvent;
 
     let swing = options
@@ -1580,9 +1701,7 @@ pub fn execute_pattern(
 
             #[cfg(any(feature = "cli", feature = "wasm"))]
             if humanize > 0.0 {
-                use rand::Rng;
-                let mut rng = rand::thread_rng();
-                let offset = rng.gen_range(-humanize..humanize);
+                let offset = crate::engine::special_vars::gen_range_f32(-humanize, humanize);
                 time += offset;
             }
 
@@ -1591,6 +1710,7 @@ pub fn execute_pattern(
                 start_time: time,
                 velocity: velocity_mult, // Already in 0-1 range, not MIDI 0-127
                 effects: None,
+                source: source.map(|s| s.to_string()),
             };
             interpreter.events.events.push(event);
         }
@@ -1611,4 +1731,127 @@ pub fn resolve_sample_uri(interpreter: &AudioInterpreter, target: &str) -> Strin
         }
     }
     target.to_string()
+}
+
+/// Handle fade statement: automate a parameter in or out over a duration
+pub fn handle_fade(
+    interpreter: &mut AudioInterpreter,
+    direction: &str,
+    target: &str,
+    duration: &crate::language::syntax::ast::DurationValue,
+) -> Result<()> {
+    // Parse the target (entity.property format, with optional leading dot)
+    let normalized_target = if target.starts_with('.') {
+        &target[1..] // Remove leading dot if present
+    } else {
+        target
+    };
+
+    let parts: Vec<&str> = normalized_target.split('.').collect();
+    if parts.len() != 2 {
+        return Err(anyhow::anyhow!(
+            "Fade target must be in format 'entity.property', got '{}'",
+            target
+        ));
+    }
+
+    let entity = parts[0];
+    let property = parts[1];
+
+    // Convert duration to seconds
+    let dur_secs = match duration {
+        crate::language::syntax::ast::DurationValue::Milliseconds(ms) => ms / 1000.0,
+        crate::language::syntax::ast::DurationValue::Beats(b) => b * (60.0 / interpreter.bpm),
+        crate::language::syntax::ast::DurationValue::Beat(s) => {
+            // parse a fraction like "3/4" into beats
+            if let Some((num, den)) = {
+                let mut sp = s.split('/');
+                if let (Some(a), Some(b)) = (sp.next(), sp.next()) {
+                    if let (Ok(an), Ok(bn)) = (a.trim().parse::<f32>(), b.trim().parse::<f32>()) {
+                        Some((an, bn))
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            } {
+                if den.abs() > f32::EPSILON {
+                    (num / den) * (60.0 / interpreter.bpm)
+                } else {
+                    0.0
+                }
+            } else {
+                0.0
+            }
+        }
+        crate::language::syntax::ast::DurationValue::Number(n) => n / 1000.0,
+        _ => 0.0,
+    };
+
+    // Determine start and end values based on direction
+    let (from_value, to_value) = match direction.to_lowercase().as_str() {
+        "in" => (0.0, 1.0),  // Fade in: 0 -> 1
+        "out" => (1.0, 0.0), // Fade out: 1 -> 0
+        _ => {
+            return Err(anyhow::anyhow!(
+                "Fade direction must be 'in' or 'out', got '{}'",
+                direction
+            ));
+        }
+    };
+
+    // Create an automation parameter that modulates the target property
+    // We'll add a fade event to the automation registry
+    let mut fade_envelope = crate::engine::audio::automation::AutomationEnvelope::new(format!(
+        "{}.{}",
+        entity, property
+    ));
+
+    // Use Linear curve for fade
+    use crate::engine::audio::automation::AutomationCurve;
+    fade_envelope.add_param(crate::engine::audio::automation::AutomationParam {
+        param_name: property.to_string(),
+        from_value,
+        to_value,
+        start_time: interpreter.cursor_time,
+        duration: dur_secs,
+        curve: AutomationCurve::Linear,
+    });
+
+    interpreter.automation_registry.register(fade_envelope);
+
+    // Advance cursor time by fade duration
+    interpreter.cursor_time += dur_secs;
+
+    Ok(())
+}
+
+/// Handle stop statement: cease audio playback
+pub fn handle_stop(
+    interpreter: &mut AudioInterpreter,
+    target: Option<&str>,
+    delay: f32,
+) -> Result<()> {
+    // Create a stop event at the absolute time (delay from start, not from cursor_time)
+    // Stop is a global instruction that applies from absolute position 0
+    let stop_time = delay;
+
+    if let Some(entity_name) = target {
+        // Stop specific entity: create a filter event that silences this entity
+        let stop_event = AudioEvent::Stop {
+            target: Some(entity_name.to_string()),
+            time: stop_time,
+        };
+        interpreter.events.events.push(stop_event);
+    } else {
+        // Stop all: create a master stop event
+        let stop_event = AudioEvent::Stop {
+            target: None,
+            time: stop_time,
+        };
+        interpreter.events.events.push(stop_event);
+    }
+
+    Ok(())
 }

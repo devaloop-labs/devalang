@@ -134,7 +134,7 @@ pub fn parse_synth_definition(input: &str) -> Result<Value> {
             let mut map = HashMap::new();
             map.insert("type".to_string(), Value::String("synth".to_string()));
 
-            // Check if it's a plugin reference (plugin.author.name)
+            // Check if it's a plugin reference (plugin.author.name OR variable.export)
             if input.starts_with("plugin.") {
                 let parts: Vec<&str> = input.split('.').collect();
                 if parts.len() >= 3 {
@@ -153,7 +153,11 @@ pub fn parse_synth_definition(input: &str) -> Result<Value> {
                         );
                     }
                 }
+            } else if input.contains('.') {
+                // Variable.property reference (e.g., acid.synth) - store for runtime resolution
+                map.insert("_plugin_ref".to_string(), Value::String(input.to_string()));
             } else {
+                // Simple waveform like "sine" or "square"
                 map.insert("waveform".to_string(), Value::String(input.to_string()));
             }
 
@@ -388,10 +392,101 @@ pub fn parse_map_value(input: &str) -> Result<Value> {
     Ok(Value::Map(map))
 }
 
+/// Find a word boundary in a string (for keyword operators like "and", "or")
+/// Returns the index where the word starts, or None if not found
+fn find_word_boundary(text: &str, keyword: &str) -> Option<usize> {
+    // Find rightmost occurrence (lowest precedence)
+    text.rfind(keyword).and_then(|idx| {
+        // Check that it's a word boundary (not part of an identifier)
+        let before_ok =
+            idx == 0 || !text[..idx].ends_with(|c: char| c.is_alphanumeric() || c == '_');
+        let after_idx = idx + keyword.len();
+        let after_ok = after_idx >= text.len()
+            || !text[after_idx..].starts_with(|c: char| c.is_alphanumeric() || c == '_');
+
+        if before_ok && after_ok {
+            Some(idx)
+        } else {
+            None
+        }
+    })
+}
+
 /// Parse a condition string into a Value (for if statements)
 /// Supports: var > value, var < value, var == value, var != value, var >= value, var <= value
+/// Also supports logical operators: &&/and, ||/or, !/not
 pub fn parse_condition(condition_str: &str) -> Result<Value> {
-    // Find the operator
+    let condition_str = condition_str.trim();
+
+    // Handle OR operator (lowest precedence) - support both "||" and "or"
+    if let Some(idx) = condition_str.rfind("||") {
+        let left = parse_condition(&condition_str[..idx].trim())?;
+        let right = parse_condition(&condition_str[idx + 2..].trim())?;
+
+        let mut map = HashMap::new();
+        map.insert("operator".to_string(), Value::String("||".to_string()));
+        map.insert("left".to_string(), left);
+        map.insert("right".to_string(), right);
+        return Ok(Value::Map(map));
+    }
+
+    // Handle "or" keyword operator (support word-based OR)
+    if let Some(idx) = find_word_boundary(condition_str, " or ") {
+        let left = parse_condition(&condition_str[..idx].trim())?;
+        let right = parse_condition(&condition_str[idx + 4..].trim())?;
+
+        let mut map = HashMap::new();
+        map.insert("operator".to_string(), Value::String("||".to_string()));
+        map.insert("left".to_string(), left);
+        map.insert("right".to_string(), right);
+        return Ok(Value::Map(map));
+    }
+
+    // Handle AND operator (higher precedence than OR) - support both "&&" and "and"
+    if let Some(idx) = condition_str.rfind("&&") {
+        let left = parse_condition(&condition_str[..idx].trim())?;
+        let right = parse_condition(&condition_str[idx + 2..].trim())?;
+
+        let mut map = HashMap::new();
+        map.insert("operator".to_string(), Value::String("&&".to_string()));
+        map.insert("left".to_string(), left);
+        map.insert("right".to_string(), right);
+        return Ok(Value::Map(map));
+    }
+
+    // Handle "and" keyword operator (support word-based AND)
+    if let Some(idx) = find_word_boundary(condition_str, " and ") {
+        let left = parse_condition(&condition_str[..idx].trim())?;
+        let right = parse_condition(&condition_str[idx + 5..].trim())?;
+
+        let mut map = HashMap::new();
+        map.insert("operator".to_string(), Value::String("&&".to_string()));
+        map.insert("left".to_string(), left);
+        map.insert("right".to_string(), right);
+        return Ok(Value::Map(map));
+    }
+
+    // Handle NOT operator (highest precedence) - support "!"
+    if condition_str.starts_with('!') {
+        let inner = parse_condition(&condition_str[1..].trim())?;
+
+        let mut map = HashMap::new();
+        map.insert("operator".to_string(), Value::String("!".to_string()));
+        map.insert("operand".to_string(), inner);
+        return Ok(Value::Map(map));
+    }
+
+    // Handle "not" keyword operator (support word-based NOT)
+    if condition_str.starts_with("not ") {
+        let inner = parse_condition(&condition_str[4..].trim())?;
+
+        let mut map = HashMap::new();
+        map.insert("operator".to_string(), Value::String("!".to_string()));
+        map.insert("operand".to_string(), inner);
+        return Ok(Value::Map(map));
+    }
+
+    // Handle comparison operators
     let operators = vec![">=", "<=", "==", "!=", ">", "<"];
     for op in operators {
         if let Some(idx) = condition_str.find(op) {

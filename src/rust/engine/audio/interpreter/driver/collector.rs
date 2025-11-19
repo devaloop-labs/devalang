@@ -283,7 +283,11 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
                     _ => {}
                 }
             }
-            StatementKind::Group { name, body } => {
+            StatementKind::Group {
+                name,
+                body,
+                duration: _,
+            } => {
                 interpreter.groups.insert(name.clone(), body.clone());
             }
             StatementKind::Routing { body } => {
@@ -450,6 +454,7 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
                                 return_value: None,
                                 routing: Default::default(),
                                 audio_graph: crate::engine::audio::interpreter::AudioGraph::new(),
+                                schedule_deadline: None,
                             };
 
                             // Inherit synth definitions
@@ -518,6 +523,7 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
                                 return_value: None,
                                 routing: Default::default(),
                                 audio_graph: crate::engine::audio::interpreter::AudioGraph::new(),
+                                schedule_deadline: None,
                             };
 
                             // Inherit synth definitions so durations reflect real events
@@ -632,6 +638,9 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
             } => {
                 super::handler::execute_if(interpreter, condition, body, else_body)?;
             }
+            StatementKind::While { condition, body } => {
+                super::handler::execute_while(interpreter, condition, body)?;
+            }
             StatementKind::On { event, args, body } => {
                 // Build handler: pick up once flag and keep args (intervals etc.)
                 let once = args
@@ -680,7 +689,8 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
                 name,
                 alias,
             } => {
-                super::handler::handle_use_plugin(interpreter, author, name, alias)?;
+                let clean_alias = alias.trim_end_matches(';').to_string();
+                super::handler::handle_use_plugin(interpreter, author, name, &clean_alias)?;
             }
             #[cfg(not(feature = "cli"))]
             StatementKind::UsePlugin { author, name, .. } => {
@@ -746,6 +756,373 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
                 // Pass the effects associated with the trigger statement into the handler so
                 // runtime scheduling can attach them to sample events.
                 super::handler::handle_trigger(interpreter, entity, effects.as_ref())?;
+            }
+            StatementKind::Fade {
+                direction,
+                target,
+                duration,
+            } => {
+                // Execute fade statement: automate a parameter in/out over duration
+                super::handler::handle_fade(interpreter, direction, target, duration)?;
+            }
+            StatementKind::Section {
+                name,
+                duration,
+                body,
+            } => {
+                // Execute section: store as a named group with duration
+                // The section can be referenced later in timeline or schedule
+                interpreter.groups.insert(name.clone(), body.clone());
+
+                // If section has a duration specified, advance cursor by that duration
+                // Otherwise, the duration will be auto-calculated when section is executed
+                if let Some(dur) = duration {
+                    let dur_secs = match dur {
+                        crate::language::syntax::ast::DurationValue::Milliseconds(ms) => {
+                            Some(ms / 1000.0)
+                        }
+                        crate::language::syntax::ast::DurationValue::Beats(b) => {
+                            Some(b * (60.0 / interpreter.bpm))
+                        }
+                        crate::language::syntax::ast::DurationValue::Beat(s) => {
+                            // parse a fraction like "3/4" into beats
+                            if let Some((num, den)) = {
+                                let mut sp = s.split('/');
+                                if let (Some(a), Some(b)) = (sp.next(), sp.next()) {
+                                    if let (Ok(an), Ok(bn)) =
+                                        (a.trim().parse::<f32>(), b.trim().parse::<f32>())
+                                    {
+                                        Some((an, bn))
+                                    } else {
+                                        None
+                                    }
+                                } else {
+                                    None
+                                }
+                            } {
+                                if den.abs() > f32::EPSILON {
+                                    Some((num / den) * (60.0 / interpreter.bpm))
+                                } else {
+                                    None
+                                }
+                            } else {
+                                None
+                            }
+                        }
+                        crate::language::syntax::ast::DurationValue::Number(n) => Some(n / 1000.0),
+                        _ => None,
+                    };
+                    if let Some(sec) = dur_secs {
+                        interpreter.cursor_time += sec;
+                    }
+                }
+                // If duration is None, we let the execution of the body determine the timing
+            }
+            StatementKind::Timeline { sections } => {
+                // Execute timeline: sequence sections in order
+                for (section_name, opt_duration) in sections {
+                    if let Some(body) = interpreter.groups.get(section_name).cloned() {
+                        // Execute the section body
+                        collect_events(interpreter, &body)?;
+
+                        // If timeline specifies a duration override, use it; otherwise skip
+                        if let Some(dur) = opt_duration {
+                            let dur_secs = match dur {
+                                crate::language::syntax::ast::DurationValue::Milliseconds(ms) => {
+                                    Some(ms / 1000.0)
+                                }
+                                crate::language::syntax::ast::DurationValue::Beats(b) => {
+                                    Some(b * (60.0 / interpreter.bpm))
+                                }
+                                crate::language::syntax::ast::DurationValue::Beat(s) => {
+                                    // parse a fraction like "3/4" into beats
+                                    if let Some((num, den)) = {
+                                        let mut sp = s.split('/');
+                                        if let (Some(a), Some(b)) = (sp.next(), sp.next()) {
+                                            if let (Ok(an), Ok(bn)) =
+                                                (a.trim().parse::<f32>(), b.trim().parse::<f32>())
+                                            {
+                                                Some((an, bn))
+                                            } else {
+                                                None
+                                            }
+                                        } else {
+                                            None
+                                        }
+                                    } {
+                                        if den.abs() > f32::EPSILON {
+                                            Some((num / den) * (60.0 / interpreter.bpm))
+                                        } else {
+                                            None
+                                        }
+                                    } else {
+                                        None
+                                    }
+                                }
+                                crate::language::syntax::ast::DurationValue::Number(n) => {
+                                    Some(n / 1000.0)
+                                }
+                                _ => None,
+                            };
+                            if let Some(sec) = dur_secs {
+                                interpreter.cursor_time += sec;
+                            }
+                        }
+                    } else {
+                        log_warn!(logger, "Section '{}' not found in timeline", section_name);
+                    }
+                }
+            }
+            StatementKind::Schedule { events } => {
+                // Schedule is NON-BLOCKING: execute events at their specified times with deadlines
+                // After executing all events, advance cursor to the end of the latest event
+
+                let mut max_time = 0.0f32;
+
+                // First pass: calculate all start times
+                let mut start_times = Vec::new();
+                for (start_dur, _, _) in events {
+                    let start_time_secs = match start_dur {
+                        crate::language::syntax::ast::DurationValue::Milliseconds(ms) => {
+                            ms / 1000.0
+                        }
+                        crate::language::syntax::ast::DurationValue::Beats(b) => {
+                            b * (60.0 / interpreter.bpm)
+                        }
+                        crate::language::syntax::ast::DurationValue::Beat(s) => {
+                            if let Some((num, den)) = {
+                                let mut sp = s.split('/');
+                                if let (Some(a), Some(b)) = (sp.next(), sp.next()) {
+                                    if let (Ok(an), Ok(bn)) =
+                                        (a.trim().parse::<f32>(), b.trim().parse::<f32>())
+                                    {
+                                        Some((an, bn))
+                                    } else {
+                                        None
+                                    }
+                                } else {
+                                    None
+                                }
+                            } {
+                                if den.abs() > f32::EPSILON {
+                                    (num / den) * (60.0 / interpreter.bpm)
+                                } else {
+                                    0.0
+                                }
+                            } else {
+                                0.0
+                            }
+                        }
+                        crate::language::syntax::ast::DurationValue::Number(n) => n / 1000.0,
+                        crate::language::syntax::ast::DurationValue::Identifier(id) => {
+                            // Handle temporal identifiers like "__temporal__4_beat"
+                            if id.starts_with("__temporal__") {
+                                let rest = &id[12..]; // Skip "__temporal__"
+                                if let Some(last_underscore) = rest.rfind('_') {
+                                    if let Ok(beat_count) = rest[..last_underscore].parse::<f32>() {
+                                        beat_count * (60.0 / interpreter.bpm)
+                                    } else {
+                                        0.0
+                                    }
+                                } else {
+                                    0.0
+                                }
+                            } else {
+                                0.0
+                            }
+                        }
+                        _ => 0.0,
+                    };
+                    start_times.push(start_time_secs);
+                }
+
+                // Second pass: execute each event with proper deadline
+                for (_idx, (start_dur, optional_dur, body)) in events.iter().enumerate() {
+                    // Convert start time to seconds
+                    let start_time_secs = match start_dur {
+                        crate::language::syntax::ast::DurationValue::Milliseconds(ms) => {
+                            ms / 1000.0
+                        }
+                        crate::language::syntax::ast::DurationValue::Beats(b) => {
+                            b * (60.0 / interpreter.bpm)
+                        }
+                        crate::language::syntax::ast::DurationValue::Beat(s) => {
+                            if let Some((num, den)) = {
+                                let mut sp = s.split('/');
+                                if let (Some(a), Some(b)) = (sp.next(), sp.next()) {
+                                    if let (Ok(an), Ok(bn)) =
+                                        (a.trim().parse::<f32>(), b.trim().parse::<f32>())
+                                    {
+                                        Some((an, bn))
+                                    } else {
+                                        None
+                                    }
+                                } else {
+                                    None
+                                }
+                            } {
+                                if den.abs() > f32::EPSILON {
+                                    (num / den) * (60.0 / interpreter.bpm)
+                                } else {
+                                    0.0
+                                }
+                            } else {
+                                0.0
+                            }
+                        }
+                        crate::language::syntax::ast::DurationValue::Number(n) => n / 1000.0,
+                        crate::language::syntax::ast::DurationValue::Identifier(id) => {
+                            // Handle temporal identifiers like "__temporal__4_beat"
+                            if id.starts_with("__temporal__") {
+                                let rest = &id[12..]; // Skip "__temporal__"
+                                if let Some(last_underscore) = rest.rfind('_') {
+                                    if let Ok(beat_count) = rest[..last_underscore].parse::<f32>() {
+                                        beat_count * (60.0 / interpreter.bpm)
+                                    } else {
+                                        0.0
+                                    }
+                                } else {
+                                    0.0
+                                }
+                            } else {
+                                0.0
+                            }
+                        }
+                        _ => 0.0,
+                    };
+
+                    // Convert optional duration to seconds
+                    let opt_dur_secs = optional_dur.as_ref().map(|dur| match dur {
+                        crate::language::syntax::ast::DurationValue::Milliseconds(ms) => {
+                            ms / 1000.0
+                        }
+                        crate::language::syntax::ast::DurationValue::Beats(b) => {
+                            b * (60.0 / interpreter.bpm)
+                        }
+                        crate::language::syntax::ast::DurationValue::Beat(s) => {
+                            if let Some((num, den)) = {
+                                let mut sp = s.split('/');
+                                if let (Some(a), Some(b)) = (sp.next(), sp.next()) {
+                                    if let (Ok(an), Ok(bn)) =
+                                        (a.trim().parse::<f32>(), b.trim().parse::<f32>())
+                                    {
+                                        Some((an, bn))
+                                    } else {
+                                        None
+                                    }
+                                } else {
+                                    None
+                                }
+                            } {
+                                if den.abs() > f32::EPSILON {
+                                    (num / den) * (60.0 / interpreter.bpm)
+                                } else {
+                                    0.0
+                                }
+                            } else {
+                                0.0
+                            }
+                        }
+                        crate::language::syntax::ast::DurationValue::Number(n) => n / 1000.0,
+                        _ => 0.0,
+                    });
+
+                    // Calculate deadline: either explicit duration or total_duration
+                    // Events run in parallel, not sequentially, so each event runs until the end
+                    // (or until explicit "during X" duration)
+                    let deadline = if let Some(dur) = opt_dur_secs {
+                        start_time_secs + dur
+                    } else {
+                        // Run until the end of the piece (respects stop all, etc.)
+                        interpreter.special_vars.total_duration.max(1.0)
+                    };
+
+                    // Track the end time of this event
+                    max_time = max_time.max(deadline);
+
+                    // Execute event with cursor at its start time and deadline set
+                    let saved_cursor = interpreter.cursor_time;
+                    let saved_deadline = interpreter.schedule_deadline;
+
+                    interpreter.cursor_time = start_time_secs;
+                    interpreter.schedule_deadline = Some(deadline);
+
+                    collect_events(interpreter, body)?;
+
+                    interpreter.schedule_deadline = saved_deadline;
+                    interpreter.cursor_time = saved_cursor;
+                }
+
+                // Advance cursor to the end of the latest scheduled event
+                // so subsequent statements execute after all schedule events
+                interpreter.cursor_time = max_time;
+            }
+            StatementKind::Stop { target, after } => {
+                // Execute stop statement: silence audio playback
+                // Stop is a global instruction that applies from the absolute start (time 0)
+                // NOT relative to the current cursor_time
+                let delay_opt = if let Some(after_val) = after {
+                    match after_val {
+                        crate::language::syntax::ast::DurationValue::Milliseconds(ms) => {
+                            Some(ms / 1000.0)
+                        }
+                        crate::language::syntax::ast::DurationValue::Beats(b) => {
+                            Some(b * (60.0 / interpreter.bpm))
+                        }
+                        crate::language::syntax::ast::DurationValue::Beat(s) => {
+                            // parse a fraction like "3/4" into beats
+                            if let Some((num, den)) = {
+                                let mut sp = s.split('/');
+                                if let (Some(a), Some(b)) = (sp.next(), sp.next()) {
+                                    if let (Ok(an), Ok(bn)) =
+                                        (a.trim().parse::<f32>(), b.trim().parse::<f32>())
+                                    {
+                                        Some((an, bn))
+                                    } else {
+                                        None
+                                    }
+                                } else {
+                                    None
+                                }
+                            } {
+                                if den.abs() > f32::EPSILON {
+                                    Some((num / den) * (60.0 / interpreter.bpm))
+                                } else {
+                                    None
+                                }
+                            } else {
+                                None
+                            }
+                        }
+                        crate::language::syntax::ast::DurationValue::Number(n) => Some(n / 1000.0),
+                        crate::language::syntax::ast::DurationValue::Identifier(id) => {
+                            // Handle temporal identifiers like "__temporal__4_beat"
+                            // These are always stored in beats (pre-normalized)
+                            if id.starts_with("__temporal__") {
+                                let rest = &id[12..]; // Skip "__temporal__"
+                                if let Some(last_underscore) = rest.rfind('_') {
+                                    if let Ok(beat_count) = rest[..last_underscore].parse::<f32>() {
+                                        // The identifier already contains beats, so just convert to seconds
+                                        Some(beat_count * (60.0 / interpreter.bpm))
+                                    } else {
+                                        None
+                                    }
+                                } else {
+                                    None
+                                }
+                            } else {
+                                None
+                            }
+                        }
+                        _ => None,
+                    }
+                } else {
+                    Some(0.0)
+                };
+
+                if let Some(delay) = delay_opt {
+                    super::handler::handle_stop(interpreter, target.as_deref(), delay)?;
+                }
             }
             StatementKind::Unknown => {
                 // Unknown statements are parser errors - log them with structured formatting
@@ -902,6 +1279,7 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
                         return_value: None,
                         routing: Default::default(),
                         audio_graph: crate::engine::audio::interpreter::AudioGraph::new(),
+                        schedule_deadline: None,
                     };
 
                     // Inherit synth definitions from parent so spawned groups can snapshot synths/plugins

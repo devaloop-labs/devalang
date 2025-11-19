@@ -1,0 +1,127 @@
+# =================
+# "Hello, Sound !" - A Devalang Demo
+# =================
+# @title "Hello, Sound !"
+# @author "Théophane VRAUX (D-C-MATE)" <hello@labscend.studio>
+# @description "A minimal Devalang demo - building a basic techno groove from pure code."
+
+# =================
+# SECTION Global Settings
+# =================
+
+bpm 135
+
+# =================
+# SECTION Resources
+# =================
+
+# Use default drum kit
+bank devaloop.808 as drumkit
+
+# Patterns
+pattern regularKick with drumkit.kick = "x--- x--- x--- x---"
+pattern regularHiHat with drumkit.open_hat = "x-x- x-x- x-x- x-x-"
+pattern regularClap with drumkit.clap = "---- x--- ---- x-x-"
+
+# Synthesizers
+let basslineSynth = synth saw
+    -> type("bass")
+    -> adsr({
+            attack: 0.01,
+            decay: 0.1,
+            sustain: 0.8,
+            release: 0.2
+        })
+
+let leadSynth = synth square
+    -> type("lead")
+    -> adsr({
+        attack: 0.05,
+        decay: 0.2,
+        sustain: 0.7,
+        release: 0.3
+    })
+    -> reverb({
+        size: 1.0,
+        decay: 0.2,
+        mix: 0.4
+    })
+
+# =================
+# SECTION Groups
+# =================
+
+# Bassline Notes
+group basslineNotes:
+    basslineSynth -> note(E2)
+            -> duration(1/4)
+    basslineSynth -> note(E2)
+            -> duration(1/4)
+    basslineSynth -> note(G2)
+            -> duration(1/4)
+    rest 1/4
+
+# Lead Notes
+group leadNotes:
+    leadSynth -> note(B3)
+            -> duration(1/8)
+    leadSynth -> note(C4)
+            -> duration(1/8)
+    leadSynth -> note(D4)
+            -> duration(1/4)
+    rest 1/4
+    leadSynth -> note(E4)
+            -> duration(1/2)
+    rest 1/4
+    leadSynth -> note(D4)
+            -> duration(1/4)
+    leadSynth -> note(C4)
+            -> duration(1/4)
+    leadSynth -> note(B3)
+            -> duration(1/2)
+    rest 1/4
+
+# =================
+# SECTION Execution thread
+# =================
+
+# Event-based execution at specific times (non-blocking)
+schedule:
+    at 0 bars:
+        loop pass:
+            sequence regularKick
+    at 2 bars:
+        loop pass:
+            sequence basslineNotes
+    at 4 bars:
+        loop pass:
+            sequence regularHiHat
+    at 6 bars:
+        loop pass:
+            sequence regularClap
+    at 8 bars:
+        loop pass:
+            sequence leadNotes
+
+# Stop all sounds after 12 bars
+stop all after 12 bars
+
+# =================
+# SECTION Routing
+# =================
+
+routing:
+	node $master
+	node regularKick
+	node basslineSynth
+	
+	# Duck the bassline when kick plays, with smooth attack/release
+	duck regularKick to basslineSynth with compressor({
+		threshold: -20.0,
+		ratio: 3.0,
+		attack: 5.0,
+		release: 100.0
+	})
+	
+	route regularKick to $master with volume(1.0)
+	route basslineSynth to $master with volume(1.0)

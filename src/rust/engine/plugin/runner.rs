@@ -8,6 +8,8 @@ pub struct WasmPluginRunner {
     engine: Engine,
     // Cache instances by WASM hash to reuse state
     cache: RefCell<HashMap<u64, (Store<()>, Instance)>>,
+    // Cache last parameters per synth_id to restore on each note
+    last_params: RefCell<HashMap<String, HashMap<String, f32>>>,
 }
 
 #[cfg(feature = "cli")]
@@ -24,6 +26,7 @@ impl WasmPluginRunner {
         Self {
             engine,
             cache: RefCell::new(HashMap::new()),
+            last_params: RefCell::new(HashMap::new()),
         }
     }
 
@@ -143,45 +146,55 @@ impl WasmPluginRunner {
                 )
             })?;
 
-        // Apply plugin options by calling setter functions if available
-        if let Some(opts) = options {
-            // Applying plugin options
+        // Call reset() FIRST if available (to reset phase/envelope between notes while preserving parameters)
+        if let Ok(reset_func) = entry.1.get_typed_func::<f32, ()>(&mut entry.0, "setReset") {
+            let _ = reset_func.call(&mut entry.0, 1.0);
+        }
 
-            // Map of parameter names to setter functions
-            let setter_map: HashMap<&str, &str> = [
-                ("waveform", "setWaveform"),
-                ("cutoff", "setCutoff"),
-                ("resonance", "setResonance"),
-                ("env_mod", "setEnvMod"),
-                ("decay", "setDecay"),
-                ("accent", "setAccent"),
-                ("drive", "setDrive"),
-                ("tone", "setTone"),
-                ("slide", "setSlide"),
-                ("glide", "setGlide"),
-            ]
-            .iter()
-            .cloned()
-            .collect();
+        // Map of parameter names to setter functions
+        let setter_map: HashMap<&str, &str> = [
+            ("waveform", "setWaveform"),
+            ("cutoff", "setCutoff"),
+            ("resonance", "setResonance"),
+            ("env_mod", "setEnvMod"),
+            ("decay", "setDecay"),
+            ("accent", "setAccent"),
+            ("drive", "setDrive"),
+            ("tone", "setTone"),
+            ("slide", "setSlide"),
+            ("glide", "setGlide"),
+        ]
+        .iter()
+        .cloned()
+        .collect();
 
-            for (key, value) in opts.iter() {
-                // Try to find matching setter
-                if let Some(setter_name) = setter_map.get(key.as_str()) {
-                    // Try to get the setter function
-                    if let Ok(setter) = entry.1.get_typed_func::<f32, ()>(&mut entry.0, setter_name)
-                    {
-                        // Call setter with the parameter value
-                        // Setting option
-                        let _ = setter.call(&mut entry.0, *value);
-                    } else {
-                        // Setter not found
-                    }
-                } else {
-                    // Unknown parameter
+        // Get mutable access to cached params and prepare params to apply
+        let synth_id_str = instance_key.unwrap_or("default").to_string();
+
+        let params_to_apply = {
+            let mut last_params = self.last_params.borrow_mut();
+            let current_params = last_params
+                .entry(synth_id_str.clone())
+                .or_insert_with(HashMap::new);
+
+            // If new options provided, update cache and use them
+            if let Some(opts) = options {
+                for (key, value) in opts.iter() {
+                    current_params.insert(key.clone(), *value);
+                }
+                opts.clone()
+            } else {
+                current_params.clone()
+            }
+        };
+
+        // Now apply the params with setters
+        for (key, value) in params_to_apply.iter() {
+            if let Some(setter_name) = setter_map.get(key.as_str()) {
+                if let Ok(setter) = entry.1.get_typed_func::<f32, ()>(&mut entry.0, setter_name) {
+                    let _ = setter.call(&mut entry.0, *value);
                 }
             }
-        } else {
-            // No plugin options provided
         }
 
         // Allocate memory in WASM for the buffer

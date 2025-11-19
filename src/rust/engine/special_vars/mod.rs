@@ -3,6 +3,54 @@
 use crate::language::syntax::ast::Value;
 use std::collections::HashMap;
 
+// Random number generation helpers
+#[cfg(feature = "cli")]
+fn gen_random_f32() -> f32 {
+    rand::random::<f32>()
+}
+
+#[cfg(feature = "wasm")]
+fn gen_random_f32() -> f32 {
+    let mut buf = [0u8; 4];
+    getrandom::getrandom(&mut buf).unwrap_or_default();
+    let val = u32::from_le_bytes(buf);
+    (val as f32) / (u32::MAX as f32)
+}
+
+#[cfg(feature = "cli")]
+fn gen_random_u32() -> u32 {
+    rand::random::<u32>()
+}
+
+#[cfg(feature = "wasm")]
+fn gen_random_u32() -> u32 {
+    let mut buf = [0u8; 4];
+    getrandom::getrandom(&mut buf).unwrap_or_default();
+    u32::from_le_bytes(buf)
+}
+
+#[cfg(feature = "cli")]
+fn gen_random_bool() -> bool {
+    rand::random::<bool>()
+}
+
+#[cfg(feature = "wasm")]
+fn gen_random_bool() -> bool {
+    gen_random_u32() % 2 == 0
+}
+
+#[cfg(feature = "cli")]
+pub fn gen_range_f32(min: f32, max: f32) -> f32 {
+    use rand::Rng;
+    let mut rng = rand::thread_rng();
+    rng.gen_range(min..max)
+}
+
+#[cfg(feature = "wasm")]
+pub fn gen_range_f32(min: f32, max: f32) -> f32 {
+    min + gen_random_f32() * (max - min)
+}
+
 /// Special variable prefix
 pub const SPECIAL_VAR_PREFIX: char = '$';
 
@@ -117,13 +165,13 @@ pub fn resolve_special_var(name: &str, context: &SpecialVarContext) -> Option<Va
 
         // Random variables (computed on-demand)
         #[cfg(any(feature = "cli", feature = "wasm"))]
-        "$random" | "$random.float" => Some(Value::Number(rand::random::<f32>())),
+        "$random" | "$random.float" => Some(Value::Number(gen_random_f32())),
         #[cfg(any(feature = "cli", feature = "wasm"))]
-        "$random.noise" => Some(Value::Number(rand::random::<f32>() * 2.0 - 1.0)), // -1.0 to 1.0
+        "$random.noise" => Some(Value::Number(gen_random_f32() * 2.0 - 1.0)), // -1.0 to 1.0
         #[cfg(any(feature = "cli", feature = "wasm"))]
-        "$random.int" => Some(Value::Number((rand::random::<u32>() % 100) as f32)),
+        "$random.int" => Some(Value::Number((gen_random_u32() % 100) as f32)),
         #[cfg(any(feature = "cli", feature = "wasm"))]
-        "$random.bool" => Some(Value::Boolean(rand::random::<bool>())),
+        "$random.bool" => Some(Value::Boolean(gen_random_bool())),
 
         // Nested random with ranges
         #[cfg(any(feature = "cli", feature = "wasm"))]
@@ -155,7 +203,7 @@ fn parse_random_range(name: &str) -> Option<Value> {
     let max: f32 = parts[1].parse().ok()?;
 
     // Generate random value in range
-    let value = min + rand::random::<f32>() * (max - min);
+    let value = min + gen_random_f32() * (max - min);
     Some(Value::Number(value))
 }
 

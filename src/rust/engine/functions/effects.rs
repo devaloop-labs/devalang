@@ -47,25 +47,59 @@ impl FunctionExecutor for DurationFunction {
             // Number: interpret as milliseconds
             Value::Number(d) => *d / 1000.0,
 
-            // String or Identifier: parse as fraction (e.g., "1/4" or 1/4) and convert to seconds using tempo
+            // String or Identifier: try parsing as duration using the parser
             Value::String(s) | Value::Identifier(s) => {
                 let frac_str = s.trim().trim_matches('"').trim_matches('\'');
 
-                // Try parsing as fraction (e.g., "1/4")
-                if let Some(beats) = parse_fraction_beats(frac_str) {
-                    // Convert beats to seconds using tempo from context
-                    beats * (60.0 / context.tempo)
-                } else {
-                    // Try parsing as number with optional "ms" suffix
-                    let num_str = frac_str.trim_end_matches("ms");
-                    match num_str.parse::<f32>() {
-                        Ok(ms) => ms / 1000.0,
-                        Err(_) => {
-                            return Err(anyhow!(
-                                "duration() argument must be a number (ms) or fraction (e.g., 1/4): got '{}'",
-                                s
-                            ));
+                // Try using the duration parser first
+                use crate::language::syntax::parser::driver::duration::parse_duration_token;
+                match parse_duration_token(frac_str) {
+                    Ok(crate::language::syntax::ast::DurationValue::Milliseconds(ms)) => {
+                        ms / 1000.0
+                    }
+                    Ok(crate::language::syntax::ast::DurationValue::Beats(beats)) => {
+                        beats * (60.0 / context.tempo)
+                    }
+                    Ok(crate::language::syntax::ast::DurationValue::Number(ms)) => ms / 1000.0,
+                    Ok(crate::language::syntax::ast::DurationValue::Beat(beat_str)) => {
+                        // Parse the beat string (should be a number)
+                        if let Ok(beats) = beat_str.parse::<f32>() {
+                            beats * (60.0 / context.tempo)
+                        } else {
+                            return Err(anyhow!("Invalid beat value: '{}'", beat_str));
                         }
+                    }
+                    Ok(crate::language::syntax::ast::DurationValue::Identifier(id)) => {
+                        // This is a temporal identifier like "__temporal__4_beats"
+                        if id.starts_with("__temporal__") {
+                            if let Some(beats_str) = id.strip_prefix("__temporal__") {
+                                if let Ok(beats) =
+                                    beats_str.split('_').next().unwrap_or("").parse::<f32>()
+                                {
+                                    beats * (60.0 / context.tempo)
+                                } else {
+                                    return Err(anyhow!(
+                                        "Invalid temporal duration format: '{}'",
+                                        s
+                                    ));
+                                }
+                            } else {
+                                return Err(anyhow!("Invalid temporal duration format: '{}'", s));
+                            }
+                        } else {
+                            // Unknown identifier
+                            return Err(anyhow!("Unknown duration: '{}'", s));
+                        }
+                    }
+                    Ok(crate::language::syntax::ast::DurationValue::Auto) => {
+                        return Err(anyhow!("duration() cannot use 'auto'"));
+                    }
+                    Err(_) => {
+                        // Parser failed, give a helpful error
+                        return Err(anyhow!(
+                            "Invalid duration format: '{}'. Use: number (ms), 'ms', fraction (1/4), or temporal (1 beat, 2 steps, 3 bar, etc.)",
+                            s
+                        ));
                     }
                 }
             }

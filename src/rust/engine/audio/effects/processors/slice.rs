@@ -1,4 +1,6 @@
 use crate::engine::audio::effects::processors::super_trait::EffectProcessor;
+
+#[cfg(feature = "cli")]
 use rand::prelude::*;
 
 #[derive(Debug, Clone)]
@@ -30,10 +32,19 @@ impl EffectProcessor for SliceProcessor {
         let segs = self.segments.max(1) as usize;
         let seg_len = (frames / segs).max(1);
         let mut out = vec![0.0f32; frames * 2];
+        #[cfg_attr(not(feature = "cli"), allow(unused_mut))]
         let mut order: Vec<usize> = (0..segs).collect();
-        if self.mode == "random" {
-            order.shuffle(&mut thread_rng());
+
+        #[cfg(feature = "cli")]
+        {
+            if self.mode == "random" {
+                order.shuffle(&mut thread_rng());
+            }
         }
+
+        // Note: When compiled without "cli" feature (e.g., in plugins),
+        // the "random" mode falls back to "sequential"
+
         let mut dst = 0usize;
         for &s in order.iter() {
             let start = s * seg_len;

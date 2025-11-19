@@ -220,6 +220,10 @@ impl LivePlayService {
                                             start_time,
                                             ..
                                         } => *start_time,
+                                        crate::engine::audio::events::AudioEvent::Stop {
+                                            time,
+                                            ..
+                                        } => *time,
                                     })
                                     .collect();
                                 for (t, _m) in &events.logs {

@@ -11,7 +11,7 @@
 # Duration formats:
 # - Milliseconds: 1000 or 500ms
 # - Beats/Fractions: 1/4 (quarter note), 1/8 (eighth note)
-# - Temporal: 1 beat, 2 bar, 3 measure
+# - Temporal: 1 beat, 2 bar, 3 measure, 1 step
 
 # Sleeps for 1000 milliseconds (1 second)
 sleep 1000
@@ -27,3 +27,9 @@ sleep 2 bar
 
 # Rest for 3 measures (same as 3 bars)
 rest 3 measure
+
+# Sleep for 4 steps (1 beat = 500ms at 120 BPM)
+sleep 4 steps
+
+# Rest for 1 step (1/4 beat = 125ms at 120 BPM)
+rest 1 step

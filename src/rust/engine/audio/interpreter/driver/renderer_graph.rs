@@ -38,29 +38,34 @@ pub fn render_audio_graph(
 /// Returns the node name where this event should be rendered
 fn get_event_target_node(
     event: &crate::engine::audio::events::AudioEvent,
-    _interpreter: &AudioInterpreter,
+    interpreter: &AudioInterpreter,
 ) -> String {
     use crate::engine::audio::events::AudioEvent;
 
     match event {
         AudioEvent::Note { synth_id, .. } | AudioEvent::Chord { synth_id, .. } => {
-            // Route notes/chords to lead node if synth matches lead pattern
-            if synth_id.contains("mySynth")
-                || synth_id.contains("lead")
-                || synth_id.contains("Lead")
-            {
-                "myLeadNode".to_string()
+            // Check if there's a routing node matching the synth ID
+            if let Some(_) = interpreter.routing.nodes.get(synth_id) {
+                synth_id.clone()
             } else {
+                // Auto-route to $master if not explicitly defined in routing
                 "$master".to_string()
             }
         }
-        AudioEvent::Sample { uri, .. } => {
-            // Route drum samples to kick node
-            if uri.contains("kick") || uri.contains("Kick") || uri.contains("drum") {
-                "myKickNode".to_string()
-            } else {
-                "$master".to_string()
+        AudioEvent::Sample { source, .. } => {
+            // First, check if source (pattern name) matches a routing node
+            if let Some(src) = source {
+                if interpreter.routing.nodes.contains_key(src) {
+                    return src.clone();
+                }
             }
+
+            // Auto-route to $master if pattern not explicitly defined in routing
+            "$master".to_string()
+        }
+        AudioEvent::Stop { .. } => {
+            // Stop events don't route to nodes
+            "$master".to_string()
         }
     }
 }
@@ -78,7 +83,17 @@ fn render_events_into_nodes(
 
     for event in &interpreter.events.events {
         // Determine target node for this event
-        let target_node = get_event_target_node(event, interpreter);
+        let mut target_node = get_event_target_node(event, interpreter);
+
+        // If target node doesn't exist in buffers and it's not $master, route to $master instead
+        if !node_buffers.contains_key(&target_node) && target_node != "$master" {
+            target_node = "$master".to_string();
+        }
+
+        // Ensure the target buffer exists (create if needed)
+        if !node_buffers.contains_key(&target_node) {
+            node_buffers.insert(target_node.clone(), vec![0.0f32; total_samples * 2]);
+        }
 
         // Get the target buffer
         let target_buffer = node_buffers.get_mut(&target_node);
@@ -135,14 +150,18 @@ fn render_events_into_nodes(
 
                 let start_sample = (*start_time * interpreter.sample_rate as f32).ceil() as usize;
                 let start_idx = start_sample * 2; // Convert to sample index (stereo)
-                let end_idx = (start_idx + samples.len()).min(total_samples * 2);
-                let write_len = end_idx - start_idx;
 
-                if start_idx < total_samples * 2 && write_len > 0 {
-                    target_buffer[start_idx..end_idx]
-                        .iter_mut()
-                        .zip(samples[0..write_len].iter())
-                        .for_each(|(dst, src)| *dst += src);
+                // Only write if start is within bounds
+                if start_idx < total_samples * 2 {
+                    let end_idx = (start_idx + samples.len()).min(total_samples * 2);
+                    let write_len = end_idx.saturating_sub(start_idx);
+
+                    if write_len > 0 {
+                        target_buffer[start_idx..end_idx]
+                            .iter_mut()
+                            .zip(samples[0..write_len].iter())
+                            .for_each(|(dst, src)| *dst += src);
+                    }
                 }
             }
             AudioEvent::Sample {
@@ -160,22 +179,28 @@ fn render_events_into_nodes(
                         let start_sample =
                             (*_start_time * interpreter.sample_rate as f32).ceil() as usize;
                         let start_idx = start_sample * 2; // Convert to stereo sample index
-                        let end_idx =
-                            (start_idx + sample_data.samples.len()).min(total_samples * 2);
-                        let write_len = end_idx - start_idx;
 
-                        if start_idx < total_samples * 2 && write_len > 0 {
-                            // Scale sample with velocity
-                            let velocity_scale = _velocity;
-                            target_buffer[start_idx..end_idx]
-                                .iter_mut()
-                                .zip(sample_data.samples[0..write_len].iter())
-                                .for_each(|(dst, src)| *dst += src * velocity_scale);
+                        // Only write if sample starts before buffer ends
+                        if start_idx < total_samples * 2 {
+                            let end_idx =
+                                (start_idx + sample_data.samples.len()).min(total_samples * 2);
+                            let write_len = end_idx - start_idx;
+
+                            if write_len > 0 {
+                                // Scale sample with velocity
+                                let velocity_scale = _velocity;
+                                target_buffer[start_idx..end_idx]
+                                    .iter_mut()
+                                    .zip(sample_data.samples[0..write_len].iter())
+                                    .for_each(|(dst, src)| *dst += src * velocity_scale);
+                            }
                         }
                     }
                 }
             }
-            _ => {}
+            _ => {
+                // Chord and Stop events are not rendered directly in this graph rendering mode
+            }
         }
     }
 
@@ -260,54 +285,57 @@ fn apply_routing_and_ducking(
     Ok(())
 }
 
-/// Apply duck effect - compress source based on destination envelope
+/// Apply duck effect - compress destination based on source envelope
 fn apply_duck(
     source_name: &str,
     destination_name: &str,
     node_buffers: &mut NodeBuffers,
     sample_rate: u32,
 ) -> anyhow::Result<()> {
-    // Get current volumes in destination buffer (envelope)
-    let dest_envelope = if let Some(dest_buf) = node_buffers.get(destination_name) {
-        compute_envelope(dest_buf, sample_rate)
+    // Get source buffer (the trigger - kick) and destination buffer (the target - bassline)
+    let source_buf = if let Some(buf) = node_buffers.get(source_name) {
+        buf.clone()
     } else {
         return Ok(());
     };
 
-    // Apply compression to source based on destination envelope
-    let src_opt = node_buffers.get_mut(source_name);
-    if src_opt.is_none() {
+    let dest_opt = node_buffers.get_mut(destination_name);
+    if dest_opt.is_none() {
         return Ok(());
     }
 
-    let src_buf = src_opt.unwrap();
+    let dest_buf = dest_opt.unwrap();
 
-    // Map buffer indices to envelope indices
-    let frame_rate = 100; // Must match compute_envelope
-    let samples_per_frame = (sample_rate / frame_rate) as usize * 2; // stereo samples per envelope frame
+    // Simple duck: when source has significant amplitude, reduce destination
+    // Use RMS (root mean square) to detect activity in source
+    let window_size = (sample_rate as usize / 100) * 2; // 10ms windows in stereo samples
 
-    for frame_idx in (0..src_buf.len()).step_by(2) {
-        // Calculate which envelope frame this sample belongs to
-        let current_envelope_idx = frame_idx / samples_per_frame;
+    for frame_start in (0..dest_buf.len()).step_by(window_size.max(2)) {
+        let frame_end = (frame_start + window_size).min(dest_buf.len());
 
-        if current_envelope_idx < dest_envelope.len() {
-            let dest_level = dest_envelope[current_envelope_idx];
+        // Calculate RMS of source in this window
+        let source_rms = if frame_start < source_buf.len() && frame_end <= source_buf.len() {
+            let sum_sq: f32 = source_buf[frame_start..frame_end]
+                .iter()
+                .map(|&s| s * s)
+                .sum();
+            (sum_sq / (frame_end - frame_start) as f32).sqrt()
+        } else {
+            0.0
+        };
 
-            // Apply compression proportional to destination level
-            let threshold = 0.005; // Start reducing at very low levels
-            let sensitivity = if dest_level > threshold {
-                ((dest_level - threshold) / (0.2 - threshold)).min(1.0)
-            } else {
-                0.0
-            };
+        // Apply duck: if source is active (RMS > threshold), reduce destination
+        let threshold = 0.01; // Amplitude threshold for detecting kick
+        let duck_reduction = if source_rms > threshold {
+            // Smooth reduction: 1.0 (no reduction) when silent, 0.3 (70% reduction) when active
+            0.3 + (1.0 - 0.3) * (-source_rms * 100.0).exp()
+        } else {
+            1.0 // No reduction when source is silent
+        };
 
-            let max_duck_reduction = 0.95; // 95% maximum reduction
-            let compression_gain = 1.0 - (sensitivity * max_duck_reduction);
-
-            src_buf[frame_idx] *= compression_gain;
-            if frame_idx + 1 < src_buf.len() {
-                src_buf[frame_idx + 1] *= compression_gain;
-            }
+        // Apply the reduction to destination buffer in this window
+        for i in frame_start..frame_end {
+            dest_buf[i] *= duck_reduction;
         }
     }
 

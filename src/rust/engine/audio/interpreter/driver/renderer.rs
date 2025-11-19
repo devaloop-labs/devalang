@@ -143,6 +143,19 @@ pub fn render_audio(interpreter: &AudioInterpreter) -> Result<Vec<f32>> {
                     params.release = r / 1000.0;
                 }
 
+                // Handle decay("auto") mode - calculate decay based on note duration
+                if let Some(&decay_mode) = params.options.get("decay_mode") {
+                    if decay_mode > 0.5 {
+                        // Check if decay_mode is set to "auto" (1.0)
+                        // Calculate automatic decay: use most of duration minus attack and a small tail
+                        let attack_ms = params.attack * 1000.0;
+                        let tail_ms = 50.0; // Small tail at end
+                        let available_ms = (duration * 1000.0).max(attack_ms + tail_ms);
+                        let auto_decay = available_ms - attack_ms - tail_ms;
+                        params.decay = (auto_decay / 1000.0).max(0.01); // Convert to seconds, minimum 0.01s
+                    }
+                }
+
                 let mut samples = if *use_per_note_automation {
                     // Generate per-note automation with segments
                     if let Some(automation_ctx) =
@@ -461,6 +474,7 @@ pub fn render_audio(interpreter: &AudioInterpreter) -> Result<Vec<f32>> {
                 start_time,
                 velocity,
                 effects: _effects,
+                source: _,
             } => {
                 sample_count += 1;
                 // Log sample rendering only if needed (debug mode)
@@ -553,7 +567,18 @@ pub fn render_audio(interpreter: &AudioInterpreter) -> Result<Vec<f32>> {
                         log_error!(logger, "Bank sample not found: {}", uri);
                     }
                 }
-            } // Log events are stored separately and ignored by renderer
+            }
+            crate::engine::audio::events::AudioEvent::Stop { target, time: _ } => {
+                // Stop events: these are control events that signal to stop playback
+                // They don't contribute to audio rendering directly
+                // Target is optional: None = stop all, Some = stop specific entity
+                // For now, we just log it. The actual stopping would be handled by the playback engine
+                if let Some(entity) = target {
+                    log_info!(logger, "Stop event for entity: {}", entity);
+                } else {
+                    log_info!(logger, "Stop all event");
+                }
+            }
         }
     }
 

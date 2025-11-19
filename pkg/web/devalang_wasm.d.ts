@@ -1,6 +1,39 @@
 /* tslint:disable */
 /* eslint-disable */
 /**
+ * Get metadata for code without full rendering (fast preview)
+ */
+export function get_render_metadata(user_code: string, options: any): any;
+/**
+ * Export audio with format options (WAV 16/24/32 bit, MP3)
+ */
+export function export_audio(user_code: string, options: any, on_progress?: Function | null): Uint8Array;
+/**
+ * Render MIDI from Devalang code
+ * Returns MIDI file as Uint8Array
+ */
+export function render_midi_array(user_code: string, options: any, on_progress?: Function | null): Uint8Array;
+/**
+ * Export MIDI file (browser download)
+ * This is just a convenience wrapper that returns the same data as render_midi_array
+ */
+export function export_midi_file(user_code: string, options: any, on_progress?: Function | null): Uint8Array;
+/**
+ * Parse Devalang source code
+ *
+ * # Arguments
+ * * `entry_path` - Path to the source file (for error messages)
+ * * `source` - Source code to parse
+ *
+ * # Returns
+ * JSON object with parse results
+ */
+export function parse(entry_path: string, source: string): any;
+/**
+ * Quick parse check - returns true if code parses without errors
+ */
+export function check_syntax(source: string): boolean;
+/**
  * Register a bank from a simple JSON manifest (for testing/manual registration)
  *
  * Manifest format:
@@ -49,14 +82,6 @@ export function register_bank_from_manifest(base_url: string): Promise<any>;
  *   → loads exactly that JSON file
  */
 export function load_bank_from_url(url: string): Promise<any>;
-/**
- * Get metadata for code without full rendering (fast preview)
- */
-export function get_render_metadata(user_code: string, options: any): any;
-/**
- * Export audio with format options (WAV 16/24/32 bit, MP3)
- */
-export function export_audio(user_code: string, options: any, on_progress?: Function | null): Uint8Array;
 /**
  * Enable hot reload mode with callback
  */
@@ -144,41 +169,20 @@ export function render_wav_preview(user_code: string, options: any, on_progress?
  * Get code to buffer metadata with duration calculation
  */
 export function get_code_to_buffer_metadata(user_code: string, options: any): any;
-/**
- * Render MIDI from Devalang code
- * Returns MIDI file as Uint8Array
- */
-export function render_midi_array(user_code: string, options: any, on_progress?: Function | null): Uint8Array;
-/**
- * Export MIDI file (browser download)
- * This is just a convenience wrapper that returns the same data as render_midi_array
- */
-export function export_midi_file(user_code: string, options: any, on_progress?: Function | null): Uint8Array;
-/**
- * Parse Devalang source code
- *
- * # Arguments
- * * `entry_path` - Path to the source file (for error messages)
- * * `source` - Source code to parse
- *
- * # Returns
- * JSON object with parse results
- */
-export function parse(entry_path: string, source: string): any;
-/**
- * Quick parse check - returns true if code parses without errors
- */
-export function check_syntax(source: string): boolean;
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
   readonly memory: WebAssembly.Memory;
+  readonly get_render_metadata: (a: number, b: number, c: any) => [number, number, number];
+  readonly export_audio: (a: number, b: number, c: any, d: number) => [number, number, number];
+  readonly export_midi_file: (a: number, b: number, c: any, d: number) => [number, number, number];
+  readonly render_midi_array: (a: number, b: number, c: any, d: number) => [number, number, number];
+  readonly parse: (a: number, b: number, c: number, d: number) => [number, number, number];
+  readonly check_syntax: (a: number, b: number) => number;
   readonly register_bank_json: (a: number, b: number) => [number, number];
   readonly register_bank_from_manifest: (a: number, b: number) => any;
   readonly load_bank_from_url: (a: number, b: number) => any;
-  readonly get_render_metadata: (a: number, b: number, c: any) => [number, number, number];
-  readonly export_audio: (a: number, b: number, c: any, d: number) => [number, number, number];
   readonly is_hot_reload_enabled: () => number;
   readonly collect_playhead_events: () => [number, number, number];
   readonly register_addon: (a: number, b: number) => [number, number, number];
@@ -191,17 +195,13 @@ export interface InitOutput {
   readonly set_wasm_debug_errors: (a: number) => void;
   readonly collect_last_errors: (a: number) => [number, number, number];
   readonly collect_parse_errors: (a: number) => [number, number, number];
-  readonly enable_hot_reload: (a: any) => void;
-  readonly disable_hot_reload: () => void;
   readonly register_playhead_callback: (a: any) => any;
+  readonly disable_hot_reload: () => void;
+  readonly enable_hot_reload: (a: any) => void;
   readonly render_audio: (a: number, b: number, c: any) => [number, number, number];
   readonly debug_render: (a: number, b: number, c: any) => [number, number, number];
   readonly render_wav_preview: (a: number, b: number, c: any, d: number) => [number, number, number];
   readonly get_code_to_buffer_metadata: (a: number, b: number, c: any) => [number, number, number];
-  readonly export_midi_file: (a: number, b: number, c: any, d: number) => [number, number, number];
-  readonly render_midi_array: (a: number, b: number, c: any, d: number) => [number, number, number];
-  readonly parse: (a: number, b: number, c: number, d: number) => [number, number, number];
-  readonly check_syntax: (a: number, b: number) => number;
   readonly __wbindgen_malloc: (a: number, b: number) => number;
   readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
   readonly __wbindgen_exn_store: (a: number) => void;
@@ -209,9 +209,9 @@ export interface InitOutput {
   readonly __wbindgen_export_4: WebAssembly.Table;
   readonly __wbindgen_export_5: WebAssembly.Table;
   readonly __externref_table_dealloc: (a: number) => void;
-  readonly wasm_bindgen__convert__closures_____invoke__h65e60b84a6cb1bad: (a: number, b: number) => void;
-  readonly closure590_externref_shim: (a: number, b: number, c: any) => void;
-  readonly closure647_externref_shim: (a: number, b: number, c: any, d: any) => void;
+  readonly wasm_bindgen__convert__closures_____invoke__h185a1f2b85286799: (a: number, b: number) => void;
+  readonly closure638_externref_shim: (a: number, b: number, c: any) => void;
+  readonly closure653_externref_shim: (a: number, b: number, c: any, d: any) => void;
   readonly __wbindgen_start: () => void;
 }
 

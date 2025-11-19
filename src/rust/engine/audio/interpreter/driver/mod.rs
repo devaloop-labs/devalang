@@ -174,6 +174,8 @@ pub struct AudioInterpreter {
     pub routing: RoutingSetup,
     /// Audio graph (built from routing configuration)
     pub audio_graph: crate::engine::audio::interpreter::AudioGraph,
+    /// Optional deadline for schedule "during" clause (cutoff time for parent loop)
+    pub schedule_deadline: Option<f32>,
 }
 
 impl AudioInterpreter {
@@ -206,6 +208,7 @@ impl AudioInterpreter {
             return_value: None,
             routing: RoutingSetup::default(),
             audio_graph: crate::engine::audio::interpreter::AudioGraph::new(),
+            schedule_deadline: None,
         }
     }
 
@@ -405,6 +408,44 @@ impl AudioInterpreter {
                 })
                 .unwrap_or("==");
 
+            // Handle logical operators first (highest priority)
+            match operator {
+                "&&" => {
+                    let left = map
+                        .get("left")
+                        .ok_or_else(|| anyhow::anyhow!("Missing left operand for &&"))?;
+                    let right = map
+                        .get("right")
+                        .ok_or_else(|| anyhow::anyhow!("Missing right operand for &&"))?;
+
+                    let left_result = self.evaluate_condition(left)?;
+                    let right_result = self.evaluate_condition(right)?;
+                    return Ok(left_result && right_result);
+                }
+                "||" => {
+                    let left = map
+                        .get("left")
+                        .ok_or_else(|| anyhow::anyhow!("Missing left operand for ||"))?;
+                    let right = map
+                        .get("right")
+                        .ok_or_else(|| anyhow::anyhow!("Missing right operand for ||"))?;
+
+                    let left_result = self.evaluate_condition(left)?;
+                    let right_result = self.evaluate_condition(right)?;
+                    return Ok(left_result || right_result);
+                }
+                "!" => {
+                    let operand = map
+                        .get("operand")
+                        .ok_or_else(|| anyhow::anyhow!("Missing operand for !"))?;
+
+                    let operand_result = self.evaluate_condition(operand)?;
+                    return Ok(!operand_result);
+                }
+                _ => {}
+            }
+
+            // Handle comparison operators
             let left = map
                 .get("left")
                 .ok_or_else(|| anyhow::anyhow!("Missing left operand"))?;
@@ -896,9 +937,64 @@ impl AudioInterpreter {
         handler::execute_pattern(self, target, pattern, options)
     }
 
-    /// Resolve sample URI from bank.trigger notation (e.g., myBank.kick -> devalang://bank/devaloop.808/kick)
+    /// Execute a pattern with source tracking for routing
+    pub fn execute_pattern_with_source(
+        &mut self,
+        target: &str,
+        pattern: &str,
+        options: Option<HashMap<String, f32>>,
+        source: Option<&str>,
+    ) -> Result<()> {
+        handler::execute_pattern_with_source(self, target, pattern, options, source)
+    }
+
+    /// Resolve sample URI from bank.trigger notation (e.g., myBank.kick -> devalang://bank/devalang.808/kick)
     pub fn resolve_sample_uri(&self, target: &str) -> String {
         handler::resolve_sample_uri(self, target)
+    }
+
+    /// Convert a DurationValue to seconds based on current BPM
+    pub fn duration_to_seconds(
+        &self,
+        duration: &crate::language::syntax::ast::DurationValue,
+    ) -> Result<f32> {
+        use crate::language::syntax::ast::DurationValue;
+
+        match duration {
+            DurationValue::Milliseconds(ms) => Ok(ms / 1000.0),
+            DurationValue::Beats(b) => Ok(b * (60.0 / self.bpm)),
+            DurationValue::Beat(s) => {
+                // parse a fraction like "3/4" into beats
+                let mut sp = s.split('/');
+                if let (Some(a), Some(b)) = (sp.next(), sp.next()) {
+                    if let (Ok(an), Ok(bn)) = (a.trim().parse::<f32>(), b.trim().parse::<f32>()) {
+                        if bn.abs() > f32::EPSILON {
+                            return Ok((an / bn) * (60.0 / self.bpm));
+                        }
+                    }
+                }
+                anyhow::bail!("Invalid beat fraction: {}", s)
+            }
+            DurationValue::Number(n) => Ok(n / 1000.0),
+            DurationValue::Identifier(id) => {
+                // Handle temporal identifiers like "__temporal__4_beat"
+                // These are always stored in beats (pre-normalized)
+                if id.starts_with("__temporal__") {
+                    let rest = &id[12..]; // Skip "__temporal__"
+                    if let Some(last_underscore) = rest.rfind('_') {
+                        if let Ok(beat_count) = rest[..last_underscore].parse::<f32>() {
+                            // The identifier already contains beats, so just convert to seconds
+                            return Ok(beat_count * (60.0 / self.bpm));
+                        }
+                    }
+                }
+                anyhow::bail!("Cannot resolve identifier duration: {}", id)
+            }
+            DurationValue::Auto => {
+                // Auto duration: use beat interval (1 beat)
+                Ok(60.0 / self.bpm)
+            }
+        }
     }
 }
 

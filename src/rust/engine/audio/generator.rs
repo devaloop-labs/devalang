@@ -471,8 +471,15 @@ fn generate_note_with_plugin(
     // Prepare options for plugin (merge waveform + custom options)
     let mut plugin_options = params.options.clone();
 
-    // Add waveform if not already in options
-    if !plugin_options.contains_key("waveform") {
+    // Remove audio parameters and internal flags (these are NOT plugin parameters)
+    let audio_params = ["pan", "gain", "volume", "detune", "spread", "decay_mode"];
+    for param in &audio_params {
+        plugin_options.remove(*param);
+    }
+
+    // Add waveform if not already in options (only for non-plugin synths or if explicitly set)
+    // For plugins, waveform should come from options if needed, not be auto-added
+    if !plugin_options.contains_key("waveform") && params.waveform != "plugin" {
         // Try to convert waveform string to numeric value if possible
         let waveform_value = match params.waveform.as_str() {
             "sine" => 0.0,
@@ -492,7 +499,7 @@ fn generate_note_with_plugin(
         .render_note_in_place(
             &wasm_bytes,
             &mut buffer,
-            Some(&synth_id),
+            Some(&synth_id), // Reuse cached instance with proper reset between notes
             plugin_export,
             frequency,
             velocity,

@@ -20,7 +20,7 @@
 ![npm](https://img.shields.io/npm/dt/@devaloop/devalang?label=npm&color=%231DB954)
 ![crates](https://img.shields.io/crates/d/devalang?label=crates.io&color=%231DB954)
 
-# 🦊 Devalang — Write music with code
+# 🦊 Devalang — Write music, like you write code.
 
 Devalang is a compact **domain-specific language** (DSL) for **music makers**, **sound designers**, and **creative coders**.
 Compose loops, control samples, synthesize audio, and render your ideas — all in clean, **readable text**.

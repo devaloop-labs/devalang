@@ -1,6 +1,39 @@
 /* tslint:disable */
 /* eslint-disable */
 /**
+ * Get metadata for code without full rendering (fast preview)
+ */
+export function get_render_metadata(user_code: string, options: any): any;
+/**
+ * Export audio with format options (WAV 16/24/32 bit, MP3)
+ */
+export function export_audio(user_code: string, options: any, on_progress?: Function | null): Uint8Array;
+/**
+ * Render MIDI from Devalang code
+ * Returns MIDI file as Uint8Array
+ */
+export function render_midi_array(user_code: string, options: any, on_progress?: Function | null): Uint8Array;
+/**
+ * Export MIDI file (browser download)
+ * This is just a convenience wrapper that returns the same data as render_midi_array
+ */
+export function export_midi_file(user_code: string, options: any, on_progress?: Function | null): Uint8Array;
+/**
+ * Parse Devalang source code
+ *
+ * # Arguments
+ * * `entry_path` - Path to the source file (for error messages)
+ * * `source` - Source code to parse
+ *
+ * # Returns
+ * JSON object with parse results
+ */
+export function parse(entry_path: string, source: string): any;
+/**
+ * Quick parse check - returns true if code parses without errors
+ */
+export function check_syntax(source: string): boolean;
+/**
  * Register a bank from a simple JSON manifest (for testing/manual registration)
  *
  * Manifest format:
@@ -49,14 +82,6 @@ export function register_bank_from_manifest(base_url: string): Promise<any>;
  *   → loads exactly that JSON file
  */
 export function load_bank_from_url(url: string): Promise<any>;
-/**
- * Get metadata for code without full rendering (fast preview)
- */
-export function get_render_metadata(user_code: string, options: any): any;
-/**
- * Export audio with format options (WAV 16/24/32 bit, MP3)
- */
-export function export_audio(user_code: string, options: any, on_progress?: Function | null): Uint8Array;
 /**
  * Enable hot reload mode with callback
  */
@@ -144,28 +169,3 @@ export function render_wav_preview(user_code: string, options: any, on_progress?
  * Get code to buffer metadata with duration calculation
  */
 export function get_code_to_buffer_metadata(user_code: string, options: any): any;
-/**
- * Render MIDI from Devalang code
- * Returns MIDI file as Uint8Array
- */
-export function render_midi_array(user_code: string, options: any, on_progress?: Function | null): Uint8Array;
-/**
- * Export MIDI file (browser download)
- * This is just a convenience wrapper that returns the same data as render_midi_array
- */
-export function export_midi_file(user_code: string, options: any, on_progress?: Function | null): Uint8Array;
-/**
- * Parse Devalang source code
- *
- * # Arguments
- * * `entry_path` - Path to the source file (for error messages)
- * * `source` - Source code to parse
- *
- * # Returns
- * JSON object with parse results
- */
-export function parse(entry_path: string, source: string): any;
-/**
- * Quick parse check - returns true if code parses without errors
- */
-export function check_syntax(source: string): boolean;

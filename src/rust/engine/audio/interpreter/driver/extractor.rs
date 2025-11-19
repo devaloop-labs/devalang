@@ -48,6 +48,114 @@ fn apply_automation_param(
     result
 }
 
+/// Extract plugin-specific parameters from effects array
+/// Plugin parameters should be applied BEFORE generation as synth options, not AFTER as audio effects.
+/// Strategy: Any effect that's NOT a known audio effect is treated as a plugin parameter.
+/// Returns remaining effects (plugin params removed)
+fn extract_plugin_parameters(
+    effects: &Option<Value>,
+    synth_def: &mut crate::engine::audio::events::SynthDefinition,
+) -> Option<Value> {
+    if effects.is_none() {
+        return None;
+    }
+
+    // Known audio effect names - everything else is treated as plugin parameter
+    let audio_effect_names = [
+        // Main effects (Both synth + trigger)
+        "reverb",
+        "delay",
+        "distortion",
+        "bitcrush",
+        "lowpass",
+        "lpf",
+        "highpass",
+        "hpf",
+        "bandpass",
+        "bpf",
+        "tremolo",
+        "vibrato",
+        "chorus",
+        "flanger",
+        "phaser",
+        "compressor",
+        "comp",
+        "drive",
+        "gate",
+        "lfo",
+        // Trigger-only effects
+        "reverse",
+        "speed",
+        "slice",
+        "stretch",
+        "roll",
+        // Sample processing
+        "mono",
+        "monoizer",
+        "stereo",
+        // Special/control effects
+        "freeze",
+        "adsr",
+        "eq",
+        "equalizer",
+        // Aliases for distortion
+        "dist",
+    ];
+
+    if let Some(Value::Array(effects_arr)) = effects {
+        let mut remaining_effects = Vec::new();
+        let mut found_params = false;
+
+        for effect in effects_arr {
+            if let Value::Map(effect_map) = effect {
+                // Check if "type" field is a known audio effect
+                if let Some(Value::String(type_name)) = effect_map.get("type") {
+                    let type_lower = type_name.to_lowercase();
+
+                    if !audio_effect_names.contains(&type_lower.as_str()) {
+                        // This is NOT a known audio effect - treat it as a plugin parameter
+                        found_params = true;
+
+                        // Extract value and add to synth options
+                        // Priority: "value" key > any numeric value > type name itself
+                        if let Some(Value::Number(val)) = effect_map.get("value") {
+                            synth_def.options.insert(type_name.clone(), *val);
+                        } else {
+                            // Look for any numeric parameter
+                            let mut found_numeric = false;
+                            for (key, val) in effect_map.iter() {
+                                if key != "type" {
+                                    if let Value::Number(n) = val {
+                                        synth_def.options.insert(key.clone(), *n);
+                                        found_numeric = true;
+                                    }
+                                }
+                            }
+                            // If no numeric params found, skip this effect
+                            if !found_numeric {
+                                continue;
+                            }
+                        }
+                        continue; // Don't add this effect to remaining_effects
+                    }
+                }
+            }
+            // Keep known audio effects for audio chain
+            remaining_effects.push(effect.clone());
+        }
+
+        if found_params {
+            if remaining_effects.is_empty() {
+                return None; // All effects were plugin params
+            } else {
+                return Some(Value::Array(remaining_effects)); // Return non-plugin effects
+            }
+        }
+    }
+
+    effects.clone() // Return effects unchanged if no plugin params found
+}
+
 pub fn extract_audio_event(
     interpreter: &mut AudioInterpreter,
     target: &str,
@@ -312,6 +420,17 @@ pub fn extract_audio_event(
             event_effects = Some(crate::language::syntax::ast::Value::Array(merged));
         }
 
+        // Extract plugin-specific parameters from effects and apply to synth options
+        event_effects = extract_plugin_parameters(&event_effects, &mut synth_def);
+
+        // CRITICAL: Save the updated synth_def back to the interpreter so subsequent notes
+        // on the same synth reuse these parameters (accent, resonance, cutoff, etc.)
+        // This ensures parameters persist across multiple notes in a sequence/group
+        interpreter
+            .events
+            .synths
+            .insert(synth_id.to_string(), synth_def.clone());
+
         interpreter.events.events.push(AudioEvent::Note {
             midi,
             start_time: interpreter.cursor_time,
@@ -487,7 +606,7 @@ pub fn extract_audio_event(
             let synth_id = if target.is_empty() { "default" } else { target };
 
             // Create chord event directly with per-note automation flag
-            let synth_def = interpreter
+            let mut synth_def = interpreter
                 .events
                 .get_synth(synth_id)
                 .cloned()
@@ -583,6 +702,16 @@ pub fn extract_audio_event(
                 merged.extend(chord_effects_vec);
                 event_effects = Some(crate::language::syntax::ast::Value::Array(merged));
             }
+
+            // Extract plugin-specific parameters from effects and apply to synth options
+            event_effects = extract_plugin_parameters(&event_effects, &mut synth_def);
+
+            // CRITICAL: Save the updated synth_def back to the interpreter so subsequent chords/notes
+            // on the same synth reuse these parameters (accent, resonance, cutoff, etc.)
+            interpreter
+                .events
+                .synths
+                .insert(synth_id.to_string(), synth_def.clone());
 
             interpreter.events.events.push(AudioEvent::Chord {
                 midis,

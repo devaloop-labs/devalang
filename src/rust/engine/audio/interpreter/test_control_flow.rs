@@ -385,6 +385,7 @@ fn test_effect_chaining_on_trigger() -> Result<()> {
                 start_time: _,
                 velocity: _,
                 effects,
+                source: _,
             } => Some(effects.clone()),
             _ => None,
         })
