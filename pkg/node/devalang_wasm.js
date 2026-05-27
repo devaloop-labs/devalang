@@ -681,12 +681,12 @@ exports.get_code_to_buffer_metadata = function(user_code, options) {
     return takeFromExternrefTable0(ret[0]);
 };
 
-function __wbg_adapter_6(arg0, arg1) {
-    wasm.wasm_bindgen__convert__closures_____invoke__h185a1f2b85286799(arg0, arg1);
+function __wbg_adapter_8(arg0, arg1, arg2) {
+    wasm.closure638_externref_shim(arg0, arg1, arg2);
 }
 
-function __wbg_adapter_17(arg0, arg1, arg2) {
-    wasm.closure638_externref_shim(arg0, arg1, arg2);
+function __wbg_adapter_13(arg0, arg1) {
+    wasm.wasm_bindgen__convert__closures_____invoke__he0c1d455ee6a0724(arg0, arg1);
 }
 
 function __wbg_adapter_118(arg0, arg1, arg2, arg3) {
@@ -1085,7 +1085,7 @@ exports.__wbindgen_cast_2241b6af4c4b2941 = function(arg0, arg1) {
 
 exports.__wbindgen_cast_43928e51ce0af8d1 = function(arg0, arg1) {
     // Cast intrinsic for `Closure(Closure { dtor_idx: 503, function: Function { arguments: [], shim_idx: 504, ret: Unit, inner_ret: Some(Unit) }, mutable: false }) -> Externref`.
-    const ret = makeClosure(arg0, arg1, 503, __wbg_adapter_6);
+    const ret = makeClosure(arg0, arg1, 503, __wbg_adapter_13);
     return ret;
 };
 
@@ -1097,7 +1097,7 @@ exports.__wbindgen_cast_4625c577ab2ec9ee = function(arg0) {
 
 exports.__wbindgen_cast_48cbc3748220f6e5 = function(arg0, arg1) {
     // Cast intrinsic for `Closure(Closure { dtor_idx: 637, function: Function { arguments: [Externref], shim_idx: 638, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
-    const ret = makeMutClosure(arg0, arg1, 637, __wbg_adapter_17);
+    const ret = makeMutClosure(arg0, arg1, 637, __wbg_adapter_8);
     return ret;
 };
 

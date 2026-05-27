@@ -1,7 +1,7 @@
 {
   "name": "@devaloop/devalang",
   "private": false,
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "Write music with code. Devalang is a domain-specific language (DSL) for sound designers and music hackers. Compose, automate, and control sound — in plain text.",
   "main": "out-tsc/index.js",
   "types": "./out-tsc/index.d.ts",
@@ -32,7 +32,7 @@
     "test:examples": "cargo run --features cli -- check --entry examples/",
     "clean": "cargo clean && npm run ts:clean",
     "prepare": "npm run ts:build",
-    "postinstall": "node -e \"try { require('./out-tsc/scripts/postinstall.js') } catch (e) { console.log('⚠️  Skipping postinstall (build first)') }\""
+    "postinstall": "node -e \"try { require('./out-tsc/scripts/postinstall.js') } catch (e) { console.warn('⚠️  Skipping postinstall:', e.message) }\""
   },
   "homepage": "https://devalang.com",
   "keywords": [
@@ -58,9 +58,7 @@
     "url": "https://github.com/devaloop-labs/devalang.git"
   },
   "devDependencies": {
-    "@types/follow-redirects": "^1.14.4",
     "@types/node": "^20.19.19",
-    "follow-redirects": "^1.15.9",
     "rimraf": "^5.0.10",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3"
@@ -71,6 +69,7 @@
   "files": [
     "out-tsc/**/*",
     "pkg/**/*",
+    "project-version.json",
     "README.md",
     "LICENSE"
   ]
