@@ -90,7 +90,7 @@ fn parse_lines(
         let raw = lines[i];
         let trimmed = raw.trim();
 
-        if trimmed.is_empty() || trimmed.starts_with('#') {
+        if trimmed.is_empty() || is_comment_line(trimmed) {
             i += 1;
             continue;
         }
@@ -110,7 +110,7 @@ fn parse_lines(
         let mut body_end = body_start;
         while body_end < end {
             let l = lines[body_end];
-            if l.trim().is_empty() || l.trim().starts_with('#') {
+            if l.trim().is_empty() || is_comment_line(l.trim()) {
                 body_end += 1;
                 continue;
             }
@@ -220,7 +220,7 @@ fn parse_lines(
                         let line = lines[i_local].trim();
 
                         // Skip empty lines and comments
-                        if line.is_empty() || line.starts_with('#') {
+                        if line.is_empty() || is_comment_line(line) {
                             i_local += 1;
                             continue;
                         }
@@ -236,7 +236,7 @@ fn parse_lines(
 
                                 while event_body_end < body_end {
                                     let l = lines[event_body_end];
-                                    if l.trim().is_empty() || l.trim().starts_with('#') {
+                                    if l.trim().is_empty() || is_comment_line(l.trim()) {
                                         event_body_end += 1;
                                         continue;
                                     }
@@ -306,12 +306,14 @@ fn parse_lines(
             i = body_end;
             statements.push(statement);
 
-            if let StatementKind::Comment = &statements.last().unwrap().kind {
-                if let Value::String(s) = &statements.last().unwrap().value {
-                    if s == "else" {
-                        // append the body statements after the marker
-                        for stmt in body.into_iter() {
-                            statements.push(stmt);
+            if let Some(last_statement) = statements.last() {
+                if let StatementKind::Comment = &last_statement.kind {
+                    if let Value::String(s) = &last_statement.value {
+                        if s == "else" {
+                            // append the body statements after the marker
+                            for stmt in body.into_iter() {
+                                statements.push(stmt);
+                            }
                         }
                     }
                 }
@@ -508,6 +510,10 @@ fn parse_line(line: &str, line_number: usize, path: &Path) -> Result<Statement> 
         );
     }
 
+    if let Some(statement) = statements::structure::parse_pattern_shorthand(line, line_number)? {
+        return Ok(statement);
+    }
+
     // Check if this is a property assignment first: target.property = value
     if line.contains('=') && keyword.contains('.') {
         return parse_assign(line, line_number);
@@ -585,8 +591,7 @@ fn parse_line(line: &str, line_number: usize, path: &Path) -> Result<Statement> 
             let suggestion = find_keyword_suggestion(&keyword, &reserved_keywords);
 
             // If we found a suggestion, it's likely a typo, not a trigger call
-            if suggestion.is_some() {
-                let suggestion_str = suggestion.unwrap();
+            if let Some(suggestion_str) = suggestion {
                 // Store message in a structured format: "MESSAGE|||FILE:LINE|||SUGGESTION"
                 // This allows the collector to parse it and build a StructuredError
                 let error_msg = format!(
@@ -669,6 +674,10 @@ fn parse_line(line: &str, line_number: usize, path: &Path) -> Result<Statement> 
     };
 }
 
+fn is_comment_line(line: &str) -> bool {
+    line.starts_with('#') || line.starts_with("//")
+}
+
 pub use duration::parse_duration_token;
 /// Re-export helper parsing functions from helpers.rs so other modules can call them
 pub use helpers::{
@@ -688,6 +697,155 @@ impl SimpleParser {
     pub fn parse_file<P: AsRef<Path>>(path: P) -> Result<Vec<Statement>> {
         let buf = std::path::PathBuf::from(path.as_ref());
         let s = std::fs::read_to_string(&buf)?;
+        let s = s.strip_prefix('\u{feff}').unwrap_or(&s);
         Self::parse(&s, buf)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_unknown_statement_with_suggestion_is_structured() {
+        let statements = parse("pritn hello", PathBuf::from("test.deva")).unwrap();
+
+        assert_eq!(statements.len(), 1);
+        assert!(matches!(statements[0].kind, StatementKind::Unknown));
+        match &statements[0].value {
+            Value::String(message) => {
+                assert!(message.contains("Unknown statement 'pritn'"));
+                assert!(message.ends_with("|||print"));
+            }
+            other => panic!("expected structured unknown message, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_else_body_is_attached_to_previous_if() {
+        let source = "if true:\n  print yes\nelse:\n  print no";
+        let statements = parse(source, PathBuf::from("test.deva")).unwrap();
+
+        assert_eq!(statements.len(), 1);
+        match &statements[0].kind {
+            StatementKind::If {
+                body, else_body, ..
+            } => {
+                assert_eq!(body.len(), 1);
+                let else_body = else_body.as_ref().expect("else body should be attached");
+                assert_eq!(else_body.len(), 1);
+                assert!(matches!(else_body[0].kind, StatementKind::Print));
+            }
+            other => panic!("expected if statement, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_bare_synth_chained_waveform_and_preset() {
+        let source = r#"let bass = synth -> waveform("saw") -> preset("bass")"#;
+        let statements = parse(source, PathBuf::from("test.deva")).unwrap();
+
+        assert_eq!(statements.len(), 1);
+        match &statements[0].kind {
+            StatementKind::Let {
+                value: Some(Value::Map(map)),
+                ..
+            } => {
+                assert!(matches!(
+                    map.get("type"),
+                    Some(Value::String(kind)) if kind == "synth"
+                ));
+                assert!(matches!(
+                    map.get("waveform"),
+                    Some(Value::String(waveform)) if waveform == "saw"
+                ));
+                assert!(matches!(
+                    map.get("synth_type"),
+                    Some(Value::String(preset)) if preset == "bass"
+                ));
+            }
+            other => panic!("expected synth let statement, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_livecoding_synth_aliases_parse_to_canonical_map() {
+        let source = r#"let bass = synth -> wave("saw") -> preset("bass") -> voices(2) -> env({ attack: 0.01, release: 0.08 })"#;
+        let statements = parse(source, PathBuf::from("test.deva")).unwrap();
+
+        assert_eq!(statements.len(), 1);
+        match &statements[0].kind {
+            StatementKind::Let {
+                value: Some(Value::Map(map)),
+                ..
+            } => {
+                assert!(matches!(
+                    map.get("waveform"),
+                    Some(Value::String(waveform)) if waveform == "saw"
+                ));
+                assert!(matches!(
+                    map.get("synth_type"),
+                    Some(Value::String(preset)) if preset == "bass"
+                ));
+                assert!(
+                    matches!(map.get("attack"), Some(Value::Number(n)) if (*n - 0.01).abs() < f32::EPSILON)
+                );
+                assert!(
+                    matches!(map.get("release"), Some(Value::Number(n)) if (*n - 0.08).abs() < f32::EPSILON)
+                );
+                assert!(
+                    matches!(map.get("voices"), Some(Value::Number(n)) if (*n - 2.0).abs() < f32::EPSILON)
+                );
+            }
+            other => panic!("expected synth let statement, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_pattern_shorthand_without_options() {
+        let source = r#"kick: drums.kick = "x--- x---""#;
+        let statements = parse(source, PathBuf::from("test.deva")).unwrap();
+
+        assert_eq!(statements.len(), 1);
+        match &statements[0].kind {
+            StatementKind::Pattern { name, target } => {
+                assert_eq!(name, "kick");
+                assert_eq!(target.as_deref(), Some("drums.kick"));
+                assert!(
+                    matches!(&statements[0].value, Value::String(pattern) if pattern == "x--- x---")
+                );
+            }
+            other => panic!("expected pattern shorthand, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_pattern_shorthand_with_arrow_options() {
+        let source = r#"hat: drums.hat -> swing(0.08) -> velocity(0.7) = "x-x-""#;
+        let statements = parse(source, PathBuf::from("test.deva")).unwrap();
+
+        assert_eq!(statements.len(), 1);
+        match &statements[0].kind {
+            StatementKind::Pattern { name, target } => {
+                assert_eq!(name, "hat");
+                assert_eq!(target.as_deref(), Some("drums.hat"));
+            }
+            other => panic!("expected pattern shorthand, got {:?}", other),
+        }
+
+        match &statements[0].value {
+            Value::Map(map) => {
+                assert!(
+                    matches!(map.get("pattern"), Some(Value::String(pattern)) if pattern == "x-x-")
+                );
+                assert!(
+                    matches!(map.get("swing"), Some(Value::Number(n)) if (*n - 0.08).abs() < f32::EPSILON)
+                );
+                assert!(
+                    matches!(map.get("velocity"), Some(Value::Number(n)) if (*n - 0.7).abs() < f32::EPSILON)
+                );
+            }
+            other => panic!("expected pattern options map, got {:?}", other),
+        }
     }
 }

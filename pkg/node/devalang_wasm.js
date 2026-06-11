@@ -252,15 +252,32 @@ function takeFromExternrefTable0(idx) {
     return value;
 }
 /**
- * Get metadata for code without full rendering (fast preview)
+ * Render audio from Devalang code
+ * Returns audio buffer as Float32Array
+ * @param {string} user_code
+ * @param {any} options
+ * @returns {Float32Array}
+ */
+exports.render_audio = function(user_code, options) {
+    const ptr0 = passStringToWasm0(user_code, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.render_audio(ptr0, len0, options);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+};
+
+/**
+ * Render audio with debug information
  * @param {string} user_code
  * @param {any} options
  * @returns {any}
  */
-exports.get_render_metadata = function(user_code, options) {
+exports.debug_render = function(user_code, options) {
     const ptr0 = passStringToWasm0(user_code, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.get_render_metadata(ptr0, len0, options);
+    const ret = wasm.debug_render(ptr0, len0, options);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -268,16 +285,16 @@ exports.get_render_metadata = function(user_code, options) {
 };
 
 /**
- * Export audio with format options (WAV 16/24/32 bit, MP3)
+ * Render WAV file preview
  * @param {string} user_code
  * @param {any} options
  * @param {Function | null} [on_progress]
  * @returns {Uint8Array}
  */
-exports.export_audio = function(user_code, options, on_progress) {
+exports.render_wav_preview = function(user_code, options, on_progress) {
     const ptr0 = passStringToWasm0(user_code, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.export_audio(ptr0, len0, options, isLikeNone(on_progress) ? 0 : addToExternrefTable0(on_progress));
+    const ret = wasm.render_wav_preview(ptr0, len0, options, isLikeNone(on_progress) ? 0 : addToExternrefTable0(on_progress));
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -285,150 +302,19 @@ exports.export_audio = function(user_code, options, on_progress) {
 };
 
 /**
- * Render MIDI from Devalang code
- * Returns MIDI file as Uint8Array
+ * Get code to buffer metadata with duration calculation
  * @param {string} user_code
  * @param {any} options
- * @param {Function | null} [on_progress]
- * @returns {Uint8Array}
- */
-exports.render_midi_array = function(user_code, options, on_progress) {
-    const ptr0 = passStringToWasm0(user_code, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.render_midi_array(ptr0, len0, options, isLikeNone(on_progress) ? 0 : addToExternrefTable0(on_progress));
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-};
-
-/**
- * Export MIDI file (browser download)
- * This is just a convenience wrapper that returns the same data as render_midi_array
- * @param {string} user_code
- * @param {any} options
- * @param {Function | null} [on_progress]
- * @returns {Uint8Array}
- */
-exports.export_midi_file = function(user_code, options, on_progress) {
-    const ptr0 = passStringToWasm0(user_code, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.export_midi_file(ptr0, len0, options, isLikeNone(on_progress) ? 0 : addToExternrefTable0(on_progress));
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-};
-
-/**
- * Parse Devalang source code
- *
- * # Arguments
- * * `entry_path` - Path to the source file (for error messages)
- * * `source` - Source code to parse
- *
- * # Returns
- * JSON object with parse results
- * @param {string} entry_path
- * @param {string} source
  * @returns {any}
  */
-exports.parse = function(entry_path, source) {
-    const ptr0 = passStringToWasm0(entry_path, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+exports.get_code_to_buffer_metadata = function(user_code, options) {
+    const ptr0 = passStringToWasm0(user_code, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
-    const ptr1 = passStringToWasm0(source, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len1 = WASM_VECTOR_LEN;
-    const ret = wasm.parse(ptr0, len0, ptr1, len1);
+    const ret = wasm.get_code_to_buffer_metadata(ptr0, len0, options);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
-};
-
-/**
- * Quick parse check - returns true if code parses without errors
- * @param {string} source
- * @returns {boolean}
- */
-exports.check_syntax = function(source) {
-    const ptr0 = passStringToWasm0(source, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.check_syntax(ptr0, len0);
-    return ret !== 0;
-};
-
-/**
- * Register a bank from a simple JSON manifest (for testing/manual registration)
- *
- * Manifest format:
- * ```json
- * {
- *   "name": "devaloop.808",
- *   "alias": "kit",
- *   "version": "1.0.0",
- *   "description": "808 drum bank",
- *   "triggers": {
- *     "kick": "http://example.com/kick.wav",
- *     "snare": "http://example.com/snare.wav"
- *   }
- * }
- * ```
- *
- * This only registers the bank metadata. Samples must be registered separately using register_sample().
- * @param {string} manifest_json
- */
-exports.register_bank_json = function(manifest_json) {
-    const ptr0 = passStringToWasm0(manifest_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.register_bank_json(ptr0, len0);
-    if (ret[1]) {
-        throw takeFromExternrefTable0(ret[0]);
-    }
-};
-
-/**
- * Load and register a complete bank from bank.toml hosted at base_url
- *
- * Steps:
- * 1. Fetch base_url + "/bank.toml"
- * 2. Parse triggers
- * 3. For each trigger.path => fetch WAV file (relative to base_url)
- * 4. Parse WAV directly in Rust (no Web Audio API needed)
- * 5. Register samples with URI: devalang://bank/{publisher.name}/{path}
- * 6. Call register_addon() with query string for triggers
- *
- * Returns: { ok, bank, base_url, triggers: [{ name, uri, relative, frames }] }
- * @param {string} base_url
- * @returns {Promise<any>}
- */
-exports.register_bank_from_manifest = function(base_url) {
-    const ptr0 = passStringToWasm0(base_url, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.register_bank_from_manifest(ptr0, len0);
-    return ret;
-};
-
-/**
- * Load a bank from a URL (auto-detects bank.toml or bank.json)
- *
- * Tries in order:
- * 1. Exact URL if it ends with .toml/.json
- * 2. {base_url}/bank.toml
- * 3. {base_url}/bank.json
- *
- * Example:
- * - `load_bank_from_url("https://example.com/banks/devaloop/808")`
- *   → tries "https://example.com/banks/devaloop/808/bank.toml" then "bank.json"
- * - `load_bank_from_url("https://example.com/banks/kit.bank.json")`
- *   → loads exactly that JSON file
- * @param {string} url
- * @returns {Promise<any>}
- */
-exports.load_bank_from_url = function(url) {
-    const ptr0 = passStringToWasm0(url, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.load_bank_from_url(ptr0, len0);
-    return ret;
 };
 
 /**
@@ -616,32 +502,15 @@ exports.collect_parse_errors = function(clear) {
 };
 
 /**
- * Render audio from Devalang code
- * Returns audio buffer as Float32Array
- * @param {string} user_code
- * @param {any} options
- * @returns {Float32Array}
- */
-exports.render_audio = function(user_code, options) {
-    const ptr0 = passStringToWasm0(user_code, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.render_audio(ptr0, len0, options);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-};
-
-/**
- * Render audio with debug information
+ * Get metadata for code without full rendering (fast preview)
  * @param {string} user_code
  * @param {any} options
  * @returns {any}
  */
-exports.debug_render = function(user_code, options) {
+exports.get_render_metadata = function(user_code, options) {
     const ptr0 = passStringToWasm0(user_code, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.debug_render(ptr0, len0, options);
+    const ret = wasm.get_render_metadata(ptr0, len0, options);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -649,16 +518,16 @@ exports.debug_render = function(user_code, options) {
 };
 
 /**
- * Render WAV file preview
+ * Export audio with format options (WAV 16/24/32 bit, MP3)
  * @param {string} user_code
  * @param {any} options
  * @param {Function | null} [on_progress]
  * @returns {Uint8Array}
  */
-exports.render_wav_preview = function(user_code, options, on_progress) {
+exports.export_audio = function(user_code, options, on_progress) {
     const ptr0 = passStringToWasm0(user_code, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.render_wav_preview(ptr0, len0, options, isLikeNone(on_progress) ? 0 : addToExternrefTable0(on_progress));
+    const ret = wasm.export_audio(ptr0, len0, options, isLikeNone(on_progress) ? 0 : addToExternrefTable0(on_progress));
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -666,31 +535,162 @@ exports.render_wav_preview = function(user_code, options, on_progress) {
 };
 
 /**
- * Get code to buffer metadata with duration calculation
+ * Render MIDI from Devalang code
+ * Returns MIDI file as Uint8Array
  * @param {string} user_code
  * @param {any} options
- * @returns {any}
+ * @param {Function | null} [on_progress]
+ * @returns {Uint8Array}
  */
-exports.get_code_to_buffer_metadata = function(user_code, options) {
+exports.render_midi_array = function(user_code, options, on_progress) {
     const ptr0 = passStringToWasm0(user_code, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.get_code_to_buffer_metadata(ptr0, len0, options);
+    const ret = wasm.render_midi_array(ptr0, len0, options, isLikeNone(on_progress) ? 0 : addToExternrefTable0(on_progress));
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
 };
 
-function __wbg_adapter_8(arg0, arg1, arg2) {
-    wasm.closure638_externref_shim(arg0, arg1, arg2);
+/**
+ * Export MIDI file (browser download)
+ * This is just a convenience wrapper that returns the same data as render_midi_array
+ * @param {string} user_code
+ * @param {any} options
+ * @param {Function | null} [on_progress]
+ * @returns {Uint8Array}
+ */
+exports.export_midi_file = function(user_code, options, on_progress) {
+    const ptr0 = passStringToWasm0(user_code, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.export_midi_file(ptr0, len0, options, isLikeNone(on_progress) ? 0 : addToExternrefTable0(on_progress));
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+};
+
+/**
+ * Register a bank from a simple JSON manifest (for testing/manual registration)
+ *
+ * Manifest format:
+ * ```json
+ * {
+ *   "name": "devaloop.808",
+ *   "alias": "kit",
+ *   "version": "1.0.0",
+ *   "description": "808 drum bank",
+ *   "triggers": {
+ *     "kick": "http://example.com/kick.wav",
+ *     "snare": "http://example.com/snare.wav"
+ *   }
+ * }
+ * ```
+ *
+ * This only registers the bank metadata. Samples must be registered separately using register_sample().
+ * @param {string} manifest_json
+ */
+exports.register_bank_json = function(manifest_json) {
+    const ptr0 = passStringToWasm0(manifest_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.register_bank_json(ptr0, len0);
+    if (ret[1]) {
+        throw takeFromExternrefTable0(ret[0]);
+    }
+};
+
+/**
+ * Load and register a complete bank from bank.toml hosted at base_url
+ *
+ * Steps:
+ * 1. Fetch base_url + "/bank.toml"
+ * 2. Parse triggers
+ * 3. For each trigger.path => fetch WAV file (relative to base_url)
+ * 4. Parse WAV directly in Rust (no Web Audio API needed)
+ * 5. Register samples with URI: devalang://bank/{publisher.name}/{path}
+ * 6. Call register_addon() with query string for triggers
+ *
+ * Returns: { ok, bank, base_url, triggers: [{ name, uri, relative, frames }] }
+ * @param {string} base_url
+ * @returns {Promise<any>}
+ */
+exports.register_bank_from_manifest = function(base_url) {
+    const ptr0 = passStringToWasm0(base_url, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.register_bank_from_manifest(ptr0, len0);
+    return ret;
+};
+
+/**
+ * Load a bank from a URL (auto-detects bank.toml or bank.json)
+ *
+ * Tries in order:
+ * 1. Exact URL if it ends with .toml/.json
+ * 2. {base_url}/bank.toml
+ * 3. {base_url}/bank.json
+ *
+ * Example:
+ * - `load_bank_from_url("https://example.com/banks/devaloop/808")`
+ *   → tries "https://example.com/banks/devaloop/808/bank.toml" then "bank.json"
+ * - `load_bank_from_url("https://example.com/banks/kit.bank.json")`
+ *   → loads exactly that JSON file
+ * @param {string} url
+ * @returns {Promise<any>}
+ */
+exports.load_bank_from_url = function(url) {
+    const ptr0 = passStringToWasm0(url, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.load_bank_from_url(ptr0, len0);
+    return ret;
+};
+
+/**
+ * Parse Devalang source code
+ *
+ * # Arguments
+ * * `entry_path` - Path to the source file (for error messages)
+ * * `source` - Source code to parse
+ *
+ * # Returns
+ * JSON object with parse results
+ * @param {string} entry_path
+ * @param {string} source
+ * @returns {any}
+ */
+exports.parse = function(entry_path, source) {
+    const ptr0 = passStringToWasm0(entry_path, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(source, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.parse(ptr0, len0, ptr1, len1);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+};
+
+/**
+ * Quick parse check - returns true if code parses without errors
+ * @param {string} source
+ * @returns {boolean}
+ */
+exports.check_syntax = function(source) {
+    const ptr0 = passStringToWasm0(source, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.check_syntax(ptr0, len0);
+    return ret !== 0;
+};
+
+function __wbg_adapter_6(arg0, arg1, arg2) {
+    wasm.closure625_externref_shim(arg0, arg1, arg2);
 }
 
-function __wbg_adapter_13(arg0, arg1) {
-    wasm.wasm_bindgen__convert__closures_____invoke__he0c1d455ee6a0724(arg0, arg1);
+function __wbg_adapter_15(arg0, arg1) {
+    wasm.wasm_bindgen__convert__closures_____invoke__hc50b3545d2f7074d(arg0, arg1);
 }
 
 function __wbg_adapter_118(arg0, arg1, arg2, arg3) {
-    wasm.closure653_externref_shim(arg0, arg1, arg2, arg3);
+    wasm.closure640_externref_shim(arg0, arg1, arg2, arg3);
 }
 
 exports.__wbg_Error_e17e777aac105295 = function(arg0, arg1) {
@@ -1077,15 +1077,15 @@ exports.__wbg_wbindgenthrow_451ec1a8469d7eb6 = function(arg0, arg1) {
     throw new Error(getStringFromWasm0(arg0, arg1));
 };
 
-exports.__wbindgen_cast_2241b6af4c4b2941 = function(arg0, arg1) {
-    // Cast intrinsic for `Ref(String) -> Externref`.
-    const ret = getStringFromWasm0(arg0, arg1);
+exports.__wbindgen_cast_1e2a199d75e7012e = function(arg0, arg1) {
+    // Cast intrinsic for `Closure(Closure { dtor_idx: 433, function: Function { arguments: [], shim_idx: 434, ret: Unit, inner_ret: Some(Unit) }, mutable: false }) -> Externref`.
+    const ret = makeClosure(arg0, arg1, 433, __wbg_adapter_15);
     return ret;
 };
 
-exports.__wbindgen_cast_43928e51ce0af8d1 = function(arg0, arg1) {
-    // Cast intrinsic for `Closure(Closure { dtor_idx: 503, function: Function { arguments: [], shim_idx: 504, ret: Unit, inner_ret: Some(Unit) }, mutable: false }) -> Externref`.
-    const ret = makeClosure(arg0, arg1, 503, __wbg_adapter_13);
+exports.__wbindgen_cast_2241b6af4c4b2941 = function(arg0, arg1) {
+    // Cast intrinsic for `Ref(String) -> Externref`.
+    const ret = getStringFromWasm0(arg0, arg1);
     return ret;
 };
 
@@ -1095,9 +1095,9 @@ exports.__wbindgen_cast_4625c577ab2ec9ee = function(arg0) {
     return ret;
 };
 
-exports.__wbindgen_cast_48cbc3748220f6e5 = function(arg0, arg1) {
-    // Cast intrinsic for `Closure(Closure { dtor_idx: 637, function: Function { arguments: [Externref], shim_idx: 638, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
-    const ret = makeMutClosure(arg0, arg1, 637, __wbg_adapter_8);
+exports.__wbindgen_cast_bc496372436633df = function(arg0, arg1) {
+    // Cast intrinsic for `Closure(Closure { dtor_idx: 624, function: Function { arguments: [Externref], shim_idx: 625, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+    const ret = makeMutClosure(arg0, arg1, 624, __wbg_adapter_6);
     return ret;
 };
 

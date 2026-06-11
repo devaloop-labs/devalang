@@ -3,11 +3,14 @@
 use anyhow::Result;
 use clap::Args;
 use std::path::Path;
+use std::sync::mpsc::channel;
 use std::time::Instant;
 
+use crate::language::syntax::ast::{Statement, StatementKind, Value};
 use crate::language::syntax::parser::driver::SimpleParser;
 use crate::tools::cli::rules_reporter::RulesReporter;
 use crate::tools::cli::state::CliContext;
+use crate::tools::logger::structured_error::StructuredError;
 
 #[derive(Debug, Clone, Args)]
 pub struct CheckCommand {
@@ -30,14 +33,15 @@ pub struct CheckCommand {
 
 impl CheckCommand {
     pub async fn execute(&self, ctx: &CliContext) -> Result<()> {
-        let logger = ctx.logger();
-
         if self.watch {
-            logger.info("Watch mode not yet implemented");
-            logger.info("Use: devalang check --entry ./examples");
-            return Ok(());
+            return self.execute_watch(ctx).await;
         }
 
+        self.execute_once(ctx)
+    }
+
+    fn execute_once(&self, ctx: &CliContext) -> Result<()> {
+        let logger = ctx.logger();
         logger.action(format!("Checking '{}'...", self.entry));
 
         // Initialize rules reporter (only if rules not disabled)
@@ -87,6 +91,15 @@ impl CheckCommand {
                         ));
                     }
 
+                    let invalid_statements = collect_invalid_statements(&statements);
+                    total_errors += invalid_statements.len();
+                    for statement in invalid_statements {
+                        logger.log_structured_error(&structured_statement_error(
+                            statement,
+                            &file_display.to_string(),
+                        ));
+                    }
+
                     // Report on rules (var_keyword, deprecated_syntax, etc.) if enabled
                     if let Some(ref reporter) = rules_reporter {
                         let content = std::fs::read_to_string(file_path)?;
@@ -132,6 +145,61 @@ impl CheckCommand {
 
         Ok(())
     }
+
+    async fn execute_watch(&self, ctx: &CliContext) -> Result<()> {
+        use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
+        use std::time::Duration;
+
+        let logger = ctx.logger();
+        let entry_path = Path::new(&self.entry);
+        if !entry_path.exists() {
+            logger.error(format!("Entry path '{}' does not exist", self.entry));
+            return Err(anyhow::anyhow!("Entry path not found"));
+        }
+
+        self.execute_once(ctx).ok();
+
+        let (tx, rx) = channel();
+        let mut watcher = RecommendedWatcher::new(
+            move |result| {
+                let _ = tx.send(result);
+            },
+            Config::default(),
+        )?;
+
+        let recursive_mode = if entry_path.is_dir() {
+            RecursiveMode::Recursive
+        } else {
+            RecursiveMode::NonRecursive
+        };
+        watcher.watch(entry_path, recursive_mode)?;
+        logger.info(format!("Watching '{}' for changes...", self.entry));
+
+        loop {
+            match rx.recv() {
+                Ok(Ok(event)) => {
+                    if should_recheck(&event.kind) {
+                        std::thread::sleep(Duration::from_millis(75));
+                        if let Err(error) = self.execute_once(ctx) {
+                            logger.error(format!("Watch check failed: {}", error));
+                        }
+                    }
+                }
+                Ok(Err(error)) => logger.error(format!("Watch error: {}", error)),
+                Err(error) => return Err(anyhow::anyhow!("Watch channel closed: {}", error)),
+            }
+        }
+    }
+}
+
+fn should_recheck(kind: &notify::EventKind) -> bool {
+    matches!(
+        kind,
+        notify::EventKind::Create(_)
+            | notify::EventKind::Modify(_)
+            | notify::EventKind::Remove(_)
+            | notify::EventKind::Any
+    )
 }
 
 /// Recursively find all .deva files in a directory
@@ -152,4 +220,99 @@ fn find_deva_files(dir: &Path) -> Result<Vec<std::path::PathBuf>> {
     }
 
     Ok(files)
+}
+
+fn collect_invalid_statements(statements: &[Statement]) -> Vec<&Statement> {
+    let mut invalid = Vec::new();
+    for statement in statements {
+        collect_invalid_statement(statement, &mut invalid);
+    }
+    invalid
+}
+
+fn collect_invalid_statement<'a>(statement: &'a Statement, invalid: &mut Vec<&'a Statement>) {
+    match &statement.kind {
+        StatementKind::Unknown | StatementKind::Error { .. } => invalid.push(statement),
+        StatementKind::Tempo {
+            body: Some(body), ..
+        }
+        | StatementKind::Function { body, .. }
+        | StatementKind::Group { body, .. }
+        | StatementKind::Loop { body, .. }
+        | StatementKind::For { body, .. }
+        | StatementKind::Routing { body }
+        | StatementKind::On { body, .. }
+        | StatementKind::While { body, .. }
+        | StatementKind::Section { body, .. } => {
+            for child in body {
+                collect_invalid_statement(child, invalid);
+            }
+        }
+        StatementKind::If {
+            body, else_body, ..
+        } => {
+            for child in body {
+                collect_invalid_statement(child, invalid);
+            }
+            if let Some(else_body) = else_body {
+                for child in else_body {
+                    collect_invalid_statement(child, invalid);
+                }
+            }
+        }
+        StatementKind::Schedule { events } => {
+            for (_, _, body) in events {
+                for child in body {
+                    collect_invalid_statement(child, invalid);
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+fn structured_statement_error(statement: &Statement, fallback_file: &str) -> StructuredError {
+    match &statement.kind {
+        StatementKind::Error { message } => StructuredError::new(message.clone())
+            .with_file(fallback_file.to_string())
+            .with_location(statement.line, statement.column)
+            .with_type("SyntaxError"),
+        _ => {
+            let (message, file, suggestion) =
+                parse_unknown_message(&statement.value, fallback_file);
+            let mut error = StructuredError::new(message)
+                .with_file(file)
+                .with_location(statement.line, statement.column)
+                .with_type("UnknownStatement");
+
+            if let Some(suggestion) = suggestion {
+                error = error.with_suggestion(format!("Did you mean '{}' ?", suggestion));
+            }
+
+            error
+        }
+    }
+}
+
+fn parse_unknown_message(value: &Value, fallback_file: &str) -> (String, String, Option<String>) {
+    let raw = match value {
+        Value::String(message) => message.as_str(),
+        _ => {
+            return (
+                "Unknown statement".to_string(),
+                fallback_file.to_string(),
+                None,
+            );
+        }
+    };
+
+    let mut parts = raw.split("|||");
+    let message = parts.next().unwrap_or("Unknown statement").to_string();
+    let file = parts.next().unwrap_or(fallback_file).to_string();
+    let suggestion = parts
+        .next()
+        .filter(|s| !s.is_empty() && *s != "NO_SUGGESTION")
+        .map(|s| s.to_string());
+
+    (message, file, suggestion)
 }

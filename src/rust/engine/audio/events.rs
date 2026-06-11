@@ -6,6 +6,7 @@ use std::collections::HashMap;
 #[derive(Debug, Clone)]
 pub enum AudioEvent {
     Note {
+        node_id: Option<String>,
         midi: u8,
         start_time: f32,
         duration: f32,
@@ -31,6 +32,7 @@ pub enum AudioEvent {
         use_per_note_automation: bool, // Whether to apply per-note automation at render time
     },
     Chord {
+        node_id: Option<String>,
         midis: Vec<u8>,
         start_time: f32,
         duration: f32,
@@ -57,6 +59,7 @@ pub enum AudioEvent {
         use_per_note_automation: bool, // Whether to apply per-note automation at render time
     },
     Sample {
+        node_id: Option<String>,
         uri: String,
         start_time: f32,
         velocity: f32,
@@ -92,6 +95,7 @@ pub struct SynthDefinition {
     pub filters: Vec<FilterDef>,
     pub options: HashMap<String, f32>, // Configurable synth type options
     pub lfo: Option<crate::engine::audio::lfo::LfoParams>, // Low-Frequency Oscillator
+    pub bpm: f32, // Tempo snapshot used by beat-synced modulation during rendering
     // Plugin support
     pub plugin_author: Option<String>,
     pub plugin_name: Option<String>,
@@ -110,6 +114,7 @@ impl Default for SynthDefinition {
             filters: Vec::new(),
             options: HashMap::new(),
             lfo: None,
+            bpm: 120.0,
             plugin_author: None,
             plugin_name: None,
             plugin_export: None,
@@ -157,6 +162,7 @@ impl AudioEventList {
         });
 
         self.events.push(AudioEvent::Note {
+            node_id: Some("master".to_string()),
             midi,
             start_time,
             duration,
@@ -203,6 +209,7 @@ impl AudioEventList {
         let synth_def = self.get_synth(synth_id).cloned().unwrap_or_default();
 
         self.events.push(AudioEvent::Chord {
+            node_id: Some("master".to_string()),
             midis,
             start_time,
             duration,
@@ -228,6 +235,7 @@ impl AudioEventList {
 
     pub fn add_sample_event(&mut self, uri: &str, start_time: f32, velocity: f32) {
         self.events.push(AudioEvent::Sample {
+            node_id: Some("master".to_string()),
             uri: uri.to_string(),
             start_time,
             velocity,
@@ -245,6 +253,7 @@ impl AudioEventList {
         effects: Option<Value>,
     ) {
         self.events.push(AudioEvent::Sample {
+            node_id: Some("master".to_string()),
             uri: uri.to_string(),
             start_time,
             velocity,

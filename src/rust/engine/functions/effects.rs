@@ -54,46 +54,13 @@ impl FunctionExecutor for DurationFunction {
                 // Try using the duration parser first
                 use crate::language::syntax::parser::driver::duration::parse_duration_token;
                 match parse_duration_token(frac_str) {
-                    Ok(crate::language::syntax::ast::DurationValue::Milliseconds(ms)) => {
-                        ms / 1000.0
-                    }
-                    Ok(crate::language::syntax::ast::DurationValue::Beats(beats)) => {
-                        beats * (60.0 / context.tempo)
-                    }
-                    Ok(crate::language::syntax::ast::DurationValue::Number(ms)) => ms / 1000.0,
-                    Ok(crate::language::syntax::ast::DurationValue::Beat(beat_str)) => {
-                        // Parse the beat string (should be a number)
-                        if let Ok(beats) = beat_str.parse::<f32>() {
-                            beats * (60.0 / context.tempo)
-                        } else {
-                            return Err(anyhow!("Invalid beat value: '{}'", beat_str));
-                        }
-                    }
-                    Ok(crate::language::syntax::ast::DurationValue::Identifier(id)) => {
-                        // This is a temporal identifier like "__temporal__4_beats"
-                        if id.starts_with("__temporal__") {
-                            if let Some(beats_str) = id.strip_prefix("__temporal__") {
-                                if let Ok(beats) =
-                                    beats_str.split('_').next().unwrap_or("").parse::<f32>()
-                                {
-                                    beats * (60.0 / context.tempo)
-                                } else {
-                                    return Err(anyhow!(
-                                        "Invalid temporal duration format: '{}'",
-                                        s
-                                    ));
-                                }
-                            } else {
-                                return Err(anyhow!("Invalid temporal duration format: '{}'", s));
-                            }
-                        } else {
-                            // Unknown identifier
-                            return Err(anyhow!("Unknown duration: '{}'", s));
-                        }
-                    }
                     Ok(crate::language::syntax::ast::DurationValue::Auto) => {
                         return Err(anyhow!("duration() cannot use 'auto'"));
                     }
+                    Ok(duration) => crate::engine::audio::duration::duration_to_seconds(
+                        &duration,
+                        context.tempo,
+                    )?,
                     Err(_) => {
                         // Parser failed, give a helpful error
                         return Err(anyhow!(

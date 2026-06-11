@@ -4,6 +4,25 @@ use crate::language::syntax::ast::{Statement, StatementKind, Value};
 use anyhow::{Result, anyhow};
 use std::collections::HashMap;
 
+fn normalize_arrow_method_name(method_name: &str) -> String {
+    match method_name.trim() {
+        "dur" | "len" => "duration",
+        "vel" => "velocity",
+        "amp" | "vol" | "volume" => "gain",
+        "wave" | "osc" => "waveform",
+        "env" | "envelope" => "adsr",
+        "verb" => "reverb",
+        "echo" => "delay",
+        "comp" => "compressor",
+        "lpf" => "lowpass",
+        "hpf" => "highpass",
+        "bpf" => "bandpass",
+        "dist" => "distortion",
+        other => other,
+    }
+    .to_string()
+}
+
 /// Parse an arrow call: target -> method(args) -> method2(args2)
 /// Supports chaining multiple calls
 pub fn parse_arrow_call(line: &str, line_number: usize) -> Result<Statement> {
@@ -23,11 +42,7 @@ pub fn parse_arrow_call(line: &str, line_number: usize) -> Result<Statement> {
     for method_call in &parts[1..] {
         // Parse method(args) or just method
         if let Some(paren_idx) = method_call.find('(') {
-            let mut method_name = method_call[..paren_idx].trim().to_string();
-            // Accept both vel(...) and velocity(...)
-            if method_name == "vel" {
-                method_name = "velocity".to_string();
-            }
+            let method_name = normalize_arrow_method_name(&method_call[..paren_idx]);
             let args_str = &method_call[paren_idx + 1..];
 
             // Find matching closing paren
@@ -44,10 +59,10 @@ pub fn parse_arrow_call(line: &str, line_number: usize) -> Result<Statement> {
                 parse_function_args(args_str)?
             };
 
-            calls.push((method_name.to_string(), args));
+            calls.push((method_name, args));
         } else {
             // Method without args
-            calls.push((method_call.trim().to_string(), Vec::new()));
+            calls.push((normalize_arrow_method_name(method_call), Vec::new()));
         }
     }
 
@@ -93,6 +108,88 @@ pub fn parse_arrow_call(line: &str, line_number: usize) -> Result<Statement> {
         line_number,
         1,
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_arrow_aliases_are_normalized() {
+        let statement = parse_arrow_call(
+            r#"lead -> dur(1/4) -> vel(0.8) -> verb({ mix: 0.2 }) -> lpf({ cutoff: 900 })"#,
+            1,
+        )
+        .unwrap();
+
+        match statement.kind {
+            StatementKind::ArrowCall { method, .. } => {
+                assert_eq!(method, "duration");
+            }
+            other => panic!("expected arrow call, got {:?}", other),
+        }
+
+        match statement.value {
+            Value::Map(map) => {
+                assert!(matches!(
+                    map.get("method"),
+                    Some(Value::String(method)) if method == "duration"
+                ));
+
+                let chain = match map.get("chain") {
+                    Some(Value::Array(chain)) => chain,
+                    other => panic!("expected chain array, got {:?}", other),
+                };
+
+                assert!(matches!(
+                    &chain[0],
+                    Value::Map(call) if matches!(call.get("method"), Some(Value::String(method)) if method == "velocity")
+                ));
+                assert!(matches!(
+                    &chain[1],
+                    Value::Map(call) if matches!(call.get("method"), Some(Value::String(method)) if method == "reverb")
+                ));
+                assert!(matches!(
+                    &chain[2],
+                    Value::Map(call) if matches!(call.get("method"), Some(Value::String(method)) if method == "lowpass")
+                ));
+            }
+            other => panic!("expected arrow value map, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_synth_config_aliases_are_normalized() {
+        let statement = parse_arrow_call(
+            r#"synth -> wave("saw") -> env({ attack: 0.01 }) -> amp(0.8)"#,
+            1,
+        )
+        .unwrap();
+
+        match statement.value {
+            Value::Map(map) => {
+                assert!(matches!(
+                    map.get("method"),
+                    Some(Value::String(method)) if method == "waveform"
+                ));
+
+                let chain = match map.get("chain") {
+                    Some(Value::Array(chain)) => chain,
+                    other => panic!("expected chain array, got {:?}", other),
+                };
+
+                assert!(matches!(
+                    &chain[0],
+                    Value::Map(call) if matches!(call.get("method"), Some(Value::String(method)) if method == "adsr")
+                ));
+                assert!(matches!(
+                    &chain[1],
+                    Value::Map(call) if matches!(call.get("method"), Some(Value::String(method)) if method == "gain")
+                ));
+            }
+            other => panic!("expected arrow value map, got {:?}", other),
+        }
+    }
 }
 
 /// Parse property assignment: target.property = value

@@ -6,6 +6,11 @@ use anyhow::Result;
 use std::str::FromStr;
 use tiny_http::{Header, Response, Server};
 
+fn html_content_type_header() -> Result<Header> {
+    Header::from_str("Content-Type: text/html; charset=utf-8")
+        .map_err(|_| anyhow::anyhow!("Failed to build response header"))
+}
+
 /// Login command with OAuth flow
 /// Opens browser to SSO page and waits for callback with session token
 pub async fn login(_token: Option<String>) -> Result<()> {
@@ -120,9 +125,7 @@ pub async fn login(_token: Option<String>) -> Result<()> {
 
                     let response = Response::from_string(response_html)
                         .with_status_code(200)
-                        .with_header(
-                            Header::from_str("Content-Type: text/html; charset=utf-8").unwrap(),
-                        );
+                        .with_header(html_content_type_header()?);
 
                     let _ = request.respond(response);
 
@@ -184,9 +187,7 @@ pub async fn login(_token: Option<String>) -> Result<()> {
 
                     let response = Response::from_string(response_html)
                         .with_status_code(400)
-                        .with_header(
-                            Header::from_str("Content-Type: text/html; charset=utf-8").unwrap(),
-                        );
+                        .with_header(html_content_type_header()?);
 
                     let _ = request.respond(response);
 
@@ -261,9 +262,7 @@ pub async fn login(_token: Option<String>) -> Result<()> {
 
                 let response = Response::from_string(response_html)
                     .with_status_code(400)
-                    .with_header(
-                        Header::from_str("Content-Type: text/html; charset=utf-8").unwrap(),
-                    );
+                    .with_header(html_content_type_header()?);
 
                 let _ = request.respond(response);
 
@@ -319,9 +318,7 @@ pub async fn login(_token: Option<String>) -> Result<()> {
 
                 let response = Response::from_string(response_html)
                     .with_status_code(400)
-                    .with_header(
-                        Header::from_str("Content-Type: text/html; charset=utf-8").unwrap(),
-                    );
+                    .with_header(html_content_type_header()?);
 
                 let _ = request.respond(response);
 

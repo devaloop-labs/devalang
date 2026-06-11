@@ -87,13 +87,12 @@ async fn discover_local_addons(
     Ok(filtered_addons)
 }
 
-/// Discovers remote addons via API (placeholder for future implementation)
+/// Remote addon discovery is not supported until the registry API is available.
 async fn discover_remote_addons(
     _search_term: Option<String>,
     _addon_type: Option<String>,
     _author: Option<String>,
 ) -> Result<Vec<AddonSearchResult>> {
-    // TODO: Implement remote API discovery
     Err(anyhow::anyhow!(
         "Remote addon discovery not yet implemented. Use --local flag to discover local addons."
     ))

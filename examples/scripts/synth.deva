@@ -7,17 +7,26 @@
 # Available types: pluck, pad, bass, lead.
 #
 # Syntax:
-# `synth <waveform> -> <optional_param>(<param_value>)`
+# `synth -> waveform("<waveform>") -> <optional_param>(<param_value>)`
+# Livecoding aliases: waveform = wave/osc, adsr = env
 
-# Creating a simple sine wave synth without params
-let sineSynth = synth sine
+# Creating a simple synth with default sine waveform
+let sineSynth = synth
 
 # Creating a simple pluck sound with a square waveform
-let pluckSynth = synth square 
-    -> type("pluck")
-    -> adsr({
+let pluckSynth = synth
+    -> wave("square")
+    -> preset("pluck")
+    -> voices(4)
+    -> env({
         attack: 0.001,
         decay: 0.3,
         sustain: 0.1,
         release: 0.1
     })
+
+pluckSynth -> note(C4)
+
+sleep 5000
+
+pluckSynth -> chord([C3, C4, C5])

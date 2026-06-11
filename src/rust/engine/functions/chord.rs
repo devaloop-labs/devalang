@@ -122,9 +122,8 @@ fn parse_chord_notation(chord_name: &str) -> Result<Vec<String>> {
 
     // Find where the note ends (after potential # or b)
     let mut root_end = 1;
-    if chord_name.len() > 1 {
-        let second_char = chord_name.chars().nth(1).unwrap();
-        if second_char == '#' || second_char == 'b' {
+    if let Some(second_char) = chord_name.chars().nth(1) {
+        if matches!(second_char, '#' | 'b') {
             root_end = 2;
         }
     }

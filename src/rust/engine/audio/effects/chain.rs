@@ -194,6 +194,42 @@ fn build_effect_processor(
                     time, feedback, mix,
                 )))
             }
+            "eq" | "equalizer" => {
+                let low = get_f32_param(&params_map, "low", 1.0);
+                let mid = get_f32_param(&params_map, "mid", 1.0);
+                let high = get_f32_param(&params_map, "high", 1.0);
+                Some(Box::new(super::processors::EqProcessor::new(
+                    low, mid, high,
+                )))
+            }
+            "lowpass" | "lpf" => {
+                let cutoff = get_f32_param(&params_map, "cutoff", 5000.0);
+                let resonance = get_f32_param(&params_map, "resonance", 0.1);
+                Some(Box::new(super::processors::LowpassProcessor::new(
+                    cutoff, resonance,
+                )))
+            }
+            "highpass" | "hpf" => {
+                let cutoff = get_f32_param(&params_map, "cutoff", 200.0);
+                let resonance = get_f32_param(&params_map, "resonance", 0.1);
+                Some(Box::new(super::processors::HighpassProcessor::new(
+                    cutoff, resonance,
+                )))
+            }
+            "bandpass" | "bpf" => {
+                let cutoff = get_f32_param(&params_map, "cutoff", 1000.0);
+                let resonance = get_f32_param(&params_map, "resonance", 0.2);
+                Some(Box::new(super::processors::BandpassProcessor::new(
+                    cutoff, resonance,
+                )))
+            }
+            "distortion" | "dist" => {
+                let amount = get_f32_param(&params_map, "amount", 0.5);
+                let mix = get_f32_param(&params_map, "mix", 0.5);
+                Some(Box::new(super::processors::DistortionProcessor::new(
+                    amount, mix,
+                )))
+            }
             "speed" => {
                 // support both {'speed': 2.0} and {'value': 2.0} normalized forms
                 let speed = get_f32_param(
@@ -334,6 +370,38 @@ mod tests {
         params.insert("mix".to_string(), Value::Number(0.6));
 
         assert!(chain.add_effect("chorus", Some(Value::Map(params))));
+        assert_eq!(chain.len(), 1);
+    }
+
+    #[test]
+    fn test_filter_effects_accept_parameter_maps() {
+        let mut params = HashMap::new();
+        params.insert("cutoff".to_string(), Value::Number(900.0));
+        params.insert("resonance".to_string(), Value::Number(0.2));
+
+        let effects = vec![Value::Map({
+            let mut effect = HashMap::new();
+            effect.insert("type".to_string(), Value::String("lowpass".to_string()));
+            effect.extend(params);
+            effect
+        })];
+
+        let chain = build_effect_chain(&effects, true);
+        assert_eq!(chain.len(), 1);
+    }
+
+    #[test]
+    fn test_eq_effect_accepts_three_band_map() {
+        let effects = vec![Value::Map({
+            let mut effect = HashMap::new();
+            effect.insert("type".to_string(), Value::String("eq".to_string()));
+            effect.insert("low".to_string(), Value::Number(1.2));
+            effect.insert("mid".to_string(), Value::Number(0.8));
+            effect.insert("high".to_string(), Value::Number(1.1));
+            effect
+        })];
+
+        let chain = build_effect_chain(&effects, true);
         assert_eq!(chain.len(), 1);
     }
 

@@ -229,7 +229,7 @@ let snareVol = 0.8
 
 # Create a filtered synth
 let bass = synth sine
-        -> type("bass")
+        -> preset("bass")
 
 # Define drum patterns
 pattern kickPattern with drums.kick = "x--- x--- x--- x---"

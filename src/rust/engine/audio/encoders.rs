@@ -307,7 +307,7 @@ fn encode_mp3(pcm_samples: &[f32], options: &EncoderOptions) -> Result<Vec<u8>> 
 }
 
 /// Encode to OGG Vorbis format
-/// TODO: Implement using vorbis encoder
+/// OGG Vorbis is advertised by the CLI but not supported by this encoder yet.
 fn encode_ogg(_pcm_samples: &[f32], options: &EncoderOptions) -> Result<Vec<u8>> {
     Err(anyhow!(
         "OGG Vorbis export not yet implemented. \n\
@@ -322,7 +322,7 @@ fn encode_ogg(_pcm_samples: &[f32], options: &EncoderOptions) -> Result<Vec<u8>>
 }
 
 /// Encode to FLAC format
-/// TODO: Implement using FLAC encoder
+/// FLAC is advertised by the CLI but not supported by this encoder yet.
 fn encode_flac(_pcm_samples: &[f32], _options: &EncoderOptions) -> Result<Vec<u8>> {
     Err(anyhow!(
         "FLAC export not yet implemented. \n\
@@ -336,7 +336,7 @@ fn encode_flac(_pcm_samples: &[f32], _options: &EncoderOptions) -> Result<Vec<u8
 }
 
 /// Encode to Opus format
-/// TODO: Implement using opus encoder
+/// Opus is advertised by the CLI but not supported by this encoder yet.
 fn encode_opus(_pcm_samples: &[f32], options: &EncoderOptions) -> Result<Vec<u8>> {
     Err(anyhow!(
         "Opus export not yet implemented. \n\

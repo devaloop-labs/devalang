@@ -53,12 +53,10 @@ pub mod web {
                 false
             }
             pub fn push_parse_error_from_parts(
-                _source: String,
+                _message: String,
                 _line: usize,
                 _column: usize,
-                _length: usize,
-                _message: String,
-                _severity: String,
+                _error_type: String,
             ) {
             }
         }
@@ -108,12 +106,10 @@ pub mod web {
                 false
             }
             pub fn push_parse_error_from_parts(
-                _source: String,
+                _message: String,
                 _line: usize,
                 _column: usize,
-                _length: usize,
-                _message: String,
-                _severity: String,
+                _error_type: String,
             ) {
             }
         }

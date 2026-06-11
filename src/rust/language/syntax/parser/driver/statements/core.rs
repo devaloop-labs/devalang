@@ -170,6 +170,11 @@ pub fn parse_bank(
     ))
 }
 
+fn is_synth_expr(value: &str) -> bool {
+    let value = value.trim();
+    value == "synth" || value.starts_with("synth ")
+}
+
 /// Parse let statement
 pub fn parse_let(
     line: &str,
@@ -190,7 +195,7 @@ pub fn parse_let(
 
     let value = if remainder.is_empty() {
         None
-    } else if remainder.starts_with("synth ") {
+    } else if is_synth_expr(&remainder) {
         // Reuse existing synth parsing logic (supports chained params and param maps)
         if remainder.contains("->") {
             let stmt =
@@ -213,6 +218,12 @@ pub fn parse_let(
                     let mut handled_as_synth_param = false;
                     if let Some(Value::Array(args_arr)) = chain_container.get("args") {
                         if first_method == "type" {
+                            // v0.2.0: type() is deprecated, use preset() instead
+                            return Err(anyhow!(
+                                "ERROR: type() is deprecated in v0.2.0. Use preset() instead.\n  \
+                                 Example: synth -> preset(\"lead\") instead of synth -> type(\"lead\")"
+                            ));
+                        } else if first_method == "preset" {
                             if let Some(first) = args_arr.get(0) {
                                 match first {
                                     Value::String(s) => {
@@ -232,6 +243,38 @@ pub fn parse_let(
                                     _ => {}
                                 }
                             }
+                        } else if first_method == "waveform" || first_method == "wave" {
+                            // v0.2.0: both waveform and wave are aliases
+                            if let Some(first) = args_arr.get(0) {
+                                match first {
+                                    Value::String(s) | Value::Identifier(s) => {
+                                        synth_map.insert(
+                                            "waveform".to_string(),
+                                            Value::String(s.clone()),
+                                        );
+                                        handled_as_synth_param = true;
+                                    }
+                                    _ => {}
+                                }
+                            }
+                        } else if first_method == "voices" {
+                            if let Some(Value::Number(n)) = args_arr.get(0) {
+                                synth_map.insert("voices".to_string(), Value::Number(*n));
+                                handled_as_synth_param = true;
+                            }
+                        } else if first_method == "mono" {
+                            synth_map.insert("voices".to_string(), Value::Number(1.0));
+                            handled_as_synth_param = true;
+                        } else if first_method == "poly" {
+                            let voices = args_arr
+                                .get(0)
+                                .and_then(|v| match v {
+                                    Value::Number(n) => Some(*n),
+                                    _ => None,
+                                })
+                                .unwrap_or(8.0);
+                            synth_map.insert("voices".to_string(), Value::Number(voices));
+                            handled_as_synth_param = true;
                         } else if first_method == "adsr" {
                             if let Some(first) = args_arr.get(0) {
                                 if let Value::Map(arg_map) = first {
@@ -271,6 +314,12 @@ pub fn parse_let(
                         if let Value::Map(call_map) = call_val {
                             if let Some(Value::String(mname)) = call_map.get("method") {
                                 if mname == "type" {
+                                    // v0.2.0: type() is deprecated, use preset() instead
+                                    return Err(anyhow!(
+                                        "ERROR: type() is deprecated in v0.2.0. Use preset() instead.\n  \
+                                         Example: synth -> preset(\"lead\") instead of synth -> type(\"lead\")"
+                                    ));
+                                } else if mname == "preset" {
                                     if let Some(Value::Array(args_arr)) = call_map.get("args") {
                                         if let Some(first) = args_arr.get(0) {
                                             match first {
@@ -292,6 +341,51 @@ pub fn parse_let(
                                             }
                                         }
                                     }
+                                }
+                                if mname == "waveform" || mname == "wave" {
+                                    // v0.2.0: both waveform and wave are aliases
+                                    if let Some(Value::Array(args_arr)) = call_map.get("args") {
+                                        if let Some(first) = args_arr.get(0) {
+                                            match first {
+                                                Value::String(s) | Value::Identifier(s) => {
+                                                    synth_map.insert(
+                                                        "waveform".to_string(),
+                                                        Value::String(s.clone()),
+                                                    );
+                                                    continue;
+                                                }
+                                                _ => {}
+                                            }
+                                        }
+                                    }
+                                }
+                                if mname == "voices" {
+                                    if let Some(Value::Array(args_arr)) = call_map.get("args") {
+                                        if let Some(Value::Number(n)) = args_arr.get(0) {
+                                            synth_map
+                                                .insert("voices".to_string(), Value::Number(*n));
+                                            continue;
+                                        }
+                                    }
+                                }
+                                if mname == "mono" {
+                                    synth_map.insert("voices".to_string(), Value::Number(1.0));
+                                    continue;
+                                }
+                                if mname == "poly" {
+                                    let voices = call_map
+                                        .get("args")
+                                        .and_then(|v| match v {
+                                            Value::Array(args_arr) => args_arr.get(0),
+                                            _ => None,
+                                        })
+                                        .and_then(|v| match v {
+                                            Value::Number(n) => Some(*n),
+                                            _ => None,
+                                        })
+                                        .unwrap_or(8.0);
+                                    synth_map.insert("voices".to_string(), Value::Number(voices));
+                                    continue;
                                 }
                                 if mname == "adsr" {
                                     if let Some(Value::Array(args_arr)) = call_map.get("args") {
@@ -444,15 +538,15 @@ pub fn parse_const(
     let value = {
         // Reuse the same parsing rules as `let` for RHS expressions so that
         // const can accept synth definitions, arrays, triggers, numbers, and identifiers.
-        if remainder.starts_with("synth ") {
-            if remainder.contains("->") {
-                let stmt = crate::language::syntax::parser::driver::parse_arrow_call(
-                    &remainder,
-                    line_number,
-                )?;
-                Some(stmt.value)
+        if is_synth_expr(&remainder) {
+            let fake_line = format!("let __const = {}", remainder);
+            let mut fake_parts = fake_line.split_whitespace();
+            let _ = fake_parts.next();
+            let stmt = parse_let(&fake_line, fake_parts, line_number)?;
+            if let StatementKind::Let { value, .. } = stmt.kind {
+                value
             } else {
-                Some(parse_synth_definition(&remainder)?)
+                None
             }
         } else if remainder.starts_with('[') && remainder.ends_with(']') {
             Some(parse_array_value(&remainder)?)

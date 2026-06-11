@@ -178,15 +178,16 @@ macro_rules! export_plugin_with_state {
                 let out = core::slice::from_raw_parts_mut(out_ptr, out_len_usize);
 
                 // Get or create state for this instance
-                let instance_key = "default".to_string(); // TODO: pass instance ID
-                let mut states = STATE.lock().unwrap();
-                let state = states.entry(instance_key)
-                    .or_insert_with(|| Box::new($default_state))
-                    .downcast_mut()
-                    .unwrap();
-
-                let render_fn: fn(&mut _, &mut [f32], $crate::engine::plugin::bindings::types::BufferParams, $crate::engine::plugin::bindings::types::Note, f32, f32) = $render;
-                render_fn(state, out, params, note, freq, amp);
+                let instance_key = "default".to_string();
+                if let Ok(mut states) = STATE.lock() {
+                    let state_any = states
+                        .entry(instance_key)
+                        .or_insert_with(|| Box::new($default_state));
+                    if let Some(state) = state_any.downcast_mut() {
+                        let render_fn: fn(&mut _, &mut [f32], $crate::engine::plugin::bindings::types::BufferParams, $crate::engine::plugin::bindings::types::Note, f32, f32) = $render;
+                        render_fn(state, out, params, note, freq, amp);
+                    }
+                }
             }
         }
 
@@ -195,11 +196,12 @@ macro_rules! export_plugin_with_state {
                 #[unsafe(no_mangle)]
                 pub extern "C" fn [<set $param:camel>](value: f32) {
                     let instance_key = "default".to_string();
-                    let mut states = STATE.lock().unwrap();
-                    if let Some(state_any) = states.get_mut(&instance_key) {
-                        if let Some(state) = state_any.downcast_mut() {
-                            let setter: fn(&mut _, f32) = $setter;
-                            setter(state, value);
+                    if let Ok(mut states) = STATE.lock() {
+                        if let Some(state_any) = states.get_mut(&instance_key) {
+                            if let Some(state) = state_any.downcast_mut() {
+                                let setter: fn(&mut _, f32) = $setter;
+                                setter(state, value);
+                            }
                         }
                     }
                 }

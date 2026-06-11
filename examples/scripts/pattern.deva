@@ -7,6 +7,13 @@
 # Syntax:
 # `pattern <pattern_name> with <instrument> [options] = "<pattern_string>"`
 
+# Symbol reference (v0.2.0+):
+# x = normal hit (velocity 1.0)
+# X = accent hit (velocity 1.3, louder/emphasized)
+# o = soft hit (velocity 0.6, quieter)
+# . = visual placeholder (no sound, helps readability)
+# - = silence (no sound)
+
 # Fast pattern without options
 pattern kickPattern with myBank.kick = "x--- x--- x--- x---"
 
@@ -17,3 +24,8 @@ pattern snarePattern with myBank.snare {
     velocity: 0.8,
     tempo: 250,
 } = "x--- x--- x--- x---"
+
+# v0.2.0: Pattern with accents and nuances
+pattern snareAccented with myBank.snare = "---- X--- ---- X---"       // Accented on 2 and 4
+pattern hatPattern with myBank.hat = "x-x- x-x- x-o- x-x-"          // Soft hit at position 10
+pattern tomPattern with myBank.tom = "x... -x.. x... -x.."          // Visual placeholders for readability

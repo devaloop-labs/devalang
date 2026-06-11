@@ -28,6 +28,7 @@ pub struct SynthParams {
     pub filters: Vec<FilterDef>,       // Chain of filters
     pub options: HashMap<String, f32>, // Configurable options for synth types
     pub lfo: Option<LfoParams>,        // Low-Frequency Oscillator modulation
+    pub bpm: f32,                      // Tempo context for beat-synced modulation
     // Plugin support
     pub plugin_author: Option<String>,
     pub plugin_name: Option<String>,
@@ -46,6 +47,7 @@ impl Default for SynthParams {
             filters: Vec::new(),
             options: HashMap::new(),
             lfo: None,
+            bpm: 120.0,
             plugin_author: None,
             plugin_name: None,
             plugin_export: None,
@@ -154,8 +156,8 @@ pub fn generate_note_with_options(
     let left_gain = pan_angle.cos();
     let right_gain = pan_angle.sin();
 
-    // Prepare LFO parameters if any
-    let bpm = 120.0; // TODO: get from context
+    // Beat-synced LFO rates need the tempo captured when the note was scheduled.
+    let bpm = modified_params.bpm;
 
     for i in 0..total_samples {
         let time = i as f32 / sample_rate as f32;
@@ -441,7 +443,9 @@ fn generate_note_with_plugin(
 
     // Get or load plugin
     let plugin_key = format!("{}.{}", plugin_author, plugin_name);
-    let mut cache = PLUGIN_CACHE.lock().unwrap();
+    let mut cache = PLUGIN_CACHE
+        .lock()
+        .map_err(|_| anyhow::anyhow!("Plugin cache lock poisoned"))?;
 
     let wasm_bytes = if let Some(bytes) = cache.get(&plugin_key) {
         // Using cached plugin
@@ -492,7 +496,9 @@ fn generate_note_with_plugin(
     }
 
     // Call plugin
-    let runner = PLUGIN_RUNNER.lock().unwrap();
+    let runner = PLUGIN_RUNNER
+        .lock()
+        .map_err(|_| anyhow::anyhow!("Plugin runner lock poisoned"))?;
     let synth_id = format!("{}_{}", plugin_key, plugin_export.unwrap_or("default"));
 
     runner

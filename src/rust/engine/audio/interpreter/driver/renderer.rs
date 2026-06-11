@@ -9,6 +9,7 @@ use crate::engine::audio::generator::{
     SynthParams, generate_chord_with_options, generate_note_with_options,
 };
 use anyhow::Result;
+use std::collections::HashMap;
 
 // Conditional logging macros for CLI feature
 #[cfg(feature = "cli")]
@@ -53,6 +54,107 @@ macro_rules! log_error {
     };
 }
 
+fn event_voice_window(
+    event: &crate::engine::audio::events::AudioEvent,
+) -> Option<(String, f32, f32)> {
+    match event {
+        crate::engine::audio::events::AudioEvent::Note {
+            synth_id,
+            start_time,
+            duration,
+            ..
+        }
+        | crate::engine::audio::events::AudioEvent::Chord {
+            synth_id,
+            start_time,
+            duration,
+            ..
+        } => Some((synth_id.clone(), *start_time, *start_time + *duration)),
+        _ => None,
+    }
+}
+
+fn event_voice_limit(event: &crate::engine::audio::events::AudioEvent) -> Option<usize> {
+    let value = match event {
+        crate::engine::audio::events::AudioEvent::Note { synth_def, .. }
+        | crate::engine::audio::events::AudioEvent::Chord { synth_def, .. } => {
+            synth_def.options.get("voices").copied()
+        }
+        _ => None,
+    }?;
+
+    if value >= 1.0 {
+        Some(value.round() as usize)
+    } else {
+        None
+    }
+}
+
+pub(crate) fn renderable_event_windows(
+    events: &[crate::engine::audio::events::AudioEvent],
+) -> Vec<Option<f32>> {
+    let mut audible_until: Vec<Option<f32>> = events
+        .iter()
+        .map(|event| {
+            event_voice_window(event)
+                .map(|(_, _, end)| end)
+                .or(Some(f32::INFINITY))
+        })
+        .collect();
+    let mut active_by_synth: HashMap<String, Vec<(f32, f32, usize)>> = HashMap::new();
+    let mut ordered_events: Vec<(usize, String, f32, f32, usize)> = events
+        .iter()
+        .enumerate()
+        .filter_map(|(idx, event)| {
+            let (synth_id, start, end) = event_voice_window(event)?;
+            let limit = event_voice_limit(event)?;
+            Some((idx, synth_id, start, end, limit))
+        })
+        .collect();
+
+    ordered_events.sort_by(|a, b| {
+        a.2.partial_cmp(&b.2)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| a.0.cmp(&b.0))
+    });
+
+    for (idx, synth_id, start, end, limit) in ordered_events {
+        let active = active_by_synth.entry(synth_id).or_default();
+        active.retain(|(_, active_end, active_idx)| {
+            *active_end > start && audible_until[*active_idx].is_some()
+        });
+        active.push((start, end, idx));
+
+        while active.len() > limit {
+            if let Some((oldest_pos, _)) = active
+                .iter()
+                .enumerate()
+                .min_by(|(_, a), (_, b)| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal))
+            {
+                let (removed_start, _, removed_idx) = active.remove(oldest_pos);
+                audible_until[removed_idx] = if removed_start < start {
+                    Some(start)
+                } else {
+                    None
+                };
+            } else {
+                break;
+            }
+        }
+    }
+
+    audible_until
+}
+
+pub(crate) fn renderable_event_mask(
+    events: &[crate::engine::audio::events::AudioEvent],
+) -> Vec<bool> {
+    renderable_event_windows(events)
+        .into_iter()
+        .map(|window| window.is_some())
+        .collect()
+}
+
 pub fn render_audio(interpreter: &AudioInterpreter) -> Result<Vec<f32>> {
     let total_duration = interpreter.events.total_duration();
     if total_duration <= 0.0 {
@@ -95,7 +197,12 @@ pub fn render_audio(interpreter: &AudioInterpreter) -> Result<Vec<f32>> {
     // Render each event (copied logic from driver)
     let mut note_count = 0;
     let mut sample_count = 0;
-    for event in &interpreter.events.events {
+    let render_windows = renderable_event_windows(&interpreter.events.events);
+    for (event_idx, event) in interpreter.events.events.iter().enumerate() {
+        if render_windows[event_idx].is_none() {
+            continue;
+        }
+
         match event {
             crate::engine::audio::events::AudioEvent::Note {
                 midi,
@@ -118,6 +225,13 @@ pub fn render_audio(interpreter: &AudioInterpreter) -> Result<Vec<f32>> {
                 use_per_note_automation,
                 ..
             } => {
+                let render_duration = render_windows[event_idx]
+                    .map(|end| (end - *start_time).min(*duration).max(0.0))
+                    .unwrap_or(*duration);
+                if render_duration <= 0.0 {
+                    continue;
+                }
+
                 note_count += 1;
                 // Log note rendering only if needed (debug mode)
 
@@ -134,6 +248,7 @@ pub fn render_audio(interpreter: &AudioInterpreter) -> Result<Vec<f32>> {
                     plugin_author: synth_def.plugin_author.clone(),
                     plugin_name: synth_def.plugin_name.clone(),
                     plugin_export: synth_def.plugin_export.clone(),
+                    bpm: synth_def.bpm,
                 };
 
                 if let Some(a) = attack {
@@ -150,7 +265,7 @@ pub fn render_audio(interpreter: &AudioInterpreter) -> Result<Vec<f32>> {
                         // Calculate automatic decay: use most of duration minus attack and a small tail
                         let attack_ms = params.attack * 1000.0;
                         let tail_ms = 50.0; // Small tail at end
-                        let available_ms = (duration * 1000.0).max(attack_ms + tail_ms);
+                        let available_ms = (render_duration * 1000.0).max(attack_ms + tail_ms);
                         let auto_decay = available_ms - attack_ms - tail_ms;
                         params.decay = (auto_decay / 1000.0).max(0.01); // Convert to seconds, minimum 0.01s
                     }
@@ -165,7 +280,7 @@ pub fn render_audio(interpreter: &AudioInterpreter) -> Result<Vec<f32>> {
 
                         let mut all_samples = Vec::new();
                         let num_segments = 8; // Generate 8 segments per note for smooth automation
-                        let segment_duration = duration / num_segments as f32;
+                        let segment_duration = render_duration / num_segments as f32;
 
                         for segment_idx in 0..num_segments {
                             // Calculate progress for this segment (0.0 to 1.0)
@@ -234,7 +349,7 @@ pub fn render_audio(interpreter: &AudioInterpreter) -> Result<Vec<f32>> {
                         // No templates found, generate normally
                         generate_note_with_options(
                             *midi,
-                            duration * 1000.0,
+                            render_duration * 1000.0,
                             velocity * gain,
                             &params,
                             interpreter.sample_rate,
@@ -246,7 +361,7 @@ pub fn render_audio(interpreter: &AudioInterpreter) -> Result<Vec<f32>> {
                     // Generate note normally (global mode or no automation)
                     generate_note_with_options(
                         *midi,
-                        duration * 1000.0,
+                        render_duration * 1000.0,
                         velocity * gain,
                         &params,
                         interpreter.sample_rate,
@@ -360,7 +475,15 @@ pub fn render_audio(interpreter: &AudioInterpreter) -> Result<Vec<f32>> {
                 drive_color,
                 effects,
                 use_per_note_automation: _,
+                ..
             } => {
+                let render_duration = render_windows[event_idx]
+                    .map(|end| (end - *start_time).min(*duration).max(0.0))
+                    .unwrap_or(*duration);
+                if render_duration <= 0.0 {
+                    continue;
+                }
+
                 let mut params = SynthParams {
                     waveform: synth_def.waveform.clone(),
                     attack: synth_def.attack,
@@ -374,6 +497,7 @@ pub fn render_audio(interpreter: &AudioInterpreter) -> Result<Vec<f32>> {
                     plugin_author: synth_def.plugin_author.clone(),
                     plugin_name: synth_def.plugin_name.clone(),
                     plugin_export: synth_def.plugin_export.clone(),
+                    bpm: synth_def.bpm,
                 };
                 if let Some(a) = attack {
                     params.attack = a / 1000.0;
@@ -384,7 +508,7 @@ pub fn render_audio(interpreter: &AudioInterpreter) -> Result<Vec<f32>> {
 
                 let mut samples = generate_chord_with_options(
                     midis,
-                    duration * 1000.0,
+                    render_duration * 1000.0,
                     velocity * gain,
                     &params,
                     interpreter.sample_rate,
@@ -475,6 +599,7 @@ pub fn render_audio(interpreter: &AudioInterpreter) -> Result<Vec<f32>> {
                 velocity,
                 effects: _effects,
                 source: _,
+                ..
             } => {
                 sample_count += 1;
                 // Log sample rendering only if needed (debug mode)
@@ -606,4 +731,97 @@ pub fn render_audio(interpreter: &AudioInterpreter) -> Result<Vec<f32>> {
 
 pub fn render_audio_wrapper(interpreter: &mut AudioInterpreter) -> Result<Vec<f32>> {
     render_audio(interpreter)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::engine::audio::events::{AudioEvent, SynthDefinition};
+
+    fn note_event(start_time: f32, duration: f32, voices: Option<f32>) -> AudioEvent {
+        let mut synth_def = SynthDefinition::default();
+        if let Some(voices) = voices {
+            synth_def.options.insert("voices".to_string(), voices);
+        }
+
+        AudioEvent::Note {
+            node_id: Some("master".to_string()),
+            midi: 60,
+            start_time,
+            duration,
+            velocity: 0.8,
+            synth_id: "lead".to_string(),
+            synth_def,
+            pan: 0.0,
+            detune: 0.0,
+            gain: 1.0,
+            attack: None,
+            release: None,
+            delay_time: None,
+            delay_feedback: None,
+            delay_mix: None,
+            reverb_amount: None,
+            drive_amount: None,
+            drive_color: None,
+            effects: None,
+            use_per_note_automation: false,
+        }
+    }
+
+    #[test]
+    fn test_voice_limit_clips_stolen_voice_at_overlap() {
+        let events = vec![
+            note_event(0.0, 1.0, Some(1.0)),
+            note_event(0.25, 1.0, Some(1.0)),
+        ];
+
+        assert_eq!(
+            renderable_event_windows(&events),
+            vec![Some(0.25), Some(1.25)]
+        );
+        assert_eq!(renderable_event_mask(&events), vec![true, true]);
+    }
+
+    #[test]
+    fn test_voice_limit_mutes_same_start_oldest_event() {
+        let events = vec![
+            note_event(0.0, 1.0, Some(1.0)),
+            note_event(0.0, 1.0, Some(1.0)),
+        ];
+
+        assert_eq!(renderable_event_windows(&events), vec![None, Some(1.0)]);
+    }
+
+    #[test]
+    fn test_voice_limit_keeps_two_overlapping_events_when_allowed() {
+        let events = vec![
+            note_event(0.0, 1.0, Some(2.0)),
+            note_event(0.25, 1.0, Some(2.0)),
+            note_event(0.5, 1.0, Some(2.0)),
+        ];
+
+        assert_eq!(
+            renderable_event_windows(&events),
+            vec![Some(0.5), Some(1.25), Some(1.5)]
+        );
+    }
+
+    #[test]
+    fn test_voice_limit_renders_stolen_voice_before_overlap() {
+        let mut interpreter = AudioInterpreter::new(44_100);
+        interpreter.events.events = vec![
+            note_event(0.0, 1.0, Some(1.0)),
+            note_event(0.25, 1.0, Some(1.0)),
+        ];
+
+        let samples = render_audio(&interpreter).expect("render should succeed");
+        let before_overlap_end = (0.2 * interpreter.sample_rate as f32) as usize * 2;
+
+        assert!(
+            samples[..before_overlap_end]
+                .iter()
+                .any(|sample| sample.abs() > 0.0001),
+            "stolen voices should still render before the newer note starts"
+        );
+    }
 }

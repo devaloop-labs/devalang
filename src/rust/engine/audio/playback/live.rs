@@ -484,6 +484,9 @@ impl LivePlaybackSession {
 
     #[allow(dead_code)]
     pub fn last_update(&self) -> Instant {
-        *self.last_update.lock().expect("last_update poisoned")
+        match self.last_update.lock() {
+            Ok(last_update) => *last_update,
+            Err(poisoned) => *poisoned.into_inner(),
+        }
     }
 }

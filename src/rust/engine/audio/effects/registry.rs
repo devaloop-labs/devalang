@@ -7,7 +7,7 @@ use crate::engine::audio::effects::processors::{
 };
 use crate::engine::audio::effects::processors::{
     ChorusProcessor, CompressorProcessor, DelayProcessor, DistortionProcessor, DriveProcessor,
-    FlangerProcessor, GateProcessor, PhaserProcessor, ReverbProcessor,
+    EqProcessor, FlangerProcessor, GateProcessor, PhaserProcessor, ReverbProcessor,
 };
 use std::collections::HashMap;
 
@@ -93,6 +93,16 @@ impl EffectRegistry {
             "delay",
             EffectAvailability::Both,
             Box::new(DelayProcessor::default()),
+        );
+        registry.register_effect(
+            "eq",
+            EffectAvailability::Both,
+            Box::new(EqProcessor::default()),
+        );
+        registry.register_effect(
+            "equalizer",
+            EffectAvailability::Both,
+            Box::new(EqProcessor::default()),
         );
         registry.register_effect(
             "bitcrush",

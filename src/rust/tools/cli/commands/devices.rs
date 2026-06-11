@@ -265,12 +265,12 @@ fn generate_pattern_from_recorded(
     let first_start = notes
         .iter()
         .map(|(_, start, _, _, _)| *start)
-        .min_by(|a, b| a.partial_cmp(b).unwrap())
+        .min_by(|a, b| a.total_cmp(b))
         .unwrap();
     let last_start = notes
         .iter()
         .map(|(_, start, _, _, _)| *start)
-        .max_by(|a, b| a.partial_cmp(b).unwrap())
+        .max_by(|a, b| a.total_cmp(b))
         .unwrap();
 
     let first_step = (first_start / step_duration_ms).floor() as usize;
@@ -900,11 +900,7 @@ fn write_pattern_live(
     step_duration_ms: f32,
 ) -> Result<()> {
     let pattern_name = &cmd.pattern_name;
-    let trigger = cmd
-        .trigger
-        .as_ref()
-        .map(|s| s.as_str())
-        .unwrap_or("TODO.trigger");
+    let trigger = pattern_trigger(cmd)?;
 
     let pattern_str = generate_pattern_from_recorded(
         recorded,
@@ -932,11 +928,7 @@ fn write_pattern_final(
     step_duration_ms: f32,
 ) -> Result<()> {
     let pattern_name = &cmd.pattern_name;
-    let trigger = cmd
-        .trigger
-        .as_ref()
-        .map(|s| s.as_str())
-        .unwrap_or("TODO.trigger");
+    let trigger = pattern_trigger(cmd)?;
 
     let pattern_str = generate_pattern_from_recorded(
         recorded,
@@ -953,4 +945,11 @@ fn write_pattern_final(
     }
 
     Ok(())
+}
+
+fn pattern_trigger(cmd: &DevicesWriteCommand) -> Result<&str> {
+    cmd.trigger
+        .as_deref()
+        .filter(|trigger| !trigger.trim().is_empty())
+        .ok_or_else(|| anyhow::anyhow!("Pattern mode requires --trigger, e.g. myBank.kick"))
 }

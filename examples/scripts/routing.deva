@@ -27,9 +27,9 @@ group myLeadGroup:
 # Define routing with effects, ducking, and sidechaining
 routing:
     # Define audio nodes and link them to previous groups or variables
-    # Node $master is immutable and represents the final output
+    # Node $master is accepted by the DSL and normalized internally to master
     # NOTE: Without equal sign, the node is linked by reference to the group/variable implicitly
-    # NOTE: All routing nodes goes to $master by default if not specified
+    # NOTE: All routing nodes go to master by default if not specified
     node $master
     node myLeadNode = myLeadGroup
     node myKickNode = myKickGroup

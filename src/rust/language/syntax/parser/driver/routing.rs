@@ -68,114 +68,141 @@ pub fn parse_routing_statement<'a>(line: &str, line_number: usize) -> Result<Sta
         }
     }
 
-    // route <source> to <dest> with effect(...)
+    // route <source> to <dest> [with effect(...)]
+    // route <source> -> <dest> [@ level]
     if trimmed.starts_with("route ") {
         let rest = trimmed[6..].trim();
+        let source;
+        let remaining;
+
         if let Some((source_part, rest)) = rest.split_once(" to ") {
-            let source = source_part.trim().to_string();
-            if let Some((dest_part, effect_part)) = rest.split_once(" with ") {
-                let destination = dest_part.trim().to_string();
-                let effect_str = effect_part.trim().trim_end_matches(':');
-                let effects = parse_single_routing_effect(effect_str)?;
-                return Ok(Statement::new(
-                    StatementKind::RoutingRoute {
-                        source,
-                        destination,
-                        effects: Some(effects),
-                    },
-                    Value::Null,
-                    0,
-                    line_number,
-                    1,
-                ));
-            } else {
-                let destination = rest.trim().trim_end_matches(':').to_string();
-                return Ok(Statement::new(
-                    StatementKind::RoutingRoute {
-                        source,
-                        destination,
-                        effects: None,
-                    },
-                    Value::Null,
-                    0,
-                    line_number,
-                    1,
-                ));
-            }
+            source = source_part.trim().to_string();
+            remaining = rest.trim();
+        } else if let Some((source_part, rest)) = rest.split_once("->") {
+            source = source_part.trim().to_string();
+            remaining = rest.trim();
         } else {
             return Err(anyhow!(
-                "route statement requires format: route <source> to <dest> [with effect(...)]: {}",
+                "route statement requires format: route <source> to <dest> [with effect(...)] or route <source> -> <dest> [@ level]: {}",
                 trimmed
             ));
         }
+
+        if let Some((dest_part, effect_part)) = remaining.split_once(" with ") {
+            let destination = normalize_routing_target(dest_part.trim().trim_end_matches(':'));
+            let effect_str = effect_part.trim().trim_end_matches(':');
+            let effects = parse_single_routing_effect(effect_str)?;
+            return Ok(Statement::new(
+                StatementKind::RoutingRoute {
+                    source,
+                    destination,
+                    effects: Some(effects),
+                },
+                Value::Null,
+                0,
+                line_number,
+                1,
+            ));
+        }
+
+        let (destination, effects) = parse_destination_and_gain(remaining)?;
+        return Ok(Statement::new(
+            StatementKind::RoutingRoute {
+                source,
+                destination,
+                effects,
+            },
+            Value::Null,
+            0,
+            line_number,
+            1,
+        ));
     }
 
     // duck <source> to <dest> with effect(...)
+    // duck <source> -> <dest> with effect(...)
     if trimmed.starts_with("duck ") {
         let rest = trimmed[5..].trim();
+        let source;
+        let remaining;
+
         if let Some((source_part, rest)) = rest.split_once(" to ") {
-            let source = source_part.trim().to_string();
-            if let Some((dest_part, effect_part)) = rest.split_once(" with ") {
-                let destination = dest_part.trim().to_string();
-                let effect_str = effect_part.trim().trim_end_matches(':');
-                let effect = parse_single_routing_effect(effect_str)?;
-                return Ok(Statement::new(
-                    StatementKind::RoutingDuck {
-                        source,
-                        destination,
-                        effect,
-                    },
-                    Value::Null,
-                    0,
-                    line_number,
-                    1,
-                ));
-            } else {
-                return Err(anyhow!(
-                    "duck statement requires 'with' clause: {}",
-                    trimmed
-                ));
-            }
+            source = source_part.trim().to_string();
+            remaining = rest.trim();
+        } else if let Some((source_part, rest)) = rest.split_once("->") {
+            source = source_part.trim().to_string();
+            remaining = rest.trim();
         } else {
             return Err(anyhow!(
                 "duck statement requires format: duck <source> to <dest> with effect(...): {}",
                 trimmed
             ));
         }
+
+        if let Some((dest_part, effect_part)) = remaining.split_once(" with ") {
+            let destination = normalize_routing_target(dest_part.trim().trim_end_matches(':'));
+            let effect_str = effect_part.trim().trim_end_matches(':');
+            let effect = parse_single_routing_effect(effect_str)?;
+            return Ok(Statement::new(
+                StatementKind::RoutingDuck {
+                    source,
+                    destination,
+                    effect,
+                },
+                Value::Null,
+                0,
+                line_number,
+                1,
+            ));
+        }
+
+        return Err(anyhow!(
+            "duck statement requires 'with' clause: {}",
+            trimmed
+        ));
     }
 
     // sidechain <source> to <dest> with effect(...)
+    // sidechain <source> -> <dest> with effect(...)
     if trimmed.starts_with("sidechain ") {
         let rest = trimmed[10..].trim();
+        let source;
+        let remaining;
+
         if let Some((source_part, rest)) = rest.split_once(" to ") {
-            let source = source_part.trim().to_string();
-            if let Some((dest_part, effect_part)) = rest.split_once(" with ") {
-                let destination = dest_part.trim().to_string();
-                let effect_str = effect_part.trim().trim_end_matches(':');
-                let effect = parse_single_routing_effect(effect_str)?;
-                return Ok(Statement::new(
-                    StatementKind::RoutingSidechain {
-                        source,
-                        destination,
-                        effect,
-                    },
-                    Value::Null,
-                    0,
-                    line_number,
-                    1,
-                ));
-            } else {
-                return Err(anyhow!(
-                    "sidechain statement requires 'with' clause: {}",
-                    trimmed
-                ));
-            }
+            source = source_part.trim().to_string();
+            remaining = rest.trim();
+        } else if let Some((source_part, rest)) = rest.split_once("->") {
+            source = source_part.trim().to_string();
+            remaining = rest.trim();
         } else {
             return Err(anyhow!(
                 "sidechain statement requires format: sidechain <source> to <dest> with effect(...): {}",
                 trimmed
             ));
         }
+
+        if let Some((dest_part, effect_part)) = remaining.split_once(" with ") {
+            let destination = normalize_routing_target(dest_part.trim().trim_end_matches(':'));
+            let effect_str = effect_part.trim().trim_end_matches(':');
+            let effect = parse_single_routing_effect(effect_str)?;
+            return Ok(Statement::new(
+                StatementKind::RoutingSidechain {
+                    source,
+                    destination,
+                    effect,
+                },
+                Value::Null,
+                0,
+                line_number,
+                1,
+            ));
+        }
+
+        return Err(anyhow!(
+            "sidechain statement requires 'with' clause: {}",
+            trimmed
+        ));
     }
 
     Err(anyhow!("Unknown routing statement: {}", trimmed))
@@ -236,5 +263,91 @@ fn parse_single_routing_effect(effect_str: &str) -> Result<Value> {
         let mut result = std::collections::HashMap::new();
         result.insert(effect_str.to_string(), Value::Null);
         return Ok(Value::Map(result));
+    }
+}
+
+fn normalize_routing_target(target: &str) -> String {
+    if target == "master" || target == "$master" {
+        "master".to_string()
+    } else {
+        target.to_string()
+    }
+}
+
+fn parse_destination_and_gain(dest_expr: &str) -> Result<(String, Option<Value>)> {
+    let mut parts = dest_expr.trim().split('@');
+    let destination =
+        normalize_routing_target(parts.next().unwrap_or("").trim().trim_end_matches(':'));
+    let effects = if let Some(gain_str) = parts.next() {
+        let gain_str = gain_str.trim();
+        if gain_str.is_empty() {
+            None
+        } else {
+            let gain = gain_str
+                .parse::<f32>()
+                .map_err(|_| anyhow!("Invalid mix level: {}", gain_str))?;
+            let mut volume_map = std::collections::HashMap::new();
+            volume_map.insert("gain".to_string(), Value::Number(gain));
+            let mut map = std::collections::HashMap::new();
+            map.insert("volume".to_string(), Value::Map(volume_map));
+            Some(Value::Map(map))
+        }
+    } else {
+        None
+    };
+    Ok((destination, effects))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_routing_fx_eq_chain() {
+        let statement =
+            parse_routing_statement("fx master -> eq({ low: 1.2, mid: 0.8, high: 1.1 })", 1)
+                .unwrap();
+
+        match statement.kind {
+            StatementKind::RoutingFx { target, effects } => {
+                assert_eq!(target, "master");
+                match effects {
+                    Value::Map(map) => {
+                        assert!(matches!(map.get("eq"), Some(Value::Map(_))));
+                    }
+                    other => panic!("expected effects map, got {:?}", other),
+                }
+            }
+            other => panic!("expected routing fx, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_parse_routing_arrow_with_gain() {
+        let statement = parse_routing_statement("route drums -> master @ 0.8", 1).unwrap();
+
+        match statement.kind {
+            StatementKind::RoutingRoute {
+                source,
+                destination,
+                effects,
+            } => {
+                assert_eq!(source, "drums");
+                assert_eq!(destination, "master");
+                match effects {
+                    Some(Value::Map(map)) => match map.get("volume") {
+                        Some(Value::Map(volume_map)) => match volume_map.get("gain") {
+                            Some(Value::Number(gain)) => {
+                                assert!((gain - 0.8).abs() < f32::EPSILON)
+                            }
+                            other => panic!("expected gain number, got {:?}", other),
+                        },
+                        other => panic!("expected volume map, got {:?}", other),
+                    },
+                    other => panic!("expected route effects map, got {:?}", other),
+                }
+            }
+            other => panic!("expected routing route, got {:?}", other),
+        }
     }
 }

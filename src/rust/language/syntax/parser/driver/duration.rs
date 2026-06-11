@@ -161,25 +161,25 @@ mod tests {
     fn test_temporal_beat_with_space() {
         // "1 beat"
         match parse_duration_token("1 beat") {
-            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__1_beats"),
+            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__1_beat"),
             other => panic!("Unexpected result: {:?}", other),
         }
 
         // "2 beat"
         match parse_duration_token("2 beat") {
-            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__2_beats"),
+            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__2_beat"),
             other => panic!("Unexpected result: {:?}", other),
         }
 
         // "1 beats" (plural)
         match parse_duration_token("1 beats") {
-            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__1_beats"),
+            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__1_beat"),
             other => panic!("Unexpected result: {:?}", other),
         }
 
         // "3 beats" (plural)
         match parse_duration_token("3 beats") {
-            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__3_beats"),
+            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__3_beat"),
             other => panic!("Unexpected result: {:?}", other),
         }
     }
@@ -188,25 +188,25 @@ mod tests {
     fn test_temporal_beat_without_space() {
         // "1beat"
         match parse_duration_token("1beat") {
-            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__1_beats"),
+            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__1_beat"),
             other => panic!("Unexpected result: {:?}", other),
         }
 
         // "2beat"
         match parse_duration_token("2beat") {
-            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__2_beats"),
+            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__2_beat"),
             other => panic!("Unexpected result: {:?}", other),
         }
 
         // "1beats" (without space, with 's')
         match parse_duration_token("1beats") {
-            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__1_beats"),
+            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__1_beat"),
             other => panic!("Unexpected result: {:?}", other),
         }
 
         // "3beats" (without space, with 's')
         match parse_duration_token("3beats") {
-            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__3_beats"),
+            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__3_beat"),
             other => panic!("Unexpected result: {:?}", other),
         }
     }
@@ -215,25 +215,25 @@ mod tests {
     fn test_temporal_bar_with_space() {
         // "1 bar" -> 1 * 4 beats = 4
         match parse_duration_token("1 bar") {
-            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__4_bars"),
+            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__4_beat"),
             other => panic!("Unexpected result: {:?}", other),
         }
 
         // "2 bar"
         match parse_duration_token("2 bar") {
-            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__8_bars"),
+            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__8_beat"),
             other => panic!("Unexpected result: {:?}", other),
         }
 
         // "1 bars" (plural)
         match parse_duration_token("1 bars") {
-            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__4_bars"),
+            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__4_beat"),
             other => panic!("Unexpected result: {:?}", other),
         }
 
         // "3 bars" (plural)
         match parse_duration_token("3 bars") {
-            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__12_bars"),
+            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__12_beat"),
             other => panic!("Unexpected result: {:?}", other),
         }
     }
@@ -242,25 +242,25 @@ mod tests {
     fn test_temporal_bar_without_space() {
         // "1bar" -> 4 beats
         match parse_duration_token("1bar") {
-            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__4_bars"),
+            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__4_beat"),
             other => panic!("Unexpected result: {:?}", other),
         }
 
         // "2bar"
         match parse_duration_token("2bar") {
-            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__8_bars"),
+            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__8_beat"),
             other => panic!("Unexpected result: {:?}", other),
         }
 
         // "1bars" (without space, with 's')
         match parse_duration_token("1bars") {
-            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__4_bars"),
+            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__4_beat"),
             other => panic!("Unexpected result: {:?}", other),
         }
 
         // "3bars" (without space, with 's')
         match parse_duration_token("3bars") {
-            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__12_bars"),
+            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__12_beat"),
             other => panic!("Unexpected result: {:?}", other),
         }
     }
@@ -269,25 +269,25 @@ mod tests {
     fn test_temporal_measure_with_space() {
         // "1 measure" (same as bar: 4 beats)
         match parse_duration_token("1 measure") {
-            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__4_measures"),
+            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__4_beat"),
             other => panic!("Unexpected result: {:?}", other),
         }
 
         // "2 measure"
         match parse_duration_token("2 measure") {
-            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__8_measures"),
+            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__8_beat"),
             other => panic!("Unexpected result: {:?}", other),
         }
 
         // "1 measures" (plural)
         match parse_duration_token("1 measures") {
-            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__4_measures"),
+            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__4_beat"),
             other => panic!("Unexpected result: {:?}", other),
         }
 
         // "3 measures" (plural)
         match parse_duration_token("3 measures") {
-            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__12_measures"),
+            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__12_beat"),
             other => panic!("Unexpected result: {:?}", other),
         }
     }
@@ -296,25 +296,25 @@ mod tests {
     fn test_temporal_measure_without_space() {
         // "1measure" -> 4 beats
         match parse_duration_token("1measure") {
-            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__4_measures"),
+            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__4_beat"),
             other => panic!("Unexpected result: {:?}", other),
         }
 
         // "2measure"
         match parse_duration_token("2measure") {
-            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__8_measures"),
+            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__8_beat"),
             other => panic!("Unexpected result: {:?}", other),
         }
 
         // "1measures" (without space, with 's')
         match parse_duration_token("1measures") {
-            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__4_measures"),
+            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__4_beat"),
             other => panic!("Unexpected result: {:?}", other),
         }
 
         // "3measures" (without space, with 's')
         match parse_duration_token("3measures") {
-            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__12_measures"),
+            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__12_beat"),
             other => panic!("Unexpected result: {:?}", other),
         }
     }
@@ -323,25 +323,25 @@ mod tests {
     fn test_temporal_step_with_space() {
         // "1 step" -> 1 * 0.25 beats = 0.25
         match parse_duration_token("1 step") {
-            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__0.25_steps"),
+            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__0.25_beat"),
             other => panic!("Unexpected result: {:?}", other),
         }
 
         // "4 step"
         match parse_duration_token("4 step") {
-            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__1_steps"),
+            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__1_beat"),
             other => panic!("Unexpected result: {:?}", other),
         }
 
         // "1 steps" (plural)
         match parse_duration_token("1 steps") {
-            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__0.25_steps"),
+            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__0.25_beat"),
             other => panic!("Unexpected result: {:?}", other),
         }
 
         // "16 steps" (plural)
         match parse_duration_token("16 steps") {
-            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__4_steps"),
+            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__4_beat"),
             other => panic!("Unexpected result: {:?}", other),
         }
     }
@@ -350,25 +350,25 @@ mod tests {
     fn test_temporal_step_without_space() {
         // "1step" -> 0.25 beats
         match parse_duration_token("1step") {
-            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__0.25_steps"),
+            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__0.25_beat"),
             other => panic!("Unexpected result: {:?}", other),
         }
 
         // "4step"
         match parse_duration_token("4step") {
-            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__1_steps"),
+            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__1_beat"),
             other => panic!("Unexpected result: {:?}", other),
         }
 
         // "1steps" (without space, with 's')
         match parse_duration_token("1steps") {
-            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__0.25_steps"),
+            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__0.25_beat"),
             other => panic!("Unexpected result: {:?}", other),
         }
 
         // "16steps" (without space, with 's')
         match parse_duration_token("16steps") {
-            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__4_steps"),
+            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__4_beat"),
             other => panic!("Unexpected result: {:?}", other),
         }
     }
@@ -377,17 +377,17 @@ mod tests {
     fn test_mixed_case() {
         // Case insensitive
         match parse_duration_token("1 BEAT") {
-            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__1_beats"),
+            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__1_beat"),
             other => panic!("Unexpected result: {:?}", other),
         }
 
         match parse_duration_token("2 Bar") {
-            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__8_bars"),
+            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__8_beat"),
             other => panic!("Unexpected result: {:?}", other),
         }
 
         match parse_duration_token("1MEASURE") {
-            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__4_measures"),
+            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__4_beat"),
             other => panic!("Unexpected result: {:?}", other),
         }
     }
@@ -396,19 +396,19 @@ mod tests {
     fn test_float_values() {
         // Float beat values
         match parse_duration_token("0.5 beat") {
-            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__0.5_beats"),
+            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__0.5_beat"),
             other => panic!("Unexpected result: {:?}", other),
         }
 
         // Float bar values
         match parse_duration_token("1.5bar") {
-            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__6_bars"),
+            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__6_beat"),
             other => panic!("Unexpected result: {:?}", other),
         }
 
         // Float measure values
         match parse_duration_token("2.5 measures") {
-            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__10_measures"),
+            Ok(DurationValue::Identifier(id)) => assert_eq!(id, "__temporal__10_beat"),
             other => panic!("Unexpected result: {:?}", other),
         }
     }

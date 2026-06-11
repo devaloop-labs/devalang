@@ -238,45 +238,7 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
                         interpreter.cursor_time += n / 1000.0;
                     }
                     Value::Duration(dv) => {
-                        // convert duration value to seconds
-                        let secs = match dv {
-                            crate::language::syntax::ast::DurationValue::Milliseconds(ms) => {
-                                Some(ms / 1000.0)
-                            }
-                            crate::language::syntax::ast::DurationValue::Beats(b) => {
-                                Some(b * (60.0 / interpreter.bpm))
-                            }
-                            crate::language::syntax::ast::DurationValue::Beat(s) => {
-                                // parse a fraction like "3/4" into beats
-                                if let Some((num, den)) = {
-                                    let mut sp = s.split('/');
-                                    if let (Some(a), Some(b)) = (sp.next(), sp.next()) {
-                                        if let (Ok(an), Ok(bn)) =
-                                            (a.trim().parse::<f32>(), b.trim().parse::<f32>())
-                                        {
-                                            Some((an, bn))
-                                        } else {
-                                            None
-                                        }
-                                    } else {
-                                        None
-                                    }
-                                } {
-                                    if den.abs() > f32::EPSILON {
-                                        Some((num / den) * (60.0 / interpreter.bpm))
-                                    } else {
-                                        None
-                                    }
-                                } else {
-                                    None
-                                }
-                            }
-                            crate::language::syntax::ast::DurationValue::Number(n) => {
-                                Some(n / 1000.0)
-                            }
-                            _ => None,
-                        };
-                        if let Some(s) = secs {
+                        if let Ok(s) = interpreter.duration_to_seconds(dv) {
                             interpreter.cursor_time += s;
                         }
                     }
@@ -346,7 +308,7 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
 
                 // Build the audio graph from routing configuration
                 interpreter.audio_graph =
-                    crate::engine::audio::interpreter::AudioGraph::from_routing_setup(
+                    crate::engine::audio::graph::AudioGraph::from_routing_setup(
                         &interpreter.routing,
                     );
             }
@@ -453,7 +415,8 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
                                 returning_flag: false,
                                 return_value: None,
                                 routing: Default::default(),
-                                audio_graph: crate::engine::audio::interpreter::AudioGraph::new(),
+                                audio_graph: crate::engine::audio::graph::AudioGraph::new(),
+                                current_event_node: None,
                                 schedule_deadline: None,
                             };
 
@@ -522,7 +485,8 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
                                 returning_flag: false,
                                 return_value: None,
                                 routing: Default::default(),
-                                audio_graph: crate::engine::audio::interpreter::AudioGraph::new(),
+                                audio_graph: crate::engine::audio::graph::AudioGraph::new(),
+                                current_event_node: None,
                                 schedule_deadline: None,
                             };
 
@@ -777,42 +741,7 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
                 // If section has a duration specified, advance cursor by that duration
                 // Otherwise, the duration will be auto-calculated when section is executed
                 if let Some(dur) = duration {
-                    let dur_secs = match dur {
-                        crate::language::syntax::ast::DurationValue::Milliseconds(ms) => {
-                            Some(ms / 1000.0)
-                        }
-                        crate::language::syntax::ast::DurationValue::Beats(b) => {
-                            Some(b * (60.0 / interpreter.bpm))
-                        }
-                        crate::language::syntax::ast::DurationValue::Beat(s) => {
-                            // parse a fraction like "3/4" into beats
-                            if let Some((num, den)) = {
-                                let mut sp = s.split('/');
-                                if let (Some(a), Some(b)) = (sp.next(), sp.next()) {
-                                    if let (Ok(an), Ok(bn)) =
-                                        (a.trim().parse::<f32>(), b.trim().parse::<f32>())
-                                    {
-                                        Some((an, bn))
-                                    } else {
-                                        None
-                                    }
-                                } else {
-                                    None
-                                }
-                            } {
-                                if den.abs() > f32::EPSILON {
-                                    Some((num / den) * (60.0 / interpreter.bpm))
-                                } else {
-                                    None
-                                }
-                            } else {
-                                None
-                            }
-                        }
-                        crate::language::syntax::ast::DurationValue::Number(n) => Some(n / 1000.0),
-                        _ => None,
-                    };
-                    if let Some(sec) = dur_secs {
+                    if let Ok(sec) = interpreter.duration_to_seconds(dur) {
                         interpreter.cursor_time += sec;
                     }
                 }
@@ -827,46 +756,7 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
 
                         // If timeline specifies a duration override, use it; otherwise skip
                         if let Some(dur) = opt_duration {
-                            let dur_secs = match dur {
-                                crate::language::syntax::ast::DurationValue::Milliseconds(ms) => {
-                                    Some(ms / 1000.0)
-                                }
-                                crate::language::syntax::ast::DurationValue::Beats(b) => {
-                                    Some(b * (60.0 / interpreter.bpm))
-                                }
-                                crate::language::syntax::ast::DurationValue::Beat(s) => {
-                                    // parse a fraction like "3/4" into beats
-                                    if let Some((num, den)) = {
-                                        let mut sp = s.split('/');
-                                        if let (Some(a), Some(b)) = (sp.next(), sp.next()) {
-                                            if let (Ok(an), Ok(bn)) =
-                                                (a.trim().parse::<f32>(), b.trim().parse::<f32>())
-                                            {
-                                                Some((an, bn))
-                                            } else {
-                                                None
-                                            }
-                                        } else {
-                                            None
-                                        }
-                                    } {
-                                        if den.abs() > f32::EPSILON {
-                                            Some((num / den) * (60.0 / interpreter.bpm))
-                                        } else {
-                                            None
-                                        }
-                                    } else {
-                                        None
-                                    }
-                                }
-                                crate::language::syntax::ast::DurationValue::Number(n) => {
-                                    Some(n / 1000.0)
-                                }
-                                _ => None,
-                            };
-                            if let Some(sec) = dur_secs {
-                                interpreter.cursor_time += sec;
-                            }
+                            interpreter.cursor_time += interpreter.duration_to_seconds(dur)?;
                         }
                     } else {
                         log_warn!(logger, "Section '{}' not found in timeline", section_name);
@@ -879,153 +769,13 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
 
                 let mut max_time = 0.0f32;
 
-                // First pass: calculate all start times
-                let mut start_times = Vec::new();
-                for (start_dur, _, _) in events {
-                    let start_time_secs = match start_dur {
-                        crate::language::syntax::ast::DurationValue::Milliseconds(ms) => {
-                            ms / 1000.0
-                        }
-                        crate::language::syntax::ast::DurationValue::Beats(b) => {
-                            b * (60.0 / interpreter.bpm)
-                        }
-                        crate::language::syntax::ast::DurationValue::Beat(s) => {
-                            if let Some((num, den)) = {
-                                let mut sp = s.split('/');
-                                if let (Some(a), Some(b)) = (sp.next(), sp.next()) {
-                                    if let (Ok(an), Ok(bn)) =
-                                        (a.trim().parse::<f32>(), b.trim().parse::<f32>())
-                                    {
-                                        Some((an, bn))
-                                    } else {
-                                        None
-                                    }
-                                } else {
-                                    None
-                                }
-                            } {
-                                if den.abs() > f32::EPSILON {
-                                    (num / den) * (60.0 / interpreter.bpm)
-                                } else {
-                                    0.0
-                                }
-                            } else {
-                                0.0
-                            }
-                        }
-                        crate::language::syntax::ast::DurationValue::Number(n) => n / 1000.0,
-                        crate::language::syntax::ast::DurationValue::Identifier(id) => {
-                            // Handle temporal identifiers like "__temporal__4_beat"
-                            if id.starts_with("__temporal__") {
-                                let rest = &id[12..]; // Skip "__temporal__"
-                                if let Some(last_underscore) = rest.rfind('_') {
-                                    if let Ok(beat_count) = rest[..last_underscore].parse::<f32>() {
-                                        beat_count * (60.0 / interpreter.bpm)
-                                    } else {
-                                        0.0
-                                    }
-                                } else {
-                                    0.0
-                                }
-                            } else {
-                                0.0
-                            }
-                        }
-                        _ => 0.0,
-                    };
-                    start_times.push(start_time_secs);
-                }
-
-                // Second pass: execute each event with proper deadline
+                // Execute each event with proper deadline.
                 for (_idx, (start_dur, optional_dur, body)) in events.iter().enumerate() {
-                    // Convert start time to seconds
-                    let start_time_secs = match start_dur {
-                        crate::language::syntax::ast::DurationValue::Milliseconds(ms) => {
-                            ms / 1000.0
-                        }
-                        crate::language::syntax::ast::DurationValue::Beats(b) => {
-                            b * (60.0 / interpreter.bpm)
-                        }
-                        crate::language::syntax::ast::DurationValue::Beat(s) => {
-                            if let Some((num, den)) = {
-                                let mut sp = s.split('/');
-                                if let (Some(a), Some(b)) = (sp.next(), sp.next()) {
-                                    if let (Ok(an), Ok(bn)) =
-                                        (a.trim().parse::<f32>(), b.trim().parse::<f32>())
-                                    {
-                                        Some((an, bn))
-                                    } else {
-                                        None
-                                    }
-                                } else {
-                                    None
-                                }
-                            } {
-                                if den.abs() > f32::EPSILON {
-                                    (num / den) * (60.0 / interpreter.bpm)
-                                } else {
-                                    0.0
-                                }
-                            } else {
-                                0.0
-                            }
-                        }
-                        crate::language::syntax::ast::DurationValue::Number(n) => n / 1000.0,
-                        crate::language::syntax::ast::DurationValue::Identifier(id) => {
-                            // Handle temporal identifiers like "__temporal__4_beat"
-                            if id.starts_with("__temporal__") {
-                                let rest = &id[12..]; // Skip "__temporal__"
-                                if let Some(last_underscore) = rest.rfind('_') {
-                                    if let Ok(beat_count) = rest[..last_underscore].parse::<f32>() {
-                                        beat_count * (60.0 / interpreter.bpm)
-                                    } else {
-                                        0.0
-                                    }
-                                } else {
-                                    0.0
-                                }
-                            } else {
-                                0.0
-                            }
-                        }
-                        _ => 0.0,
-                    };
-
-                    // Convert optional duration to seconds
-                    let opt_dur_secs = optional_dur.as_ref().map(|dur| match dur {
-                        crate::language::syntax::ast::DurationValue::Milliseconds(ms) => {
-                            ms / 1000.0
-                        }
-                        crate::language::syntax::ast::DurationValue::Beats(b) => {
-                            b * (60.0 / interpreter.bpm)
-                        }
-                        crate::language::syntax::ast::DurationValue::Beat(s) => {
-                            if let Some((num, den)) = {
-                                let mut sp = s.split('/');
-                                if let (Some(a), Some(b)) = (sp.next(), sp.next()) {
-                                    if let (Ok(an), Ok(bn)) =
-                                        (a.trim().parse::<f32>(), b.trim().parse::<f32>())
-                                    {
-                                        Some((an, bn))
-                                    } else {
-                                        None
-                                    }
-                                } else {
-                                    None
-                                }
-                            } {
-                                if den.abs() > f32::EPSILON {
-                                    (num / den) * (60.0 / interpreter.bpm)
-                                } else {
-                                    0.0
-                                }
-                            } else {
-                                0.0
-                            }
-                        }
-                        crate::language::syntax::ast::DurationValue::Number(n) => n / 1000.0,
-                        _ => 0.0,
-                    });
+                    let start_time_secs = interpreter.duration_to_seconds(start_dur)?;
+                    let opt_dur_secs = optional_dur
+                        .as_ref()
+                        .map(|dur| interpreter.duration_to_seconds(dur))
+                        .transpose()?;
 
                     // Calculate deadline: either explicit duration or total_duration
                     // Events run in parallel, not sequentially, so each event runs until the end
@@ -1061,68 +811,12 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
                 // Execute stop statement: silence audio playback
                 // Stop is a global instruction that applies from the absolute start (time 0)
                 // NOT relative to the current cursor_time
-                let delay_opt = if let Some(after_val) = after {
-                    match after_val {
-                        crate::language::syntax::ast::DurationValue::Milliseconds(ms) => {
-                            Some(ms / 1000.0)
-                        }
-                        crate::language::syntax::ast::DurationValue::Beats(b) => {
-                            Some(b * (60.0 / interpreter.bpm))
-                        }
-                        crate::language::syntax::ast::DurationValue::Beat(s) => {
-                            // parse a fraction like "3/4" into beats
-                            if let Some((num, den)) = {
-                                let mut sp = s.split('/');
-                                if let (Some(a), Some(b)) = (sp.next(), sp.next()) {
-                                    if let (Ok(an), Ok(bn)) =
-                                        (a.trim().parse::<f32>(), b.trim().parse::<f32>())
-                                    {
-                                        Some((an, bn))
-                                    } else {
-                                        None
-                                    }
-                                } else {
-                                    None
-                                }
-                            } {
-                                if den.abs() > f32::EPSILON {
-                                    Some((num / den) * (60.0 / interpreter.bpm))
-                                } else {
-                                    None
-                                }
-                            } else {
-                                None
-                            }
-                        }
-                        crate::language::syntax::ast::DurationValue::Number(n) => Some(n / 1000.0),
-                        crate::language::syntax::ast::DurationValue::Identifier(id) => {
-                            // Handle temporal identifiers like "__temporal__4_beat"
-                            // These are always stored in beats (pre-normalized)
-                            if id.starts_with("__temporal__") {
-                                let rest = &id[12..]; // Skip "__temporal__"
-                                if let Some(last_underscore) = rest.rfind('_') {
-                                    if let Ok(beat_count) = rest[..last_underscore].parse::<f32>() {
-                                        // The identifier already contains beats, so just convert to seconds
-                                        Some(beat_count * (60.0 / interpreter.bpm))
-                                    } else {
-                                        None
-                                    }
-                                } else {
-                                    None
-                                }
-                            } else {
-                                None
-                            }
-                        }
-                        _ => None,
-                    }
-                } else {
-                    Some(0.0)
-                };
-
-                if let Some(delay) = delay_opt {
-                    super::handler::handle_stop(interpreter, target.as_deref(), delay)?;
-                }
+                let delay = after
+                    .as_ref()
+                    .map(|after_val| interpreter.duration_to_seconds(after_val))
+                    .transpose()?
+                    .unwrap_or(0.0);
+                super::handler::handle_stop(interpreter, target.as_deref(), delay)?;
             }
             StatementKind::Unknown => {
                 // Unknown statements are parser errors - log them with structured formatting
@@ -1278,7 +972,8 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
                         returning_flag: false,
                         return_value: None,
                         routing: Default::default(),
-                        audio_graph: crate::engine::audio::interpreter::AudioGraph::new(),
+                        audio_graph: crate::engine::audio::graph::AudioGraph::new(),
+                        current_event_node: interpreter.current_event_node.clone(),
                         schedule_deadline: None,
                     };
 
@@ -1351,7 +1046,8 @@ pub fn collect_events(interpreter: &mut AudioInterpreter, statements: &[Statemen
         // We temporarily set interpreter.cursor_time and special_vars so handlers add events at
         // the correct beat timestamps, then we restore the original cursor_time afterwards.
         if !interpreter.suppress_beat_emit {
-            let beat_duration = 60.0 / interpreter.bpm;
+            let beat_duration =
+                crate::engine::audio::duration::seconds_per_beat(interpreter.bpm).unwrap_or(0.0);
 
             // Determine total duration to cover. Prefer special_vars.total_duration if set.
             let total = if interpreter.special_vars.total_duration > 0.0 {

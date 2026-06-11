@@ -102,6 +102,107 @@ pub fn parse_pattern(
     ))
 }
 
+/// Parse compact pattern shorthand:
+///   kick: drums.kick = "x---"
+///   hat: drums.hat -> swing(0.08) = "x-x-"
+pub fn parse_pattern_shorthand(line: &str, line_number: usize) -> Result<Option<Statement>> {
+    let Some(colon_idx) = line.find(':') else {
+        return Ok(None);
+    };
+    let Some(eq_idx) = line.find('=') else {
+        return Ok(None);
+    };
+    if colon_idx > eq_idx {
+        return Ok(None);
+    }
+
+    let name = line[..colon_idx].trim();
+    if name.is_empty()
+        || name.contains(char::is_whitespace)
+        || !name.chars().all(|c| c.is_alphanumeric() || c == '_')
+    {
+        return Ok(None);
+    }
+
+    let target_expr = line[colon_idx + 1..eq_idx].trim();
+    let pattern_part = line[eq_idx + 1..].trim();
+    if target_expr.is_empty()
+        || !(pattern_part.starts_with('"')
+            && pattern_part.ends_with('"')
+            && pattern_part.len() >= 2)
+    {
+        return Ok(None);
+    }
+
+    let mut target = target_expr.to_string();
+    let mut options: HashMap<String, Value> = HashMap::new();
+
+    fn insert_option(options: &mut HashMap<String, Value>, method: &str, args: &[Value]) {
+        if let Some(first) = args.first() {
+            match first {
+                Value::Number(_) => {
+                    options.insert(method.to_string(), first.clone());
+                }
+                Value::Map(map) => {
+                    for (key, value) in map.iter() {
+                        if matches!(value, Value::Number(_)) {
+                            options.insert(key.clone(), value.clone());
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    if target_expr.contains("->") {
+        let stmt =
+            crate::language::syntax::parser::driver::parse_arrow_call(target_expr, line_number)?;
+        if let Value::Map(chain_container) = stmt.value {
+            if let Some(Value::String(parsed_target)) = chain_container.get("target") {
+                target = parsed_target.clone();
+            }
+
+            if let Some(Value::String(method)) = chain_container.get("method") {
+                if let Some(Value::Array(args)) = chain_container.get("args") {
+                    insert_option(&mut options, method, args);
+                }
+            }
+
+            if let Some(Value::Array(chain)) = chain_container.get("chain") {
+                for item in chain {
+                    if let Value::Map(call_map) = item {
+                        if let (Some(Value::String(method)), Some(Value::Array(args))) =
+                            (call_map.get("method"), call_map.get("args"))
+                        {
+                            insert_option(&mut options, method, args);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let pattern = pattern_part.trim_matches('"').to_string();
+    let value = if options.is_empty() {
+        Value::String(pattern)
+    } else {
+        options.insert("pattern".to_string(), Value::String(pattern));
+        Value::Map(options)
+    };
+
+    Ok(Some(Statement::new(
+        StatementKind::Pattern {
+            name: name.to_string(),
+            target: Some(target),
+        },
+        value,
+        0,
+        line_number,
+        1,
+    )))
+}
+
 /// Parse group statement: group <name>: or group <name> during <duration>:
 /// Example: group verse: or group verse during 16 bars:
 pub fn parse_group(
@@ -411,7 +512,13 @@ pub fn parse_else(line: &str, line_number: usize) -> Result<Statement> {
     // Check if this is "else if" or just "else"
     if line.trim().starts_with("else if") {
         // Parse as "else if <condition>:"
-        let condition_str = line.trim().strip_prefix("else if").unwrap().trim();
+        let Some(condition_str) = line.trim().strip_prefix("else if") else {
+            return Err(anyhow::anyhow!(
+                "Invalid else-if statement at line {}",
+                line_number
+            ));
+        };
+        let condition_str = condition_str.trim();
         let condition_str = condition_str.trim_end_matches(':').trim();
         let condition = parse_condition(condition_str)?;
 

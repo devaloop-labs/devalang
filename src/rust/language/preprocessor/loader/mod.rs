@@ -1,19 +1,26 @@
 use crate::language::syntax::ast::{Statement, StatementKind, Value};
 use crate::language::syntax::parser::driver::SimpleParser;
 /// Module loader - handles file loading and module dependencies
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use std::collections::HashMap;
 use std::path::Path;
 
-/// Load a module from a file path
-pub fn load_module_from_path(_path: &Path) -> Result<()> {
-    // TODO: legacy placeholder
-    Ok(())
+/// Load and parse a module from a file path.
+pub fn load_module_from_path(path: &Path) -> Result<Vec<Statement>> {
+    SimpleParser::parse_file(path)
 }
 
-/// Inject dependencies into a module
-pub fn inject_dependencies() -> Result<()> {
-    // TODO: Implement dependency injection
+/// Inject exported variables into a destination variable map.
+pub fn inject_dependencies(
+    exports: &ModuleExports,
+    destination: &mut HashMap<String, Value>,
+) -> Result<()> {
+    for (name, value) in &exports.variables {
+        if destination.insert(name.clone(), value.clone()).is_some() {
+            return Err(anyhow!("Duplicate dependency '{}'", name));
+        }
+    }
+
     Ok(())
 }
 

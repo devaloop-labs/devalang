@@ -6,11 +6,25 @@ use crate::engine::audio::events::AudioEvent;
 use crate::language::syntax::ast::{Statement, StatementKind, Value};
 
 use super::AudioInterpreter;
+use super::patterns::execute_pattern_with_source;
 
 pub fn handle_let(interpreter: &mut AudioInterpreter, name: &str, value: &Value) -> Result<()> {
-    // Check if this is a synth definition (has waveform parameter OR _plugin_ref)
+    // Check if this is a synth definition. v0.2 syntax allows bare `synth`
+    // configured only through chained calls such as `-> preset("bass")`.
     if let Value::Map(orig_map) = value {
-        // Clone la map pour modification
+        let is_synth_like = orig_map.contains_key("waveform")
+            || orig_map.contains_key("_plugin_ref")
+            || orig_map.contains_key("synth_type")
+            || matches!(
+                orig_map.get("type"),
+                Some(Value::String(s)) if s.trim_matches('"').trim_matches('\'') == "synth"
+            )
+            || matches!(
+                orig_map.get("type"),
+                Some(Value::Identifier(s)) if s.trim_matches('"').trim_matches('\'') == "synth"
+            );
+
+        // Work on a normalized copy before storing it in the interpreter state.
         let mut map = orig_map.clone();
 
         // Normalize older key `synth_type` into `type` so downstream logic reads the same key.
@@ -66,7 +80,7 @@ pub fn handle_let(interpreter: &mut AudioInterpreter, name: &str, value: &Value)
         // Ensure defaults for synth-like objects
         crate::utils::props::ensure_default_properties(&mut map, Some("synth"));
 
-        if map.contains_key("waveform") || map.contains_key("_plugin_ref") {
+        if is_synth_like {
             // plugin handling simplified: reuse existing logic
             let mut is_plugin = false;
             let mut plugin_author: Option<String> = None;
@@ -330,6 +344,7 @@ pub fn handle_let(interpreter: &mut AudioInterpreter, name: &str, value: &Value)
                 plugin_name,
                 plugin_export,
                 lfo,
+                bpm: interpreter.bpm,
             };
 
             interpreter.events.add_synth(name.to_string(), synth_def);
@@ -448,6 +463,9 @@ pub fn handle_call(interpreter: &mut AudioInterpreter, name: &str, args: &[Value
                     let (pattern_str, options) = interpreter.extract_pattern_data(&stmt_box.value);
                     if let Some(pat) = pattern_str {
                         // Pass pattern name as source for routing
+                        let previous = interpreter.current_event_node.clone();
+                        interpreter.current_event_node =
+                            interpreter.routed_node_for_alias(name).or(previous.clone());
                         execute_pattern_with_source(
                             interpreter,
                             tgt.as_str(),
@@ -455,6 +473,7 @@ pub fn handle_call(interpreter: &mut AudioInterpreter, name: &str, args: &[Value
                             options,
                             Some(name),
                         )?;
+                        interpreter.current_event_node = previous;
                         return Ok(());
                     }
                 }
@@ -464,7 +483,8 @@ pub fn handle_call(interpreter: &mut AudioInterpreter, name: &str, args: &[Value
 
     // If it's a group call, execute the group body
     if let Some(body) = interpreter.groups.get(name).cloned() {
-        super::collector::collect_events(interpreter, &body)?;
+        let node_id = interpreter.routed_node_for_alias(name);
+        interpreter.collect_with_event_node(node_id, &body)?;
         return Ok(());
     }
 
@@ -537,7 +557,16 @@ pub fn call_function(
                 if let Some(tgt) = target.as_ref() {
                     let (pattern_str, options) = interpreter.extract_pattern_data(&stmt_box.value);
                     if let Some(pat) = pattern_str {
-                        interpreter.execute_pattern(tgt.as_str(), &pat, options)?;
+                        let previous = interpreter.current_event_node.clone();
+                        interpreter.current_event_node =
+                            interpreter.routed_node_for_alias(name).or(previous.clone());
+                        interpreter.execute_pattern_with_source(
+                            tgt.as_str(),
+                            &pat,
+                            options,
+                            Some(name),
+                        )?;
+                        interpreter.current_event_node = previous;
                         return Ok(Value::Null);
                     }
                 }
@@ -547,7 +576,8 @@ pub fn call_function(
 
     // If it's a group call, execute and return null
     if let Some(body) = interpreter.groups.get(name).cloned() {
-        super::collector::collect_events(interpreter, &body)?;
+        let node_id = interpreter.routed_node_for_alias(name);
+        interpreter.collect_with_event_node(node_id, &body)?;
         return Ok(Value::Null);
     }
 
@@ -789,7 +819,13 @@ pub fn handle_assign(
                             // create nested map if missing
                             map.insert((*seg).to_string(), Value::Map(HashMap::new()));
                         }
-                        current = map.get_mut(*seg).unwrap();
+                        current = map.get_mut(*seg).ok_or_else(|| {
+                            anyhow::anyhow!(
+                                "Failed to access nested segment '{}' while assigning to '{}'",
+                                seg,
+                                target
+                            )
+                        })?;
                     }
                     _ => {
                         return Err(anyhow::anyhow!(
@@ -855,11 +891,20 @@ pub fn handle_assign(
 }
 
 pub fn extract_synth_def_from_map(
-    _interpreter: &AudioInterpreter,
+    interpreter: &AudioInterpreter,
     map: &HashMap<String, Value>,
 ) -> Result<crate::engine::audio::events::SynthDefinition> {
     use crate::engine::audio::events::extract_filters;
     use crate::engine::audio::lfo::{LfoParams, LfoRate, LfoTarget, LfoWaveform};
+
+    // v0.2.0: Warn if synth <waveform> shorthand was used
+    if let Some(Value::Boolean(true)) = map.get("_deprecated_shorthand") {
+        eprintln!(
+            "⚠️  WARNING: synth <waveform> shorthand is deprecated in v0.2.0.\n   \
+             Use arrow chain instead: synth -> wave(\"<waveform>\") -> preset(...)\n   \
+             Example: synth -> wave(\"saw\") -> preset(\"bass\")"
+        );
+    }
 
     let waveform = crate::engine::audio::events::extract_string(map, "waveform", "sine");
     let attack = crate::engine::audio::events::extract_number(map, "attack", 0.01);
@@ -1052,6 +1097,7 @@ pub fn extract_synth_def_from_map(
         plugin_name,
         plugin_export,
         lfo,
+        bpm: interpreter.bpm,
     })
 }
 
@@ -1315,6 +1361,7 @@ pub fn handle_bind(
                     let duration_s = (duration_ms / 1000.0) * factor;
 
                     let event = AudioEvent::Note {
+                        node_id: interpreter.resolve_event_node_id(target),
                         midi: note,
                         start_time: start_time_s,
                         duration: duration_s,
@@ -1612,127 +1659,6 @@ pub fn handle_trigger(
     Ok(())
 }
 
-pub fn extract_pattern_data(
-    _interpreter: &AudioInterpreter,
-    value: &Value,
-) -> (Option<String>, Option<HashMap<String, f32>>) {
-    match value {
-        Value::String(pattern) => (Some(pattern.clone()), None),
-        Value::Map(map) => {
-            let pattern = map.get("pattern").and_then(|v| {
-                if let Value::String(s) = v {
-                    Some(s.clone())
-                } else {
-                    None
-                }
-            });
-
-            let mut options = HashMap::new();
-            for (key, val) in map.iter() {
-                if key != "pattern" {
-                    if let Value::Number(num) = val {
-                        options.insert(key.clone(), *num);
-                    }
-                }
-            }
-
-            let opts = if options.is_empty() {
-                None
-            } else {
-                Some(options)
-            };
-            (pattern, opts)
-        }
-        _ => (None, None),
-    }
-}
-
-pub fn execute_pattern(
-    interpreter: &mut AudioInterpreter,
-    target: &str,
-    pattern: &str,
-    options: Option<HashMap<String, f32>>,
-) -> Result<()> {
-    execute_pattern_with_source(interpreter, target, pattern, options, None)
-}
-
-pub fn execute_pattern_with_source(
-    interpreter: &mut AudioInterpreter,
-    target: &str,
-    pattern: &str,
-    options: Option<HashMap<String, f32>>,
-    source: Option<&str>,
-) -> Result<()> {
-    use crate::engine::audio::events::AudioEvent;
-
-    let swing = options
-        .as_ref()
-        .and_then(|o| o.get("swing").copied())
-        .unwrap_or(0.0);
-    let humanize = options
-        .as_ref()
-        .and_then(|o| o.get("humanize").copied())
-        .unwrap_or(0.0);
-    let velocity_mult = options
-        .as_ref()
-        .and_then(|o| o.get("velocity").copied())
-        .unwrap_or(1.0);
-    let tempo_override = options.as_ref().and_then(|o| o.get("tempo").copied());
-
-    let effective_bpm = tempo_override.unwrap_or(interpreter.bpm);
-
-    let resolved_uri = resolve_sample_uri(interpreter, target);
-
-    let pattern_chars: Vec<char> = pattern.chars().filter(|c| !c.is_whitespace()).collect();
-    let step_count = pattern_chars.len() as f32;
-    if step_count == 0.0 {
-        return Ok(());
-    }
-
-    let bar_duration = (60.0 / effective_bpm) * 4.0;
-    let step_duration = bar_duration / step_count;
-
-    for (i, &ch) in pattern_chars.iter().enumerate() {
-        if ch == 'x' || ch == 'X' {
-            let mut time = interpreter.cursor_time + (i as f32 * step_duration);
-            if swing > 0.0 && i % 2 == 1 {
-                time += step_duration * swing;
-            }
-
-            #[cfg(any(feature = "cli", feature = "wasm"))]
-            if humanize > 0.0 {
-                let offset = crate::engine::special_vars::gen_range_f32(-humanize, humanize);
-                time += offset;
-            }
-
-            let event = AudioEvent::Sample {
-                uri: resolved_uri.clone(),
-                start_time: time,
-                velocity: velocity_mult, // Already in 0-1 range, not MIDI 0-127
-                effects: None,
-                source: source.map(|s| s.to_string()),
-            };
-            interpreter.events.events.push(event);
-        }
-    }
-
-    interpreter.cursor_time += bar_duration;
-    Ok(())
-}
-
-pub fn resolve_sample_uri(interpreter: &AudioInterpreter, target: &str) -> String {
-    if let Some(dot_pos) = target.find('.') {
-        let bank_alias = &target[..dot_pos];
-        let trigger_name = &target[dot_pos + 1..];
-        if let Some(Value::Map(bank_map)) = interpreter.variables.get(bank_alias) {
-            if let Some(Value::String(bank_name)) = bank_map.get("_name") {
-                return format!("devalang://bank/{}/{}", bank_name, trigger_name);
-            }
-        }
-    }
-    target.to_string()
-}
-
 /// Handle fade statement: automate a parameter in or out over a duration
 pub fn handle_fade(
     interpreter: &mut AudioInterpreter,
@@ -1758,36 +1684,7 @@ pub fn handle_fade(
     let entity = parts[0];
     let property = parts[1];
 
-    // Convert duration to seconds
-    let dur_secs = match duration {
-        crate::language::syntax::ast::DurationValue::Milliseconds(ms) => ms / 1000.0,
-        crate::language::syntax::ast::DurationValue::Beats(b) => b * (60.0 / interpreter.bpm),
-        crate::language::syntax::ast::DurationValue::Beat(s) => {
-            // parse a fraction like "3/4" into beats
-            if let Some((num, den)) = {
-                let mut sp = s.split('/');
-                if let (Some(a), Some(b)) = (sp.next(), sp.next()) {
-                    if let (Ok(an), Ok(bn)) = (a.trim().parse::<f32>(), b.trim().parse::<f32>()) {
-                        Some((an, bn))
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
-            } {
-                if den.abs() > f32::EPSILON {
-                    (num / den) * (60.0 / interpreter.bpm)
-                } else {
-                    0.0
-                }
-            } else {
-                0.0
-            }
-        }
-        crate::language::syntax::ast::DurationValue::Number(n) => n / 1000.0,
-        _ => 0.0,
-    };
+    let dur_secs = interpreter.duration_to_seconds(duration)?;
 
     // Determine start and end values based on direction
     let (from_value, to_value) = match direction.to_lowercase().as_str() {
@@ -1854,4 +1751,26 @@ pub fn handle_stop(
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_bare_synth_with_preset_registers_synth() {
+        let mut interpreter = AudioInterpreter::new(44_100);
+        let mut map = HashMap::new();
+        map.insert("type".to_string(), Value::String("synth".to_string()));
+        map.insert("synth_type".to_string(), Value::String("bass".to_string()));
+
+        handle_let(&mut interpreter, "bass", &Value::Map(map)).unwrap();
+
+        let synth = interpreter
+            .events
+            .get_synth("bass")
+            .expect("bare synth with preset should be registered");
+        assert_eq!(synth.waveform, "sine");
+        assert_eq!(synth.synth_type.as_deref(), Some("bass"));
+    }
 }

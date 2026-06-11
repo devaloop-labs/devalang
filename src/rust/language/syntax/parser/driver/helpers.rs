@@ -116,12 +116,18 @@ pub fn parse_single_arg(arg: &str) -> Result<Value> {
 /// Returns a Map with type="synth", waveform/plugin info, and parameters
 ///
 /// Supported syntaxes:
+/// - synth
 /// - synth "sine" { attack: 0.1 }
 /// - synth plugin.acid.synth { waveform: "sine" }
 /// - synth { waveform: "sine", attack: 0.1 }  // waveform in params
 pub fn parse_synth_definition(input: &str) -> Result<Value> {
-    // Remove "synth " prefix
-    let input = input.trim_start_matches("synth ").trim();
+    // Remove the `synth` prefix while also accepting bare `synth`.
+    let input = input.trim();
+    let input = if input == "synth" {
+        ""
+    } else {
+        input.strip_prefix("synth ").map(str::trim).unwrap_or(input)
+    };
 
     // Check if we have braces
     let (waveform_or_plugin, params_str) = if let Some(brace_idx) = input.find('{') {
@@ -129,13 +135,16 @@ pub fn parse_synth_definition(input: &str) -> Result<Value> {
         let params = &input[brace_idx..];
         (before_brace, params)
     } else {
-        // No parameters, just waveform or plugin reference
+        // No parameters, just waveform/plugin reference, or bare `synth`.
         return Ok(Value::Map({
             let mut map = HashMap::new();
             map.insert("type".to_string(), Value::String("synth".to_string()));
 
-            // Check if it's a plugin reference (plugin.author.name OR variable.export)
-            if input.starts_with("plugin.") {
+            if input.is_empty() {
+                // Bare `synth` uses runtime defaults. v0.2 style config should be chained:
+                // `synth -> waveform("saw") -> preset("bass")`.
+            } else if input.starts_with("plugin.") {
+                // Check if it's a plugin reference (plugin.author.name OR variable.export)
                 let parts: Vec<&str> = input.split('.').collect();
                 if parts.len() >= 3 {
                     map.insert(
@@ -158,6 +167,9 @@ pub fn parse_synth_definition(input: &str) -> Result<Value> {
                 map.insert("_plugin_ref".to_string(), Value::String(input.to_string()));
             } else {
                 // Simple waveform like "sine" or "square"
+                // v0.2.0: synth <waveform> is deprecated shorthand
+                // Add deprecation flag for runtime warning
+                map.insert("_deprecated_shorthand".to_string(), Value::Boolean(true));
                 map.insert("waveform".to_string(), Value::String(input.to_string()));
             }
 

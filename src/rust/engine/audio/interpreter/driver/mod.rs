@@ -127,6 +127,7 @@ use std::collections::HashMap;
 pub mod collector;
 pub mod extractor;
 pub mod handler;
+pub mod patterns;
 pub mod renderer;
 pub mod renderer_graph;
 
@@ -173,7 +174,9 @@ pub struct AudioInterpreter {
     /// Audio routing configuration
     pub routing: RoutingSetup,
     /// Audio graph (built from routing configuration)
-    pub audio_graph: crate::engine::audio::interpreter::AudioGraph,
+    pub audio_graph: crate::engine::audio::graph::AudioGraph,
+    /// Current graph node target while collecting a routed group/pattern.
+    pub current_event_node: Option<String>,
     /// Optional deadline for schedule "during" clause (cutoff time for parent loop)
     pub schedule_deadline: Option<f32>,
 }
@@ -207,7 +210,8 @@ impl AudioInterpreter {
             returning_flag: false,
             return_value: None,
             routing: RoutingSetup::default(),
-            audio_graph: crate::engine::audio::interpreter::AudioGraph::new(),
+            audio_graph: crate::engine::audio::graph::AudioGraph::new(),
+            current_event_node: None,
             schedule_deadline: None,
         }
     }
@@ -236,11 +240,10 @@ impl AudioInterpreter {
         // until we've received events covering the estimated total duration. This
         // ensures offline/non-live renders include asynchronous loop-pass events
         // (which are produced by background workers) before rendering audio.
-        if self.background_event_rx.is_some() {
+        if let Some(rx) = self.background_event_rx.as_mut() {
             use std::sync::mpsc::RecvTimeoutError;
             use std::time::{Duration, Instant};
 
-            let rx = self.background_event_rx.as_mut().unwrap();
             let start = Instant::now();
             // Hard cap to avoid waiting forever: allow up to total_duration + 5s
             let hard_limit = Duration::from_secs_f32(total_duration + 5.0);
@@ -339,7 +342,9 @@ impl AudioInterpreter {
         let mut result = template.to_string();
 
         // Find all {variable} patterns
-        let re = regex::Regex::new(r"\{([a-zA-Z_][a-zA-Z0-9_]*)\}").unwrap();
+        let Ok(re) = regex::Regex::new(r"\{([a-zA-Z_][a-zA-Z0-9_]*)\}") else {
+            return result;
+        };
 
         for cap in re.captures_iter(template) {
             let full_match = &cap[0]; // {variable_name}
@@ -924,7 +929,7 @@ impl AudioInterpreter {
         &self,
         value: &Value,
     ) -> (Option<String>, Option<HashMap<String, f32>>) {
-        handler::extract_pattern_data(self, value)
+        patterns::extract_pattern_data(self, value)
     }
 
     /// Execute a pattern with given target and pattern string
@@ -934,7 +939,7 @@ impl AudioInterpreter {
         pattern: &str,
         options: Option<HashMap<String, f32>>,
     ) -> Result<()> {
-        handler::execute_pattern(self, target, pattern, options)
+        patterns::execute_pattern(self, target, pattern, options)
     }
 
     /// Execute a pattern with source tracking for routing
@@ -945,12 +950,12 @@ impl AudioInterpreter {
         options: Option<HashMap<String, f32>>,
         source: Option<&str>,
     ) -> Result<()> {
-        handler::execute_pattern_with_source(self, target, pattern, options, source)
+        patterns::execute_pattern_with_source(self, target, pattern, options, source)
     }
 
     /// Resolve sample URI from bank.trigger notation (e.g., myBank.kick -> devalang://bank/devalang.808/kick)
     pub fn resolve_sample_uri(&self, target: &str) -> String {
-        handler::resolve_sample_uri(self, target)
+        patterns::resolve_sample_uri(self, target)
     }
 
     /// Convert a DurationValue to seconds based on current BPM
@@ -958,43 +963,56 @@ impl AudioInterpreter {
         &self,
         duration: &crate::language::syntax::ast::DurationValue,
     ) -> Result<f32> {
-        use crate::language::syntax::ast::DurationValue;
+        crate::engine::audio::duration::duration_to_seconds(duration, self.bpm)
+    }
 
-        match duration {
-            DurationValue::Milliseconds(ms) => Ok(ms / 1000.0),
-            DurationValue::Beats(b) => Ok(b * (60.0 / self.bpm)),
-            DurationValue::Beat(s) => {
-                // parse a fraction like "3/4" into beats
-                let mut sp = s.split('/');
-                if let (Some(a), Some(b)) = (sp.next(), sp.next()) {
-                    if let (Ok(an), Ok(bn)) = (a.trim().parse::<f32>(), b.trim().parse::<f32>()) {
-                        if bn.abs() > f32::EPSILON {
-                            return Ok((an / bn) * (60.0 / self.bpm));
-                        }
-                    }
-                }
-                anyhow::bail!("Invalid beat fraction: {}", s)
-            }
-            DurationValue::Number(n) => Ok(n / 1000.0),
-            DurationValue::Identifier(id) => {
-                // Handle temporal identifiers like "__temporal__4_beat"
-                // These are always stored in beats (pre-normalized)
-                if id.starts_with("__temporal__") {
-                    let rest = &id[12..]; // Skip "__temporal__"
-                    if let Some(last_underscore) = rest.rfind('_') {
-                        if let Ok(beat_count) = rest[..last_underscore].parse::<f32>() {
-                            // The identifier already contains beats, so just convert to seconds
-                            return Ok(beat_count * (60.0 / self.bpm));
-                        }
-                    }
-                }
-                anyhow::bail!("Cannot resolve identifier duration: {}", id)
-            }
-            DurationValue::Auto => {
-                // Auto duration: use beat interval (1 beat)
-                Ok(60.0 / self.bpm)
+    /// Resolve the graph node for an event while collecting it.
+    pub fn resolve_event_node_id(&self, source: &str) -> Option<String> {
+        if let Some(node_id) = &self.current_event_node {
+            return Some(node_id.clone());
+        }
+
+        let source = crate::engine::audio::graph::canonicalize_node_id(source);
+
+        for (node_name, config) in &self.routing.nodes {
+            let node_id = crate::engine::audio::graph::canonicalize_node_id(node_name);
+            if node_id == source
+                || config.name == source
+                || config
+                    .alias
+                    .as_ref()
+                    .map(|alias| crate::engine::audio::graph::canonicalize_node_id(alias) == source)
+                    .unwrap_or(false)
+            {
+                return Some(node_id);
             }
         }
+
+        Some(self.audio_graph.master.clone())
+    }
+
+    /// Execute a body with a temporary routed graph node context.
+    pub fn collect_with_event_node(
+        &mut self,
+        node_id: Option<String>,
+        body: &[Statement],
+    ) -> Result<()> {
+        let previous = self.current_event_node.clone();
+        self.current_event_node = node_id.or(previous.clone());
+        let result = collector::collect_events(self, body);
+        self.current_event_node = previous;
+        result
+    }
+
+    /// Resolve a group or pattern name to a declared routing node alias.
+    pub fn routed_node_for_alias(&self, alias: &str) -> Option<String> {
+        self.routing.nodes.iter().find_map(|(node_name, config)| {
+            if config.alias.as_deref() == Some(alias) || node_name == alias {
+                Some(crate::engine::audio::graph::canonicalize_node_id(node_name))
+            } else {
+                None
+            }
+        })
     }
 }
 
@@ -1013,3 +1031,84 @@ mod tests_functions;
 #[cfg(test)]
 #[path = "test_control_flow.rs"]
 mod tests_control_flow;
+
+#[cfg(test)]
+mod phase_2_routing_tests {
+    use super::*;
+    use crate::engine::audio::events::{AudioEvent, SynthDefinition};
+    use crate::engine::functions::FunctionContext;
+    use crate::language::syntax::ast::Value;
+
+    fn route_pattern_to_bus(interpreter: &mut AudioInterpreter) {
+        interpreter.routing.nodes.insert(
+            "drums_bus".to_string(),
+            RoutingNodeConfig {
+                name: "drums_bus".to_string(),
+                alias: Some("kickPattern".to_string()),
+                effects: None,
+            },
+        );
+        interpreter.audio_graph =
+            crate::engine::audio::graph::AudioGraph::from_routing_setup(&interpreter.routing);
+    }
+
+    #[test]
+    fn note_event_node_id_is_resolved_during_collection() {
+        let mut interpreter = AudioInterpreter::new(44_100);
+        interpreter.routing.nodes.insert(
+            "lead_bus".to_string(),
+            RoutingNodeConfig {
+                name: "lead_bus".to_string(),
+                alias: Some("lead".to_string()),
+                effects: None,
+            },
+        );
+        interpreter.audio_graph =
+            crate::engine::audio::graph::AudioGraph::from_routing_setup(&interpreter.routing);
+        interpreter
+            .events
+            .add_synth("lead".to_string(), SynthDefinition::default());
+
+        let mut context = FunctionContext::new("lead".to_string(), 0.0, interpreter.bpm);
+        context.set("note", Value::String("C4".to_string()));
+        context.set("duration", Value::Number(250.0));
+
+        interpreter.extract_audio_event("lead", &context).unwrap();
+
+        match interpreter.events.events.last().unwrap() {
+            AudioEvent::Note { node_id, .. } => {
+                assert_eq!(node_id.as_deref(), Some("lead_bus"));
+            }
+            other => panic!("expected note event, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn sample_event_node_id_is_resolved_from_pattern_source() {
+        let mut interpreter = AudioInterpreter::new(44_100);
+        route_pattern_to_bus(&mut interpreter);
+
+        interpreter
+            .execute_pattern_with_source("kit.kick", "x---", None, Some("kickPattern"))
+            .unwrap();
+
+        match interpreter.events.events.first().unwrap() {
+            AudioEvent::Sample {
+                node_id, source, ..
+            } => {
+                assert_eq!(source.as_deref(), Some("kickPattern"));
+                assert_eq!(node_id.as_deref(), Some("drums_bus"));
+            }
+            other => panic!("expected sample event, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn unrouted_event_falls_back_to_master_node() {
+        let interpreter = AudioInterpreter::new(44_100);
+        assert_eq!(
+            interpreter.resolve_event_node_id("missing").as_deref(),
+            Some("master")
+        );
+    }
+}

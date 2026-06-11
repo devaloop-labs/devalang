@@ -7,9 +7,10 @@ pub struct ProjectPaths;
 
 impl ProjectPaths {
     pub fn resolve(entry: Option<&Path>) -> Result<PathBuf> {
-        let path = entry
-            .map(PathBuf::from)
-            .unwrap_or_else(|| std::env::current_dir().expect("current dir"));
+        let path = match entry {
+            Some(entry) => PathBuf::from(entry),
+            None => std::env::current_dir()?,
+        };
         Ok(path)
     }
 }

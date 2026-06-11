@@ -114,8 +114,9 @@ impl WasmPluginRunner {
             // Reusing cached instance for synth_id
         }
 
-        // Retrieve cached instance
-        let entry = cache.get_mut(&hash).unwrap();
+        let entry = cache
+            .get_mut(&hash)
+            .ok_or_else(|| "WASM instance cache lookup failed after insertion".to_string())?;
 
         let memory = entry
             .1

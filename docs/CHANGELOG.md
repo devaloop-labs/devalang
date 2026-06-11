@@ -6,6 +6,59 @@
 
 All notable changes to Devalang will be documented in this file.
 
+## Version 0.2.0 - 2026-06-11
+
+### 🚀 What's New
+
+- Implemented the new audio graph core used by routing and rendering.
+  - Added explicit audio nodes, routes, route kinds, master node normalization, route validation, and graph optimization.
+  - `$master` and `master` are now normalized internally to the same output node.
+- Added `eq` / `equalizer` as a built-in effect available for synths and triggers.
+  - Supports low, mid, and high gain processing.
+- Added shared runtime duration conversion for parsed durations.
+  - Supports milliseconds, beat fractions, normalized temporal identifiers, numeric durations, and `auto`.
+- Added enhanced pattern symbol handling.
+  - `x`: normal hit.
+  - `X`: accented hit.
+  - `o`: soft hit.
+  - `.`: visual placeholder.
+  - `-`: silence.
+- Added pattern shorthand parsing.
+  - Syntax: `<pattern_name>: <target> = "<pattern>"`
+  - Syntax with options: `<pattern_name>: <target> -> swing(0.08) -> velocity(0.7) = "<pattern>"`
+- Added live-coding friendly synth chaining aliases.
+  - `wave(...)` / `osc(...)` normalize to waveform configuration.
+  - `preset(...)` normalizes synth preset/type selection.
+  - `env({...})` normalizes ADSR envelope configuration.
+  - `voices(...)` configures polyphony.
+
+### 🛠️ Improvements
+
+- Refactored the audio interpreter driver to split collection, extraction, pattern execution, rendering, and graph rendering more clearly.
+- Improved routing rendering so events can resolve their graph node from explicit routing declarations, pattern sources, and fallback routing.
+- Improved effect-chain handling for structured parameter maps and trigger-specific processing.
+- Improved MIDI export and audio event collection with stronger validation of timings and values.
+- Improved parser robustness:
+  - `//` comment lines are now accepted in addition to `#`.
+  - UTF-8 BOM prefixes are stripped when parsing files.
+  - Unknown statements with close keyword matches now carry structured suggestions.
+  - `else` bodies are attached more reliably to their preceding `if`.
+- Updated examples to demonstrate the v0.2.0 synth chain, routing master normalization, and enhanced pattern symbols.
+- Updated package versions to `0.2.0` across Cargo, npm, and `project-version.json`.
+
+### 🐛 Bug Fixes
+
+- Fixed the npm/TypeScript package build by keeping the TypeScript entrypoints required by `package.json`, `tsconfig.json`, the npm binary wrapper, and published type declarations.
+- Fixed `npm run ts:build`, which otherwise failed because the TypeScript source entrypoints were missing.
+- Fixed release-readiness checks for the documented npm flow by verifying TypeScript declarations and the combined npm build.
+- Fixed formatting drift by running `cargo fmt`.
+
+## Version 0.1.9 - 2026-05-27
+
+### 🐛 Bug Fixes
+
+- Fixed the postinstall script for npm users to correctly download the binary from GitHub releases and place it in the expected location for the CLI to work. The previous implementation had issues with the download URL and file handling, which have now been resolved.
+
 ## Version 0.1.8 - 2025-11-19
 
 ### 🚀 What's New
@@ -113,9 +166,11 @@ All notable changes to Devalang will be documented in this file.
   - `speed(<float>)`: changes the playback speed of the audio sample.
   - `slice({ segments: <int>, mode: <"sequential" | "random">, crossfade: <float> })`: slices the audio sample into segments and plays them back in the specified mode.
   - `stretch({ factor: <float>, pitch: <int>, formant: <bool> })`: time-stretches the audio sample by the specified factor.
-  
+
     > Note: the current `stretch` processor in this release implements a simple resampling-based time-stretch. The exposed `pitch` and `formant` parameters are accepted by the API but advanced pitch/formant-preserving algorithms (e.g. PSOLA or phase-vocoder) are not implemented in this version, they are reserved for future improvements.
+
   - `roll({ duration_ms: <int>, sync: <bool>, repeats: <int>, fade: <float> })`: applies a roll effect to the audio sample.
+
 - Implemented synth-specific effects :
   - `adsr({ attack: <float>, decay: <float>, sustain: <float>, release: <float> })`: applies ADSR enveloppe for the synth
   - `type(<"bass" | "pad" | "pluck" | "lead">)`: defines the type of synth
@@ -276,7 +331,7 @@ Complete rewrite of the codebase with improved architecture, performance, and de
 - Some internal APIs have changed; refer to the updated documentation for details
 - CLI commands have been updated; refer to the new documentation for details
 - Removed deprecated features and modules for a cleaner codebase
-- Removed deprecated devalang_* crates; use the main crate with feature flags instead
+- Removed deprecated devalang\_\* crates; use the main crate with feature flags instead
 
 ---
 

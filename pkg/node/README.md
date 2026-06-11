@@ -176,7 +176,7 @@ bpm myTempo
 bank devaloop.808 as drums
 
 # Create a simple kick pattern (can also use "mySample")
-pattern kickPattern with drums.kick = "x--- x--- x--- x---"
+pattern kickPattern with drums.kick = "x-o- x--o xo-- x-o-"
 
 # Define a constant for synth, with a global LFO effect
 # You can define variables scopes using const/let/var
@@ -243,7 +243,7 @@ let myAwesomeSample = .mySample
 .myAwesomeSample 1/8                    # Play the sample for 1/8 beats
 
 # Play the sample in conditional loop
-for i in 0..3:
+for i in [0..3]:
     if i == 2:
         .myAwesomeSample 1/4            # Play for 1/4 beats on iteration 2
     else:

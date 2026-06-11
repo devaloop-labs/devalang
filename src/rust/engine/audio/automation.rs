@@ -83,6 +83,14 @@ impl AutomationEnvelope {
         for param in matching.iter().rev() {
             let end_time = param.start_time + param.duration;
 
+            if param.duration <= f32::EPSILON {
+                return Some(if time_seconds >= param.start_time {
+                    param.to_value
+                } else {
+                    param.from_value
+                });
+            }
+
             if time_seconds >= param.start_time && time_seconds <= end_time {
                 // Currently in automation range
                 let progress = (time_seconds - param.start_time) / param.duration;
@@ -159,15 +167,25 @@ pub fn parse_param_templates_from_raw(raw: &str) -> Vec<AutomationParamTemplate>
     let mut templates = Vec::new();
 
     // Find param blocks: param <name> [curve <curveName>] { ... }
-    let re_block =
+    let Ok(re_block) =
         Regex::new(r"param\s+([A-Za-z_][A-Za-z0-9_]*)\s*(?:curve\s+([^\s{]+)\s*)?\{([^}]*)\}")
-            .unwrap();
-    let re_point = Regex::new(r"([0-9]+(?:\.[0-9]+)?)%?\s*=\s*([\-0-9\.eE]+)").unwrap();
+    else {
+        return templates;
+    };
+    let Ok(re_point) = Regex::new(r"([0-9]+(?:\.[0-9]+)?)%?\s*=\s*([\-0-9\.eE]+)") else {
+        return templates;
+    };
 
     for cap in re_block.captures_iter(raw) {
-        let name = cap.get(1).unwrap().as_str().to_string();
+        let Some(name_match) = cap.get(1) else {
+            continue;
+        };
+        let name = name_match.as_str().to_string();
         let curve_str = cap.get(2).map(|m| m.as_str());
-        let body = cap.get(3).unwrap().as_str();
+        let Some(body_match) = cap.get(3) else {
+            continue;
+        };
+        let body = body_match.as_str();
 
         let mut points: Vec<(f32, f32)> = Vec::new();
         for pcap in re_point.captures_iter(body) {
@@ -211,8 +229,10 @@ pub fn evaluate_template_at(tpl: &AutomationParamTemplate, progress: f32) -> f32
         return tpl.points[0].1;
     }
     // After last point
-    if p >= tpl.points.last().unwrap().0 {
-        return tpl.points.last().unwrap().1;
+    if let Some(&(last_progress, last_value)) = tpl.points.last() {
+        if p >= last_progress {
+            return last_value;
+        }
     }
 
     // Find segment
@@ -238,7 +258,7 @@ pub fn evaluate_template_at(tpl: &AutomationParamTemplate, progress: f32) -> f32
     }
 
     // Fallback
-    tpl.points.last().unwrap().1
+    tpl.points.last().map(|(_, value)| *value).unwrap_or(0.0)
 }
 
 /// Parse single automation parameter from Value
@@ -393,5 +413,34 @@ mod tests {
         let value = registry.get_value("synth1", "volume", 1.0);
         assert!(value.is_some());
         assert!((value.unwrap() - 0.5).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_zero_duration_param_switches_at_start_time() {
+        let mut envelope = AutomationEnvelope::new("synth1".to_string());
+        envelope.add_param(AutomationParam {
+            param_name: "volume".to_string(),
+            from_value: 0.25,
+            to_value: 0.75,
+            start_time: 2.0,
+            duration: 0.0,
+            curve: AutomationCurve::Linear,
+        });
+
+        assert_eq!(envelope.get_value("volume", 1.0), Some(0.25));
+        assert_eq!(envelope.get_value("volume", 2.0), Some(0.75));
+        assert_eq!(envelope.get_value("volume", 3.0), Some(0.75));
+    }
+
+    #[test]
+    fn test_empty_template_evaluates_to_zero() {
+        let template = AutomationParamTemplate {
+            param_name: "cutoff".to_string(),
+            points: Vec::new(),
+            curve: AutomationCurve::Linear,
+            advanced_curve: None,
+        };
+
+        assert_eq!(evaluate_template_at(&template, 0.5), 0.0);
     }
 }

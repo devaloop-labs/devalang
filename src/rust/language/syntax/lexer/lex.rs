@@ -46,7 +46,10 @@ fn lex_source(source: &str) -> Result<Vec<Token>> {
                 1,
             ));
         } else {
-            while indent_level < *indent_stack.last().unwrap() {
+            while indent_stack
+                .last()
+                .is_some_and(|last_indent| indent_level < *last_indent)
+            {
                 indent_stack.pop();
                 tokens.push(Token::new(
                     TokenKind::Dedent,

@@ -16,4 +16,4 @@ tempo 120
 
 # Tempo block setting tempo to 150 bpm
 bpm 150:
-    print "The tempo is set to 120 bpm only within this block."
+    print "The tempo is set to 150 bpm only within this block."

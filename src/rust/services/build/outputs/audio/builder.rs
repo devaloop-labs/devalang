@@ -57,41 +57,50 @@ impl AudioBuilder {
         channels: AudioChannels,
         sample_rate: u32,
         _resample: ResampleQuality,
-        _bpm: f32,
+        bpm: f32,
     ) -> Result<MultiFormatRenderSummary> {
         let start = Instant::now();
 
-        // Pick primary format
-        let primary_fmt = if requested_formats.is_empty() {
-            AudioFormat::Wav
+        let formats = if requested_formats.is_empty() {
+            vec![AudioFormat::Wav]
         } else {
-            requested_formats[0]
+            requested_formats.to_vec()
         };
 
-        let audio_summary = self.render(
-            statements,
-            _entry_path,
-            output_root,
-            module_name,
-            primary_fmt,
-            requested_bit_depth,
-            channels,
-            sample_rate,
-            ResampleQuality::Sinc24,
-        )?;
-
-        let exported = vec![(audio_summary.format, audio_summary.path.clone())];
+        let mut summaries = Vec::new();
+        for format in formats {
+            summaries.push(self.render(
+                statements,
+                _entry_path,
+                output_root,
+                module_name,
+                format,
+                requested_bit_depth,
+                channels,
+                sample_rate,
+                ResampleQuality::Sinc24,
+                bpm,
+            )?);
+        }
 
         let total_time = start.elapsed();
+        let primary = summaries
+            .first()
+            .cloned()
+            .context("no audio formats were rendered")?;
+        let exported = summaries
+            .iter()
+            .map(|summary| (summary.format, summary.path.clone()))
+            .collect();
 
         Ok(MultiFormatRenderSummary {
-            primary_path: audio_summary.path,
-            primary_format: audio_summary.format,
+            primary_path: primary.path,
+            primary_format: primary.format,
             exported_formats: exported,
-            bit_depth: audio_summary.bit_depth,
-            rms: audio_summary.rms,
+            bit_depth: primary.bit_depth,
+            rms: primary.rms,
             render_time: total_time,
-            audio_length: audio_summary.audio_length,
+            audio_length: primary.audio_length,
         })
     }
 
@@ -106,6 +115,7 @@ impl AudioBuilder {
         channels: AudioChannels,
         sample_rate: u32,
         _resample: ResampleQuality,
+        bpm: f32,
     ) -> Result<AudioRenderSummary> {
         use crate::engine::audio::interpreter::driver::AudioInterpreter;
 
@@ -158,7 +168,11 @@ impl AudioBuilder {
             )
         })?;
 
-        let output_path = full_audio_dir.join(format!("{}.wav", file_name));
+        let output_path = full_audio_dir.join(format!(
+            "{}.{}",
+            file_name,
+            requested_format.file_extension()
+        ));
 
         let mut rms = 0.0f32;
         let audio_length = if buffer.is_empty() {
@@ -178,23 +192,46 @@ impl AudioBuilder {
             }
         };
 
-        let applied = if !buffer.is_empty() {
-            write_wav(
-                &output_path,
-                &buffer,
-                sample_rate,
-                requested_bit_depth,
-                channels,
-            )?
-        } else {
-            // Even if buffer is empty, create an empty WAV file
-            write_wav(
-                &output_path,
-                &[],
-                sample_rate,
-                requested_bit_depth,
-                channels,
-            )?
+        let applied = match requested_format {
+            AudioFormat::Wav => {
+                if !buffer.is_empty() {
+                    write_wav(
+                        &output_path,
+                        &buffer,
+                        sample_rate,
+                        requested_bit_depth,
+                        channels,
+                    )?
+                } else {
+                    // Even if buffer is empty, create an empty WAV file
+                    write_wav(
+                        &output_path,
+                        &[],
+                        sample_rate,
+                        requested_bit_depth,
+                        channels,
+                    )?
+                }
+            }
+            AudioFormat::Mid => {
+                let midi_bpm = if interpreter.bpm.is_finite() && interpreter.bpm > 0.0 {
+                    interpreter.bpm
+                } else {
+                    bpm
+                };
+                crate::engine::audio::midi::export_midi_file(
+                    &interpreter.events.events,
+                    &output_path,
+                    midi_bpm,
+                )?;
+                requested_bit_depth
+            }
+            AudioFormat::Mp3 | AudioFormat::Flac => {
+                anyhow::bail!(
+                    "{:?} export is not implemented in the CLI build pipeline yet",
+                    requested_format
+                );
+            }
         };
 
         // Write scheduled print events sidecar for live playback to consume.

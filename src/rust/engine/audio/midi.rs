@@ -179,6 +179,7 @@ pub fn events_to_midi_bytes(events: &[AudioEvent], bpm: f32) -> Result<Vec<u8>> 
     if events.is_empty() {
         return Err(anyhow!("No events to export"));
     }
+    let bpm = validate_bpm(bpm)?;
 
     // Create MIDI header (single track format)
     let ticks_per_beat = 480; // Standard MIDI resolution
@@ -194,53 +195,7 @@ pub fn events_to_midi_bytes(events: &[AudioEvent], bpm: f32) -> Result<Vec<u8>> 
         kind: TrackEventKind::Meta(MetaMessage::Tempo(tempo_us_per_quarter.into())),
     });
 
-    // Collect all note events (expand chords to individual notes)
-    let mut midi_notes = Vec::new();
-
-    for event in events {
-        match event {
-            AudioEvent::Note {
-                midi,
-                start_time,
-                duration,
-                velocity,
-                ..
-            } => {
-                midi_notes.push(MidiNote {
-                    note: *midi,
-                    start: *start_time,
-                    duration: *duration,
-                    velocity: *velocity,
-                });
-            }
-            AudioEvent::Chord {
-                midis,
-                start_time,
-                duration,
-                velocity,
-                ..
-            } => {
-                // Expand chord into individual notes
-                for &note in midis {
-                    midi_notes.push(MidiNote {
-                        note,
-                        start: *start_time,
-                        duration: *duration,
-                        velocity: *velocity,
-                    });
-                }
-            }
-            AudioEvent::Sample { .. } => {
-                // Samples are not exported to MIDI
-            }
-            AudioEvent::Stop { .. } => {
-                // Stop events are control events, not exported to MIDI
-            }
-        }
-    }
-
-    // Sort by start time
-    midi_notes.sort_by(|a, b| a.start.partial_cmp(&b.start).unwrap());
+    let midi_notes = collect_midi_notes(events);
 
     // Convert events to MIDI messages with proper delta timing
     let mut midi_messages: Vec<MidiEventTimed> = Vec::new();
@@ -313,6 +268,7 @@ pub fn export_midi_file(events: &[AudioEvent], output_path: &Path, bpm: f32) -> 
     if events.is_empty() {
         return Err(anyhow!("No events to export"));
     }
+    let bpm = validate_bpm(bpm)?;
 
     // Create MIDI header (single track format)
     let ticks_per_beat = 480; // Standard MIDI resolution
@@ -328,53 +284,7 @@ pub fn export_midi_file(events: &[AudioEvent], output_path: &Path, bpm: f32) -> 
         kind: TrackEventKind::Meta(MetaMessage::Tempo(tempo_us_per_quarter.into())),
     });
 
-    // Collect all note events (expand chords to individual notes)
-    let mut midi_notes = Vec::new();
-
-    for event in events {
-        match event {
-            AudioEvent::Note {
-                midi,
-                start_time,
-                duration,
-                velocity,
-                ..
-            } => {
-                midi_notes.push(MidiNote {
-                    note: *midi,
-                    start: *start_time,
-                    duration: *duration,
-                    velocity: *velocity,
-                });
-            }
-            AudioEvent::Chord {
-                midis,
-                start_time,
-                duration,
-                velocity,
-                ..
-            } => {
-                // Expand chord into individual notes
-                for &note in midis {
-                    midi_notes.push(MidiNote {
-                        note,
-                        start: *start_time,
-                        duration: *duration,
-                        velocity: *velocity,
-                    });
-                }
-            }
-            AudioEvent::Sample { .. } => {
-                // Samples are not exported to MIDI
-            }
-            AudioEvent::Stop { .. } => {
-                // Stop events are control events, not exported to MIDI
-            }
-        }
-    }
-
-    // Sort by start time
-    midi_notes.sort_by(|a, b| a.start.partial_cmp(&b.start).unwrap());
+    let midi_notes = collect_midi_notes(events);
 
     // Convert events to MIDI messages with proper delta timing
     let mut midi_messages: Vec<MidiEventTimed> = Vec::new();
@@ -466,8 +376,113 @@ struct MidiEventTimed {
     message: MidiMessage,
 }
 
+fn validate_bpm(bpm: f32) -> Result<f32> {
+    if bpm.is_finite() && bpm > 0.0 {
+        Ok(bpm)
+    } else {
+        Err(anyhow!("Invalid BPM for MIDI export: {}", bpm))
+    }
+}
+
+fn collect_midi_notes(events: &[AudioEvent]) -> Vec<MidiNote> {
+    let mut midi_notes = Vec::new();
+
+    for event in events {
+        match event {
+            AudioEvent::Note {
+                midi,
+                start_time,
+                duration,
+                velocity,
+                ..
+            } => push_midi_note(&mut midi_notes, *midi, *start_time, *duration, *velocity),
+            AudioEvent::Chord {
+                midis,
+                start_time,
+                duration,
+                velocity,
+                ..
+            } => {
+                for &note in midis {
+                    push_midi_note(&mut midi_notes, note, *start_time, *duration, *velocity);
+                }
+            }
+            AudioEvent::Sample { .. } | AudioEvent::Stop { .. } => {}
+        }
+    }
+
+    midi_notes.sort_by(|a, b| a.start.total_cmp(&b.start));
+    midi_notes
+}
+
+fn push_midi_note(notes: &mut Vec<MidiNote>, note: u8, start: f32, duration: f32, velocity: f32) {
+    if !start.is_finite() || !duration.is_finite() || duration <= 0.0 {
+        return;
+    }
+
+    notes.push(MidiNote {
+        note,
+        start: start.max(0.0),
+        duration,
+        velocity: velocity.clamp(0.0, 1.0),
+    });
+}
+
 /// Convert time in seconds to MIDI ticks
 fn time_to_ticks(time_seconds: f32, bpm: f32, ticks_per_beat: u16) -> u32 {
     let beats = time_seconds * (bpm / 60.0);
     (beats * ticks_per_beat as f32) as u32
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn note_event(start_time: f32, duration: f32, velocity: f32) -> AudioEvent {
+        AudioEvent::Note {
+            node_id: Some("master".to_string()),
+            midi: 60,
+            start_time,
+            duration,
+            velocity,
+            synth_id: "test".to_string(),
+            synth_def: Default::default(),
+            pan: 0.0,
+            detune: 0.0,
+            gain: 1.0,
+            attack: None,
+            release: None,
+            delay_time: None,
+            delay_feedback: None,
+            delay_mix: None,
+            reverb_amount: None,
+            drive_amount: None,
+            drive_color: None,
+            effects: None,
+            use_per_note_automation: false,
+        }
+    }
+
+    #[test]
+    fn test_midi_export_rejects_invalid_bpm() {
+        let events = vec![note_event(0.0, 0.5, 1.0)];
+
+        assert!(events_to_midi_bytes(&events, 0.0).is_err());
+        assert!(events_to_midi_bytes(&events, f32::NAN).is_err());
+    }
+
+    #[test]
+    fn test_collect_midi_notes_filters_invalid_timings_and_clamps_values() {
+        let events = vec![
+            note_event(f32::NAN, 0.5, 1.0),
+            note_event(0.0, -0.5, 1.0),
+            note_event(-1.0, 0.5, 2.0),
+        ];
+
+        let notes = collect_midi_notes(&events);
+
+        assert_eq!(notes.len(), 1);
+        assert_eq!(notes[0].start, 0.0);
+        assert_eq!(notes[0].velocity, 1.0);
+    }
 }

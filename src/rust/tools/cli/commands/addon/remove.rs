@@ -11,16 +11,10 @@ pub async fn remove_addon(slug: String) -> Result<()> {
     // Parse the slug (can be "publisher.name" or just "name")
     let (publisher, addon_name) = if slug.contains('.') {
         let mut parts = slug.splitn(2, '.');
-        (
-            parts.next().unwrap().to_string(),
-            parts.next().unwrap().to_string(),
-        )
+        parse_slug_parts(&mut parts, &slug)?
     } else if slug.contains('/') {
         let mut parts = slug.splitn(2, '/');
-        (
-            parts.next().unwrap().to_string(),
-            parts.next().unwrap().to_string(),
-        )
+        parse_slug_parts(&mut parts, &slug)?
     } else {
         return Err(anyhow::anyhow!(
             "Invalid addon name format. Use 'publisher.name' or 'publisher/name'"
@@ -58,4 +52,21 @@ pub async fn remove_addon(slug: String) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn parse_slug_parts<'a, I>(parts: &mut I, slug: &str) -> Result<(String, String)>
+where
+    I: Iterator<Item = &'a str>,
+{
+    let publisher = parts.next().unwrap_or_default().trim();
+    let addon_name = parts.next().unwrap_or_default().trim();
+
+    if publisher.is_empty() || addon_name.is_empty() {
+        return Err(anyhow::anyhow!(
+            "Invalid addon name '{}'. Use 'publisher.name' or 'publisher/name'",
+            slug
+        ));
+    }
+
+    Ok((publisher.to_string(), addon_name.to_string()))
 }

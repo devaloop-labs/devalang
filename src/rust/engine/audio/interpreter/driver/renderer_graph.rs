@@ -1,6 +1,6 @@
 /// Audio graph rendering - implements proper routing, node effects, and ducking
 use super::AudioInterpreter;
-use crate::engine::audio::interpreter::audio_graph::Connection;
+use crate::engine::audio::graph::{AudioGraph, AudioRouteKind};
 use std::collections::HashMap;
 
 /// Buffers for each node in the audio graph (stereo: left + right samples interleaved)
@@ -12,10 +12,11 @@ pub fn render_audio_graph(
     total_samples: usize,
 ) -> anyhow::Result<Vec<f32>> {
     let total_duration = total_samples as f32 / interpreter.sample_rate as f32;
+    let audio_graph = interpreter.audio_graph.optimized();
 
-    // Create buffers for each node in the graph
+    // Create buffers for each node in the optimized graph
     let mut node_buffers: NodeBuffers = HashMap::new();
-    for node_name in interpreter.audio_graph.node_names() {
+    for node_name in audio_graph.node_names() {
         node_buffers.insert(node_name, vec![0.0f32; total_samples * 2]);
     }
 
@@ -23,10 +24,10 @@ pub fn render_audio_graph(
     render_events_into_nodes(interpreter, &mut node_buffers, total_duration)?;
 
     // Phase 2: Apply effects to each node
-    apply_node_effects(interpreter, &mut node_buffers)?;
+    apply_node_effects(interpreter, &audio_graph, &mut node_buffers)?;
 
     // Phase 3: Apply ducks and route audio between nodes
-    apply_routing_and_ducking(interpreter, &mut node_buffers)?;
+    apply_routing_and_ducking(&audio_graph, interpreter, &mut node_buffers)?;
 
     // Phase 4: Mix all nodes into master buffer
     let master_buffer = mix_to_master(interpreter, &node_buffers)?;
@@ -34,39 +35,17 @@ pub fn render_audio_graph(
     Ok(master_buffer)
 }
 
-/// Determine which node an event belongs to based on its content
-/// Returns the node name where this event should be rendered
-fn get_event_target_node(
-    event: &crate::engine::audio::events::AudioEvent,
-    interpreter: &AudioInterpreter,
-) -> String {
+/// Determine which node an event belongs to.
+fn get_event_target_node(event: &crate::engine::audio::events::AudioEvent) -> String {
     use crate::engine::audio::events::AudioEvent;
 
     match event {
-        AudioEvent::Note { synth_id, .. } | AudioEvent::Chord { synth_id, .. } => {
-            // Check if there's a routing node matching the synth ID
-            if let Some(_) = interpreter.routing.nodes.get(synth_id) {
-                synth_id.clone()
-            } else {
-                // Auto-route to $master if not explicitly defined in routing
-                "$master".to_string()
-            }
+        AudioEvent::Note { node_id, .. }
+        | AudioEvent::Chord { node_id, .. }
+        | AudioEvent::Sample { node_id, .. } => {
+            node_id.clone().unwrap_or_else(|| "master".to_string())
         }
-        AudioEvent::Sample { source, .. } => {
-            // First, check if source (pattern name) matches a routing node
-            if let Some(src) = source {
-                if interpreter.routing.nodes.contains_key(src) {
-                    return src.clone();
-                }
-            }
-
-            // Auto-route to $master if pattern not explicitly defined in routing
-            "$master".to_string()
-        }
-        AudioEvent::Stop { .. } => {
-            // Stop events don't route to nodes
-            "$master".to_string()
-        }
+        AudioEvent::Stop { .. } => "master".to_string(),
     }
 }
 
@@ -77,17 +56,24 @@ fn render_events_into_nodes(
     total_duration: f32,
 ) -> anyhow::Result<()> {
     use crate::engine::audio::events::AudioEvent;
-    use crate::engine::audio::generator::{SynthParams, generate_note_with_options};
+    use crate::engine::audio::generator::{
+        SynthParams, generate_chord_with_options, generate_note_with_options,
+    };
 
     let total_samples = (total_duration * interpreter.sample_rate as f32).ceil() as usize;
+    let render_windows = super::renderer::renderable_event_windows(&interpreter.events.events);
 
-    for event in &interpreter.events.events {
+    for (event_idx, event) in interpreter.events.events.iter().enumerate() {
+        if render_windows[event_idx].is_none() {
+            continue;
+        }
+
         // Determine target node for this event
-        let mut target_node = get_event_target_node(event, interpreter);
+        let mut target_node = get_event_target_node(event);
 
-        // If target node doesn't exist in buffers and it's not $master, route to $master instead
-        if !node_buffers.contains_key(&target_node) && target_node != "$master" {
-            target_node = "$master".to_string();
+        // If target node doesn't exist in buffers and it's not master, route to master instead
+        if !node_buffers.contains_key(&target_node) && target_node != "master" {
+            target_node = "master".to_string();
         }
 
         // Ensure the target buffer exists (create if needed)
@@ -96,11 +82,9 @@ fn render_events_into_nodes(
         }
 
         // Get the target buffer
-        let target_buffer = node_buffers.get_mut(&target_node);
-        if target_buffer.is_none() {
+        let Some(target_buffer) = node_buffers.get_mut(&target_node) else {
             continue;
-        }
-        let target_buffer = target_buffer.unwrap();
+        };
 
         match event {
             AudioEvent::Note {
@@ -116,6 +100,13 @@ fn render_events_into_nodes(
                 release,
                 ..
             } => {
+                let render_duration = render_windows[event_idx]
+                    .map(|end| (end - *start_time).min(*duration).max(0.0))
+                    .unwrap_or(*duration);
+                if render_duration <= 0.0 {
+                    continue;
+                }
+
                 let mut params = SynthParams {
                     waveform: synth_def.waveform.clone(),
                     attack: synth_def.attack,
@@ -129,6 +120,7 @@ fn render_events_into_nodes(
                     plugin_author: synth_def.plugin_author.clone(),
                     plugin_name: synth_def.plugin_name.clone(),
                     plugin_export: synth_def.plugin_export.clone(),
+                    bpm: synth_def.bpm,
                 };
 
                 if let Some(a) = attack {
@@ -140,8 +132,8 @@ fn render_events_into_nodes(
 
                 let samples = generate_note_with_options(
                     *midi,
-                    *duration * 1000.0, // Convert to milliseconds
-                    velocity * gain,    // Combined velocity and gain
+                    render_duration * 1000.0, // Convert to milliseconds
+                    velocity * gain,          // Combined velocity and gain
                     &params,
                     interpreter.sample_rate,
                     *pan,
@@ -152,6 +144,76 @@ fn render_events_into_nodes(
                 let start_idx = start_sample * 2; // Convert to sample index (stereo)
 
                 // Only write if start is within bounds
+                if start_idx < total_samples * 2 {
+                    let end_idx = (start_idx + samples.len()).min(total_samples * 2);
+                    let write_len = end_idx.saturating_sub(start_idx);
+
+                    if write_len > 0 {
+                        target_buffer[start_idx..end_idx]
+                            .iter_mut()
+                            .zip(samples[0..write_len].iter())
+                            .for_each(|(dst, src)| *dst += src);
+                    }
+                }
+            }
+            AudioEvent::Chord {
+                midis,
+                start_time,
+                duration,
+                synth_def,
+                pan,
+                detune,
+                spread,
+                gain,
+                velocity,
+                attack,
+                release,
+                ..
+            } => {
+                let render_duration = render_windows[event_idx]
+                    .map(|end| (end - *start_time).min(*duration).max(0.0))
+                    .unwrap_or(*duration);
+                if render_duration <= 0.0 {
+                    continue;
+                }
+
+                let mut params = SynthParams {
+                    waveform: synth_def.waveform.clone(),
+                    attack: synth_def.attack,
+                    decay: synth_def.decay,
+                    sustain: synth_def.sustain,
+                    release: synth_def.release,
+                    synth_type: synth_def.synth_type.clone(),
+                    filters: synth_def.filters.clone(),
+                    options: synth_def.options.clone(),
+                    lfo: synth_def.lfo.clone(),
+                    plugin_author: synth_def.plugin_author.clone(),
+                    plugin_name: synth_def.plugin_name.clone(),
+                    plugin_export: synth_def.plugin_export.clone(),
+                    bpm: synth_def.bpm,
+                };
+
+                if let Some(a) = attack {
+                    params.attack = a / 1000.0;
+                }
+                if let Some(r) = release {
+                    params.release = r / 1000.0;
+                }
+
+                let samples = generate_chord_with_options(
+                    midis,
+                    render_duration * 1000.0,
+                    velocity * gain,
+                    &params,
+                    interpreter.sample_rate,
+                    *pan,
+                    *detune,
+                    *spread,
+                )?;
+
+                let start_sample = (*start_time * interpreter.sample_rate as f32).ceil() as usize;
+                let start_idx = start_sample * 2;
+
                 if start_idx < total_samples * 2 {
                     let end_idx = (start_idx + samples.len()).min(total_samples * 2);
                     let write_len = end_idx.saturating_sub(start_idx);
@@ -199,7 +261,7 @@ fn render_events_into_nodes(
                 }
             }
             _ => {
-                // Chord and Stop events are not rendered directly in this graph rendering mode
+                // Stop events are not rendered directly in this graph rendering mode
             }
         }
     }
@@ -210,18 +272,18 @@ fn render_events_into_nodes(
 /// Apply effects chains to each node
 fn apply_node_effects(
     interpreter: &AudioInterpreter,
+    audio_graph: &AudioGraph,
     node_buffers: &mut NodeBuffers,
 ) -> anyhow::Result<()> {
     use crate::engine::audio::effects::chain::build_effect_chain;
 
-    for (node_name, node_config) in &interpreter.audio_graph.nodes {
-        if let Some(effects_value) = &node_config.effects {
-            // Build effect chain - need to convert single Value to array
-            let effects_array = match effects_value {
-                crate::language::syntax::ast::Value::Array(arr) => arr.clone(),
-                _ => vec![effects_value.clone()],
-            };
-
+    for (node_name, node_config) in &audio_graph.nodes {
+        if !node_config.effects.is_empty() {
+            let effects_array: Vec<_> = node_config
+                .effects
+                .iter()
+                .map(|(_, params)| params.clone())
+                .collect();
             let mut effect_chain = build_effect_chain(&effects_array, false);
 
             if let Some(buffer) = node_buffers.get_mut(node_name) {
@@ -236,49 +298,48 @@ fn apply_node_effects(
 
 /// Apply routing connections and duck effects
 fn apply_routing_and_ducking(
+    audio_graph: &AudioGraph,
     interpreter: &AudioInterpreter,
     node_buffers: &mut NodeBuffers,
 ) -> anyhow::Result<()> {
     // Phase 1: Apply all ducks and sidechains first (these modify source buffers)
-    for connection in interpreter.audio_graph.connections.iter() {
-        match connection {
-            Connection::Duck {
-                source,
-                destination,
-                effect_params: _,
-            } => {
-                apply_duck(source, destination, node_buffers, interpreter.sample_rate)?;
+    for route in audio_graph.routes.iter() {
+        match route.kind {
+            AudioRouteKind::Duck => {
+                apply_duck(
+                    &route.from,
+                    &route.to,
+                    node_buffers,
+                    interpreter.sample_rate,
+                )?;
             }
-            Connection::Sidechain {
-                source,
-                destination,
-                effect_params: _,
-            } => {
-                apply_sidechain(source, destination, node_buffers, interpreter.sample_rate)?;
+            AudioRouteKind::Sidechain => {
+                apply_sidechain(
+                    &route.from,
+                    &route.to,
+                    node_buffers,
+                    interpreter.sample_rate,
+                )?;
             }
-            _ => {}
+            AudioRouteKind::Mix => {}
         }
     }
 
     // Phase 2: Apply all routes (these mix audio between nodes)
-    for connection in interpreter.audio_graph.connections.iter() {
-        match connection {
-            Connection::Route {
-                source,
-                destination,
-                gain,
-            } => {
+    for route in audio_graph.routes.iter() {
+        match route.kind {
+            AudioRouteKind::Mix => {
                 // Mix source buffer into destination buffer with gain
                 if let (Some(src_buf), Some(dst_buf)) = (
-                    node_buffers.get(source).cloned(),
-                    node_buffers.get_mut(destination),
+                    node_buffers.get(&route.from).cloned(),
+                    node_buffers.get_mut(&route.to),
                 ) {
                     for j in 0..src_buf.len() {
-                        dst_buf[j] += src_buf[j] * gain;
+                        dst_buf[j] += src_buf[j] * route.volume;
                     }
                 }
             }
-            _ => {}
+            AudioRouteKind::Duck | AudioRouteKind::Sidechain => {}
         }
     }
 
@@ -299,12 +360,9 @@ fn apply_duck(
         return Ok(());
     };
 
-    let dest_opt = node_buffers.get_mut(destination_name);
-    if dest_opt.is_none() {
+    let Some(dest_buf) = node_buffers.get_mut(destination_name) else {
         return Ok(());
-    }
-
-    let dest_buf = dest_opt.unwrap();
+    };
 
     // Simple duck: when source has significant amplitude, reduce destination
     // Use RMS (root mean square) to detect activity in source
@@ -403,7 +461,7 @@ fn mix_to_master(
     node_buffers: &NodeBuffers,
 ) -> anyhow::Result<Vec<f32>> {
     let master_buf = node_buffers
-        .get("$master")
+        .get("master")
         .ok_or_else(|| anyhow::anyhow!("Master node not found"))?
         .clone();
 
@@ -411,7 +469,7 @@ fn mix_to_master(
 
     // Mix all other nodes into master (except master itself)
     for (node_name, buffer) in node_buffers {
-        if node_name != "$master" {
+        if node_name != "master" {
             for i in 0..buffer.len() {
                 result[i] += buffer[i];
             }
@@ -419,4 +477,53 @@ fn mix_to_master(
     }
 
     Ok(result)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::engine::audio::events::{AudioEvent, SynthDefinition};
+    use crate::engine::audio::graph::AudioRoute;
+    use crate::engine::audio::nodes::AudioNode;
+
+    #[test]
+    fn graph_renderer_renders_chord_events() {
+        let mut interpreter = AudioInterpreter::new(44_100);
+        interpreter
+            .audio_graph
+            .add_node(AudioNode::new_bus("lead_bus"))
+            .unwrap();
+        interpreter
+            .audio_graph
+            .add_route(AudioRoute::new("lead_bus", "master"))
+            .unwrap();
+
+        interpreter.events.events.push(AudioEvent::Chord {
+            node_id: Some("lead_bus".to_string()),
+            midis: vec![60, 64, 67],
+            start_time: 0.0,
+            duration: 0.1,
+            velocity: 0.8,
+            synth_id: "lead".to_string(),
+            synth_def: SynthDefinition::default(),
+            pan: 0.0,
+            detune: 0.0,
+            spread: 0.2,
+            gain: 1.0,
+            attack: None,
+            release: None,
+            delay_time: None,
+            delay_feedback: None,
+            delay_mix: None,
+            reverb_amount: None,
+            drive_amount: None,
+            drive_color: None,
+            effects: None,
+            use_per_note_automation: false,
+        });
+
+        let rendered = render_audio_graph(&interpreter, 4_410).unwrap();
+
+        assert!(rendered.iter().any(|sample| sample.abs() > 0.0));
+    }
 }

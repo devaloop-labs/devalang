@@ -1,6 +1,6 @@
 #![cfg(feature = "cli")]
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
@@ -16,13 +16,15 @@ impl Default for TelemetryConfig {
     }
 }
 
-fn get_telemetry_config_path() -> PathBuf {
-    let home = dirs::home_dir().expect("Failed to find home directory");
-    home.join(".devalang").join("telemetry.json")
+fn get_telemetry_config_path() -> Result<PathBuf> {
+    let home = dirs::home_dir().context("Failed to find home directory")?;
+    Ok(home.join(".devalang").join("telemetry.json"))
 }
 
 pub fn is_telemetry_enabled() -> bool {
-    let config_path = get_telemetry_config_path();
+    let Ok(config_path) = get_telemetry_config_path() else {
+        return false;
+    };
 
     if !config_path.exists() {
         return false;
@@ -38,7 +40,7 @@ pub fn is_telemetry_enabled() -> bool {
 }
 
 pub fn enable_telemetry() -> Result<()> {
-    let config_path = get_telemetry_config_path();
+    let config_path = get_telemetry_config_path()?;
 
     // Ensure directory exists
     if let Some(parent) = config_path.parent() {
@@ -53,7 +55,7 @@ pub fn enable_telemetry() -> Result<()> {
 }
 
 pub fn disable_telemetry() -> Result<()> {
-    let config_path = get_telemetry_config_path();
+    let config_path = get_telemetry_config_path()?;
 
     // Ensure directory exists
     if let Some(parent) = config_path.parent() {

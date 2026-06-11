@@ -9,7 +9,7 @@ fn gen_random_f32() -> f32 {
     rand::random::<f32>()
 }
 
-#[cfg(feature = "wasm")]
+#[cfg(all(feature = "wasm", not(feature = "cli")))]
 fn gen_random_f32() -> f32 {
     let mut buf = [0u8; 4];
     getrandom::getrandom(&mut buf).unwrap_or_default();
@@ -22,7 +22,7 @@ fn gen_random_u32() -> u32 {
     rand::random::<u32>()
 }
 
-#[cfg(feature = "wasm")]
+#[cfg(all(feature = "wasm", not(feature = "cli")))]
 fn gen_random_u32() -> u32 {
     let mut buf = [0u8; 4];
     getrandom::getrandom(&mut buf).unwrap_or_default();
@@ -34,7 +34,7 @@ fn gen_random_bool() -> bool {
     rand::random::<bool>()
 }
 
-#[cfg(feature = "wasm")]
+#[cfg(all(feature = "wasm", not(feature = "cli")))]
 fn gen_random_bool() -> bool {
     gen_random_u32() % 2 == 0
 }
@@ -46,7 +46,7 @@ pub fn gen_range_f32(min: f32, max: f32) -> f32 {
     rng.gen_range(min..max)
 }
 
-#[cfg(feature = "wasm")]
+#[cfg(all(feature = "wasm", not(feature = "cli")))]
 pub fn gen_range_f32(min: f32, max: f32) -> f32 {
     min + gen_random_f32() * (max - min)
 }
@@ -99,7 +99,7 @@ impl SpecialVarContext {
     pub fn new(bpm: f32, sample_rate: u32) -> Self {
         Self {
             bpm,
-            duration: 60.0 / bpm,
+            duration: crate::engine::audio::duration::seconds_per_beat(bpm).unwrap_or(0.0),
             sample_rate,
             ..Default::default()
         }
@@ -119,7 +119,7 @@ impl SpecialVarContext {
     /// Update BPM
     pub fn update_bpm(&mut self, bpm: f32) {
         self.bpm = bpm;
-        self.duration = 60.0 / bpm;
+        self.duration = crate::engine::audio::duration::seconds_per_beat(bpm).unwrap_or(0.0);
     }
 }
 

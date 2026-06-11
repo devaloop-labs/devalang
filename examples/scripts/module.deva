@@ -16,5 +16,3 @@
 
 import { myImportedVar } from "./my_module.deva"
 export { myExportedVar }
-
-use devaloop.acid as acidPlugin

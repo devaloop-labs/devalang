@@ -1,4 +1,5 @@
 pub mod automation;
+pub mod duration;
 pub mod effects;
 pub mod encoders;
 pub mod evaluator;

@@ -196,11 +196,17 @@ impl LivePlayService {
                             "[PERSISTENT] bg_rx strong_count before recv_timeout={}",
                             StdArc::strong_count(&bg_rx)
                         ));
-                        match bg_rx
-                            .lock()
-                            .expect("bg_rx lock")
-                            .recv_timeout(StdDuration::from_millis(200))
-                        {
+                        let recv_result = match bg_rx.lock() {
+                            Ok(rx) => rx.recv_timeout(StdDuration::from_millis(200)),
+                            Err(err) => {
+                                logger.error(format!(
+                                    "[PERSISTENT] background event channel lock poisoned: {err}"
+                                ));
+                                break;
+                            }
+                        };
+
+                        match recv_result {
                             Ok(events) => {
                                 // Debug: report merge and earliest time
                                 let cnt = events.events.len();

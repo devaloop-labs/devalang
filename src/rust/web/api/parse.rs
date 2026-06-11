@@ -6,6 +6,7 @@ use serde::Serialize;
 use std::path::PathBuf;
 use wasm_bindgen::prelude::*;
 
+use crate::language::syntax::ast::{Statement, StatementKind, Value};
 use crate::language::syntax::parser::driver::SimpleParser;
 
 /// Parse result returned to JavaScript
@@ -33,11 +34,9 @@ pub struct StatementInfo {
 /// JSON object with parse results
 #[wasm_bindgen]
 pub fn parse(entry_path: &str, source: &str) -> Result<JsValue, JsValue> {
-    // TODO: Implement full parsing with error collection
-    // For now, basic implementation
-
     match SimpleParser::parse(source, PathBuf::from(entry_path)) {
         Ok(statements) => {
+            let errors = collect_statement_errors(&statements);
             let statement_infos: Vec<StatementInfo> = statements
                 .iter()
                 .map(|stmt| StatementInfo {
@@ -47,9 +46,9 @@ pub fn parse(entry_path: &str, source: &str) -> Result<JsValue, JsValue> {
                 .collect();
 
             let result = ParseResult {
-                success: true,
+                success: errors.is_empty(),
                 statements: statement_infos,
-                errors: vec![],
+                errors,
             };
 
             serde_wasm_bindgen::to_value(&result)
@@ -71,5 +70,62 @@ pub fn parse(entry_path: &str, source: &str) -> Result<JsValue, JsValue> {
 /// Quick parse check - returns true if code parses without errors
 #[wasm_bindgen]
 pub fn check_syntax(source: &str) -> bool {
-    SimpleParser::parse(source, PathBuf::from("check.deva")).is_ok()
+    SimpleParser::parse(source, PathBuf::from("check.deva"))
+        .map(|statements| collect_statement_errors(&statements).is_empty())
+        .unwrap_or(false)
+}
+
+fn collect_statement_errors(statements: &[Statement]) -> Vec<String> {
+    let mut errors = Vec::new();
+
+    for statement in statements {
+        collect_statement_errors_into(statement, &mut errors);
+    }
+
+    errors
+}
+
+fn collect_statement_errors_into(statement: &Statement, errors: &mut Vec<String>) {
+    match &statement.kind {
+        StatementKind::Unknown => match &statement.value {
+            Value::String(message) => errors.push(message.clone()),
+            _ => errors.push(format!("Unknown statement at line {}", statement.line)),
+        },
+        StatementKind::Error { message } => errors.push(message.clone()),
+        StatementKind::Tempo {
+            body: Some(body), ..
+        }
+        | StatementKind::Function { body, .. }
+        | StatementKind::Group { body, .. }
+        | StatementKind::Loop { body, .. }
+        | StatementKind::For { body, .. }
+        | StatementKind::Routing { body }
+        | StatementKind::On { body, .. }
+        | StatementKind::Section { body, .. }
+        | StatementKind::While { body, .. } => {
+            for child in body {
+                collect_statement_errors_into(child, errors);
+            }
+        }
+        StatementKind::If {
+            body, else_body, ..
+        } => {
+            for child in body {
+                collect_statement_errors_into(child, errors);
+            }
+            if let Some(else_body) = else_body {
+                for child in else_body {
+                    collect_statement_errors_into(child, errors);
+                }
+            }
+        }
+        StatementKind::Schedule { events } => {
+            for (_, _, body) in events {
+                for child in body {
+                    collect_statement_errors_into(child, errors);
+                }
+            }
+        }
+        _ => {}
+    }
 }

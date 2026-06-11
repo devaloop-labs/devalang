@@ -25,7 +25,7 @@ pattern regularClap with drumkit.clap = "---- x--- ---- x-x-"
 
 # Synthesizers
 let basslineSynth = synth saw
-    -> type("bass")
+    -> preset("bass")
     -> adsr({
             attack: 0.01,
             decay: 0.1,
@@ -34,7 +34,7 @@ let basslineSynth = synth saw
         })
 
 let leadSynth = synth square
-    -> type("lead")
+    -> preset("lead")
     -> adsr({
         attack: 0.05,
         decay: 0.2,

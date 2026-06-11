@@ -19,10 +19,10 @@ fn test_print_cases() {
     }
 
     // number
-    handler::execute_print(&mut interp, &Value::Number(3.14)).unwrap();
+    handler::execute_print(&mut interp, &Value::Number(2.75)).unwrap();
     match interp.events.logs.last().unwrap() {
         (_time, message) => {
-            assert_eq!(message, "3.14");
+            assert_eq!(message, "2.75");
         }
     }
 

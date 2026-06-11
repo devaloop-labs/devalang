@@ -179,9 +179,9 @@ impl Logger {
     #[cfg(feature = "cli")]
     fn render_signature(&self) -> String {
         let mut s = String::new();
-        write!(&mut s, "{}", SetForegroundColor(Color::Grey)).unwrap();
+        let _ = write!(&mut s, "{}", SetForegroundColor(Color::Grey));
         s.push('[');
-        write!(
+        let _ = write!(
             &mut s,
             "{}",
             SetForegroundColor(Color::Rgb {
@@ -189,27 +189,26 @@ impl Logger {
                 g: 199,
                 b: 181,
             })
-        )
-        .unwrap();
-        write!(&mut s, "{}", SetAttribute(Attribute::Bold)).unwrap();
+        );
+        let _ = write!(&mut s, "{}", SetAttribute(Attribute::Bold));
         s.push_str("Devalang");
-        write!(&mut s, "{}", SetAttribute(Attribute::Reset)).unwrap();
-        write!(&mut s, "{}", SetForegroundColor(Color::Grey)).unwrap();
+        let _ = write!(&mut s, "{}", SetAttribute(Attribute::Reset));
+        let _ = write!(&mut s, "{}", SetForegroundColor(Color::Grey));
         s.push(']');
-        write!(&mut s, "{}", ResetColor).unwrap();
+        let _ = write!(&mut s, "{}", ResetColor);
         s
     }
 
     #[cfg(feature = "cli")]
     fn render_status(&self, level: LogLevel, color: Color) -> String {
         let mut s = String::new();
-        write!(&mut s, "{}", SetForegroundColor(color)).unwrap();
-        write!(&mut s, "{}", SetAttribute(Attribute::Bold)).unwrap();
+        let _ = write!(&mut s, "{}", SetForegroundColor(color));
+        let _ = write!(&mut s, "{}", SetAttribute(Attribute::Bold));
         s.push('[');
         s.push_str(level.as_label());
         s.push(']');
-        write!(&mut s, "{}", SetAttribute(Attribute::Reset)).unwrap();
-        write!(&mut s, "{}", ResetColor).unwrap();
+        let _ = write!(&mut s, "{}", SetAttribute(Attribute::Reset));
+        let _ = write!(&mut s, "{}", ResetColor);
         s
     }
 }

@@ -432,6 +432,7 @@ pub fn extract_audio_event(
             .insert(synth_id.to_string(), synth_def.clone());
 
         interpreter.events.events.push(AudioEvent::Note {
+            node_id: interpreter.resolve_event_node_id(synth_id),
             midi,
             start_time: interpreter.cursor_time,
             duration,
@@ -714,6 +715,7 @@ pub fn extract_audio_event(
                 .insert(synth_id.to_string(), synth_def.clone());
 
             interpreter.events.events.push(AudioEvent::Chord {
+                node_id: interpreter.resolve_event_node_id(synth_id),
                 midis,
                 start_time: interpreter.cursor_time,
                 duration,

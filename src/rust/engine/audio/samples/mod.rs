@@ -194,7 +194,9 @@ pub fn load_bank_from_directory(bank_path: &Path) -> Result<String> {
     };
 
     // Register bank metadata
-    let mut registry = SAMPLE_REGISTRY.lock().unwrap();
+    let mut registry = SAMPLE_REGISTRY
+        .lock()
+        .map_err(|_| anyhow::anyhow!("Sample registry lock poisoned"))?;
     registry.register_bank_metadata(metadata);
 
     // Bank registered
@@ -273,9 +275,10 @@ fn load_audio_file(path: &Path) -> Result<SampleData> {
 
 /// Get sample from global registry (with lazy loading)
 pub fn get_sample(uri: &str) -> Option<SampleData> {
-    let mut registry = SAMPLE_REGISTRY.lock().unwrap();
-    if let Some(data) = registry.get_sample(uri) {
-        return Some(data);
+    if let Ok(mut registry) = SAMPLE_REGISTRY.lock() {
+        if let Some(data) = registry.get_sample(uri) {
+            return Some(data);
+        }
     }
 
     // Fallback: generate synthetic drum samples
@@ -284,8 +287,9 @@ pub fn get_sample(uri: &str) -> Option<SampleData> {
 
 /// Register a sample into the global registry with the given URI.
 pub fn register_sample(uri: &str, data: SampleData) {
-    let mut registry = SAMPLE_REGISTRY.lock().unwrap();
-    registry.register_sample(uri.to_string(), data);
+    if let Ok(mut registry) = SAMPLE_REGISTRY.lock() {
+        registry.register_sample(uri.to_string(), data);
+    }
 }
 
 /// Convenience: load a WAV file at `path` and register it under an absolute path string URI.
@@ -311,8 +315,10 @@ pub fn register_sample_from_path(path: &std::path::Path) -> Result<String, anyho
 
 /// Get registry statistics (banks, total samples, loaded samples)
 pub fn get_stats() -> (usize, usize, usize) {
-    let registry = SAMPLE_REGISTRY.lock().unwrap();
-    registry.stats()
+    SAMPLE_REGISTRY
+        .lock()
+        .map(|registry| registry.stats())
+        .unwrap_or((0, 0, 0))
 }
 
 /// Auto-discover and load banks from standard locations

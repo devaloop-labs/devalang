@@ -156,7 +156,7 @@ mod tests {
             .with_suggestion("Did you mean 'print' ?");
 
         let details = error.build_details();
-        assert!(details.iter().any(|d| d.contains("at:")));
+        assert!(details.iter().any(|d| d.contains("path:")));
         assert!(details.iter().any(|d| d.contains("code:")));
         assert!(details.iter().any(|d| d.contains("help:")));
     }
@@ -170,8 +170,8 @@ mod tests {
             .with_suggestion("Did you mean 'print' ?");
 
         let details = error.build_colored_details();
-        assert_eq!(details.len(), 3); // at, code, help
-        assert_eq!(details[0].0, "at");
+        assert_eq!(details.len(), 3); // path, code, help
+        assert_eq!(details[0].0, "path");
         assert_eq!(details[1].0, "code");
         assert_eq!(details[2].0, "help");
     }
